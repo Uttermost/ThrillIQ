@@ -30,3 +30,7 @@ export async function verifyPhoneCodeReal(code: string): Promise<void> {
 export async function signOutReal(): Promise<void> {
   await auth().signOut();
 }
+
+export function subscribeMyId(callback: (uid: string | null) => void): () => void {
+  return auth().onAuthStateChanged((user) => callback(user?.uid ?? null));
+}

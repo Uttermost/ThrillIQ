@@ -10,13 +10,12 @@ import { ConfirmPanel } from '@/components/ui/ConfirmPanel';
 import { InlineError } from '@/components/ui/StateViews';
 import { MountainScene } from '@/components/ui/MountainScene';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
-import { ME_ID } from '@/lib/mockData';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing, typography } from '@/lib/theme';
 
 export default function AdventureDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { adventures, joinAdventure, leaveAdventure, ensureThreadForAdventure } = useApp();
+  const { myId, adventures, joinAdventure, leaveAdventure, ensureThreadForAdventure } = useApp();
   const adventure = adventures.find((a) => a.id === id);
 
   const [agreed, setAgreed] = useState(false);
@@ -35,7 +34,7 @@ export default function AdventureDetail() {
     );
   }
 
-  const isJoined = adventure.participantIds.includes(ME_ID);
+  const isJoined = adventure.participantIds.includes(myId);
   const isFull = adventure.spotsFilled >= adventure.spotsTotal;
 
   const handleMessageOrganizer = () => {

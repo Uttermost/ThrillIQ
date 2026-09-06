@@ -10,3 +10,8 @@ export async function sendPhoneCodeReal(_phone: string): Promise<void> {}
 export async function verifyPhoneCodeReal(_code: string): Promise<void> {}
 
 export async function signOutReal(): Promise<void> {}
+
+// Web has no real identity source yet, so store.tsx falls back to the mock ME_ID.
+export function subscribeMyId(_callback: (uid: string | null) => void): () => void {
+  return () => {};
+}

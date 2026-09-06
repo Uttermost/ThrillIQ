@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { MountainScene } from '@/components/ui/MountainScene';
-import { ME_ID } from '@/lib/mockData';
+import { useApp } from '@/lib/store';
 import { colors, spacing, typography } from '@/lib/theme';
 import { Adventure } from '@/lib/types';
 
@@ -16,7 +16,8 @@ interface AdventureCardProps {
 }
 
 export function AdventureCard({ adventure, onPress, onToggleLike }: AdventureCardProps) {
-  const isHosting = adventure.organizerId === ME_ID;
+  const { myId } = useApp();
+  const isHosting = adventure.organizerId === myId;
   const isFull = adventure.spotsFilled >= adventure.spotsTotal;
 
   return (

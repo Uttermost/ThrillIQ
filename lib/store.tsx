@@ -1,7 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 
-import { signInWithEmailReal, sendPhoneCodeReal, signOutReal, verifyPhoneCodeReal } from './authProvider';
+import {
+  cancelAdventureReal,
+  createAdventureReal,
+  joinAdventureReal,
+  leaveAdventureReal,
+  subscribeAdventuresReal,
+  toggleLikeReal,
+  updateAdventureReal,
+} from './adventuresProvider';
+import { sendPhoneCodeReal, signInWithEmailReal, signOutReal, subscribeMyId, verifyPhoneCodeReal } from './authProvider';
 import { ME_ID, initialAdventures, initialThreads, users } from './mockData';
 import { Adventure, NewAdventureDraft, Thread, User } from './types';
 
@@ -30,9 +40,14 @@ function authErrorMessage(e: unknown, fallback: string): string {
   }
 }
 
+function defaultUser(id: string): User {
+  return { id, name: 'Explorer', initials: 'ME', role: 'Explorer', location: 'Nairobi', avatarHue: 205 };
+}
+
 const ONBOARDED_KEY = 'thrilliq.onboarded';
 const AUTHENTICATED_KEY = 'thrilliq.authenticated';
 const NETWORK_LATENCY_MS = 650;
+const IS_NATIVE = Platform.OS !== 'web';
 
 export type SocialProvider = 'google' | 'apple';
 
@@ -52,6 +67,7 @@ interface AppState {
 }
 
 interface AppContextValue extends AppState {
+  myId: string;
   me: User;
   users: Record<string, User>;
   completeOnboarding: () => Promise<void>;
@@ -80,6 +96,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [onboarded, setOnboarded] = useState(false);
+  const [myId, setMyId] = useState(ME_ID);
   const [adventures, setAdventures] = useState<Adventure[]>(initialAdventures);
   const [threads, setThreads] = useState<Thread[]>(initialThreads);
   const [usersState, setUsersState] = useState<Record<string, User>>(users);
@@ -90,6 +107,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   adventuresRef.current = adventures;
   const threadsRef = useRef(threads);
   threadsRef.current = threads;
+  const myIdRef = useRef(myId);
+  myIdRef.current = myId;
 
   useEffect(() => {
     Promise.all([AsyncStorage.getItem(ONBOARDED_KEY), AsyncStorage.getItem(AUTHENTICATED_KEY)])
@@ -104,6 +123,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .finally(() => setReady(true));
   }, []);
 
+  // On native, myId becomes the real Firebase Auth uid once signed in. On web
+  // it stays the mock ME_ID, since @react-native-firebase has no web support.
+  useEffect(() => subscribeMyId((uid) => setMyId(uid ?? ME_ID)), []);
+
+  useEffect(() => {
+    setUsersState((prev) => (prev[myId] ? prev : { ...prev, [myId]: defaultUser(myId) }));
+  }, [myId]);
+
+  // Real Firestore adventures feed, native + signed-in only.
+  useEffect(() => {
+    if (!IS_NATIVE || !authenticated) return;
+    return subscribeAdventuresReal(
+      myId,
+      (list) => setAdventures(list),
+      () => {
+        // Leave the last-known list in place; fetchAdventures()'s own error
+        // path (via the dev toggle) is what drives the Discover error state.
+      }
+    );
+  }, [authenticated, myId]);
+
   const completeOnboarding = useCallback(async () => {
     setOnboarded(true);
     try {
@@ -113,16 +153,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const updateMyName = useCallback((name: string) => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    const initials = trimmed
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() ?? '')
-      .join('');
-    setUsersState((prev) => ({ ...prev, [ME_ID]: { ...prev[ME_ID], name: trimmed, initials: initials || prev[ME_ID].initials } }));
-  }, []);
+  const updateMyName = useCallback(
+    (name: string) => {
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      const initials = trimmed
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase() ?? '')
+        .join('');
+      setUsersState((prev) => ({
+        ...prev,
+        [myId]: { ...(prev[myId] ?? defaultUser(myId)), name: trimmed, initials: initials || prev[myId]?.initials || '' },
+      }));
+    },
+    [myId]
+  );
 
   const completeSignIn = useCallback(async () => {
     setAuthenticated(true);
@@ -222,93 +268,145 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const joinAdventure = useCallback(async (id: string) => {
-    await delay(NETWORK_LATENCY_MS);
     if (simulateFailuresRef.current) {
+      await delay(NETWORK_LATENCY_MS);
       throw new ApiError("Couldn't join. Check your connection.");
     }
-    const target = adventuresRef.current.find((a) => a.id === id);
-    if (!target || target.participantIds.includes(ME_ID)) return;
-    if (target.spotsFilled >= target.spotsTotal) {
-      throw new ApiError('This adventure is full.');
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      const target = adventuresRef.current.find((a) => a.id === id);
+      if (!target || target.participantIds.includes(myIdRef.current)) return;
+      if (target.spotsFilled >= target.spotsTotal) {
+        throw new ApiError('This adventure is full.');
+      }
+      setAdventures((prev) =>
+        prev.map((a) =>
+          a.id === id ? { ...a, spotsFilled: a.spotsFilled + 1, participantIds: [...a.participantIds, myIdRef.current] } : a
+        )
+      );
+      return;
     }
-    setAdventures((prev) =>
-      prev.map((a) =>
-        a.id === id ? { ...a, spotsFilled: a.spotsFilled + 1, participantIds: [...a.participantIds, ME_ID] } : a
-      )
-    );
+    try {
+      await joinAdventureReal(id, myIdRef.current);
+    } catch (e) {
+      throw new ApiError(e instanceof Error ? e.message : "Couldn't join. Check your connection.");
+    }
   }, []);
 
   const leaveAdventure = useCallback(async (id: string) => {
-    await delay(NETWORK_LATENCY_MS);
     if (simulateFailuresRef.current) {
+      await delay(NETWORK_LATENCY_MS);
       throw new ApiError("Couldn't leave. Check your connection.");
     }
-    setAdventures((prev) =>
-      prev.map((a) =>
-        a.id === id
-          ? { ...a, spotsFilled: Math.max(0, a.spotsFilled - 1), participantIds: a.participantIds.filter((p) => p !== ME_ID) }
-          : a
-      )
-    );
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      setAdventures((prev) =>
+        prev.map((a) =>
+          a.id === id
+            ? {
+                ...a,
+                spotsFilled: Math.max(0, a.spotsFilled - 1),
+                participantIds: a.participantIds.filter((p) => p !== myIdRef.current),
+              }
+            : a
+        )
+      );
+      return;
+    }
+    try {
+      await leaveAdventureReal(id, myIdRef.current);
+    } catch (e) {
+      throw new ApiError(e instanceof Error ? e.message : "Couldn't leave. Check your connection.");
+    }
   }, []);
 
   const toggleLike = useCallback((id: string) => {
-    setAdventures((prev) =>
-      prev.map((a) =>
-        a.id === id
-          ? { ...a, likedByMe: !a.likedByMe, likeCount: a.likeCount + (a.likedByMe ? -1 : 1) }
-          : a
-      )
-    );
+    if (!IS_NATIVE) {
+      setAdventures((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, likedByMe: !a.likedByMe, likeCount: a.likeCount + (a.likedByMe ? -1 : 1) } : a))
+      );
+      return;
+    }
+    const target = adventuresRef.current.find((a) => a.id === id);
+    if (!target) return;
+    toggleLikeReal(id, myIdRef.current, target.likedByMe).catch(() => {
+      // Best-effort: a failed like just doesn't flip. Not worth a retry UI.
+    });
   }, []);
 
   const createAdventure = useCallback(async (draft: NewAdventureDraft) => {
-    await delay(NETWORK_LATENCY_MS);
     if (simulateFailuresRef.current) {
+      await delay(NETWORK_LATENCY_MS);
       throw new ApiError("Couldn't publish. Your draft wasn't lost.");
     }
-    const guidelines: string[] = [];
-    if (draft.noAlcohol) guidelines.push('No alcohol');
-    if (draft.petsOk) guidelines.push('Pets ok');
-    const spots = Math.max(1, parseInt(draft.spots, 10) || 1);
-    const created: Adventure = {
-      id: `a-${Date.now()}`,
-      title: draft.title.trim(),
-      type: draft.type,
-      difficulty: draft.difficulty,
-      dateLabel: draft.schedule.trim() || 'Date TBC',
-      meetingTime: '',
-      location: 'Nairobi area',
-      priceKsh: parseInt(draft.priceKsh, 10) || 0,
-      spotsTotal: spots,
-      spotsFilled: 0,
-      organizerId: ME_ID,
-      participantIds: [],
-      guidelines,
-      likedByMe: false,
-      likeCount: 0,
-      coordinate: { x: 0.5, y: 0.5 },
-    };
-    setAdventures((prev) => [created, ...prev]);
-    return created;
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      const guidelines: string[] = [];
+      if (draft.noAlcohol) guidelines.push('No alcohol');
+      if (draft.petsOk) guidelines.push('Pets ok');
+      const spots = Math.max(1, parseInt(draft.spots, 10) || 1);
+      const created: Adventure = {
+        id: `a-${Date.now()}`,
+        title: draft.title.trim(),
+        type: draft.type,
+        difficulty: draft.difficulty,
+        dateLabel: draft.schedule.trim() || 'Date TBC',
+        meetingTime: '',
+        location: 'Nairobi area',
+        priceKsh: parseInt(draft.priceKsh, 10) || 0,
+        spotsTotal: spots,
+        spotsFilled: 0,
+        organizerId: myIdRef.current,
+        participantIds: [],
+        guidelines,
+        likedByMe: false,
+        likeCount: 0,
+        coordinate: { x: 0.5, y: 0.5 },
+      };
+      setAdventures((prev) => [created, ...prev]);
+      return created;
+    }
+    try {
+      return await createAdventureReal(draft, myIdRef.current);
+    } catch (e) {
+      throw new ApiError(e instanceof Error ? e.message : "Couldn't publish. Your draft wasn't lost.");
+    }
   }, []);
 
   const updateAdventure = useCallback(async (id: string, patch: { title: string; schedule: string }) => {
-    await delay(NETWORK_LATENCY_MS);
     if (simulateFailuresRef.current) {
+      await delay(NETWORK_LATENCY_MS);
       throw new ApiError("Couldn't save changes.");
     }
-    setAdventures((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, title: patch.title, dateLabel: patch.schedule, meetingTime: '' } : a))
-    );
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      setAdventures((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, title: patch.title, dateLabel: patch.schedule, meetingTime: '' } : a))
+      );
+      return;
+    }
+    try {
+      await updateAdventureReal(id, patch);
+    } catch (e) {
+      throw new ApiError(e instanceof Error ? e.message : "Couldn't save changes.");
+    }
   }, []);
 
   const cancelAdventure = useCallback(async (id: string) => {
-    await delay(NETWORK_LATENCY_MS);
     if (simulateFailuresRef.current) {
+      await delay(NETWORK_LATENCY_MS);
       throw new ApiError("Couldn't cancel. Try again.");
     }
-    setAdventures((prev) => prev.filter((a) => a.id !== id));
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      setAdventures((prev) => prev.filter((a) => a.id !== id));
+      return;
+    }
+    try {
+      await cancelAdventureReal(id);
+    } catch (e) {
+      throw new ApiError(e instanceof Error ? e.message : "Couldn't cancel. Try again.");
+    }
   }, []);
 
   const sendMessage = useCallback(async (threadId: string, text: string) => {
@@ -320,7 +418,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               ...t,
               messages: [
                 ...t.messages,
-                { id: messageId, threadId, senderId: ME_ID, text, status: 'sent', createdAt: Date.now() },
+                { id: messageId, threadId, senderId: myIdRef.current, text, status: 'sent', createdAt: Date.now() },
               ],
             }
           : t
@@ -371,10 +469,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ready,
       authenticated,
       onboarded,
+      myId,
       adventures,
       threads,
       simulateFailures,
-      me: usersState[ME_ID],
+      me: usersState[myId] ?? defaultUser(myId),
       users: usersState,
       completeOnboarding,
       setSimulateFailures,
@@ -399,6 +498,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ready,
       authenticated,
       onboarded,
+      myId,
       adventures,
       threads,
       simulateFailures,

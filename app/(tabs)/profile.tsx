@@ -6,7 +6,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/ui/Avatar';
 import { ConfirmPanel } from '@/components/ui/ConfirmPanel';
 import { EmptyState } from '@/components/ui/StateViews';
-import { ME_ID } from '@/lib/mockData';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing, typography } from '@/lib/theme';
 import { Adventure } from '@/lib/types';
@@ -14,7 +13,7 @@ import { Adventure } from '@/lib/types';
 type Tab = 'Upcoming' | 'Liked' | 'Hosting';
 
 export default function Profile() {
-  const { me, adventures, simulateFailures, setSimulateFailures, signOut } = useApp();
+  const { myId, me, adventures, simulateFailures, setSimulateFailures, signOut } = useApp();
   const [tab, setTab] = useState<Tab>('Upcoming');
   const [confirmingLogout, setConfirmingLogout] = useState(false);
 
@@ -23,23 +22,24 @@ export default function Profile() {
     router.replace('/auth');
   };
 
-  const upcoming = adventures.filter((a) => a.participantIds.includes(ME_ID));
+  const upcoming = adventures.filter((a) => a.participantIds.includes(myId));
   const liked = adventures.filter((a) => a.likedByMe);
-  const hosting = adventures.filter((a) => a.organizerId === ME_ID);
+  const hosting = adventures.filter((a) => a.organizerId === myId);
 
   const stats = useMemo(
     () => ({
-      hikes: adventures.filter((a) => a.type === 'Hike' && (a.participantIds.includes(ME_ID) || a.organizerId === ME_ID)).length,
-      roadTrips: adventures.filter((a) => a.type === 'Road trip' && (a.participantIds.includes(ME_ID) || a.organizerId === ME_ID)).length,
+      hikes: adventures.filter((a) => a.type === 'Hike' && (a.participantIds.includes(myId) || a.organizerId === myId)).length,
+      roadTrips: adventures.filter((a) => a.type === 'Road trip' && (a.participantIds.includes(myId) || a.organizerId === myId))
+        .length,
       hosting: hosting.length,
     }),
-    [adventures, hosting.length]
+    [adventures, hosting.length, myId]
   );
 
   const list = tab === 'Upcoming' ? upcoming : tab === 'Liked' ? liked : hosting;
 
   const openAdventure = (a: Adventure) => {
-    if (a.organizerId === ME_ID) router.push(`/organizer/${a.id}`);
+    if (a.organizerId === myId) router.push(`/organizer/${a.id}`);
     else router.push(`/adventure/${a.id}`);
   };
 

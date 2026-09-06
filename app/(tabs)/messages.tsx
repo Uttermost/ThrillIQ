@@ -5,12 +5,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/ui/Avatar';
 import { EmptyState } from '@/components/ui/StateViews';
-import { ME_ID } from '@/lib/mockData';
 import { useApp } from '@/lib/store';
 import { colors, spacing, typography } from '@/lib/theme';
 
+const UNKNOWN_USER = { id: '', name: 'Someone', initials: '?', role: '', location: '', avatarHue: 200 };
+
 export default function Messages() {
-  const { threads, adventures, users, markThreadRead } = useApp();
+  const { myId, threads, adventures, users, markThreadRead } = useApp();
 
   const sorted = [...threads].sort((a, b) => {
     const aLast = a.messages.at(-1)?.createdAt ?? 0;
@@ -35,10 +36,10 @@ export default function Messages() {
           keyExtractor={(t) => t.id}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => {
-            const other = users[item.otherUserId];
+            const other = users[item.otherUserId] ?? UNKNOWN_USER;
             const adventure = adventures.find((a) => a.id === item.adventureId);
             const lastMessage = item.messages.at(-1);
-            const isHosting = adventure?.organizerId === ME_ID;
+            const isHosting = adventure?.organizerId === myId;
             return (
               <Pressable style={styles.row} onPress={() => openThread(item.id)}>
                 <Avatar initials={other.initials} hue={other.avatarHue} />

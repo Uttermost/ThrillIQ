@@ -7,7 +7,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AdventureCard } from '@/components/AdventureCard';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState, ErrorState } from '@/components/ui/StateViews';
-import { ME_ID } from '@/lib/mockData';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing, typography } from '@/lib/theme';
 import { Adventure } from '@/lib/types';
@@ -17,7 +16,7 @@ const FILTERS: Filter[] = ['All', 'Hike', 'Road trip', 'Beginner'];
 type Status = 'loading' | 'ready' | 'error';
 
 export default function Discover() {
-  const { adventures, fetchAdventures, toggleLike } = useApp();
+  const { myId, adventures, fetchAdventures, toggleLike } = useApp();
   const [status, setStatus] = useState<Status>('loading');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('All');
@@ -51,7 +50,7 @@ export default function Discover() {
   const selected = filtered.find((a) => a.id === selectedId) ?? filtered[0];
 
   const openAdventure = (a: Adventure) => {
-    if (a.organizerId === ME_ID) {
+    if (a.organizerId === myId) {
       router.push(`/organizer/${a.id}`);
     } else {
       router.push(`/adventure/${a.id}`);

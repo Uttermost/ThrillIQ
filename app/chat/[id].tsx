@@ -5,13 +5,14 @@ import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
-import { ME_ID } from '@/lib/mockData';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing } from '@/lib/theme';
 
+const UNKNOWN_USER = { id: '', name: 'Someone', initials: '?', role: '', location: '', avatarHue: 200 };
+
 export default function Chat() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { threads, adventures, users, sendMessage, retryMessage, markThreadRead } = useApp();
+  const { myId, threads, adventures, users, sendMessage, retryMessage, markThreadRead } = useApp();
   const [draft, setDraft] = useState('');
 
   const thread = threads.find((t) => t.id === id);
@@ -28,7 +29,7 @@ export default function Chat() {
     );
   }
 
-  const other = users[thread.otherUserId];
+  const other = users[thread.otherUserId] ?? UNKNOWN_USER;
   const adventure = adventures.find((a) => a.id === thread.adventureId);
 
   const handleSend = async () => {
@@ -47,7 +48,7 @@ export default function Chat() {
           keyExtractor={(m) => m.id}
           contentContainerStyle={styles.messages}
           renderItem={({ item }) => {
-            const mine = item.senderId === ME_ID;
+            const mine = item.senderId === myId;
             return (
               <View style={[styles.bubbleRow, mine && styles.bubbleRowMine]}>
                 <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}>

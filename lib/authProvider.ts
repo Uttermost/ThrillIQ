@@ -12,3 +12,7 @@ export async function sendPhoneCodeReal(_phone: string): Promise<void> {}
 export async function verifyPhoneCodeReal(_code: string): Promise<void> {}
 
 export async function signOutReal(): Promise<void> {}
+
+export function subscribeMyId(_callback: (uid: string | null) => void): () => void {
+  return () => {};
+}
