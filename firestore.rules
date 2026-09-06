@@ -56,5 +56,24 @@ service cloud.firestore {
 
       allow delete: if request.auth != null && resource.data.organizerId == request.auth.uid;
     }
+
+    match /users/{uid} {
+      // "Everyone" is enforceable now. "Connections" and "Participants" tiers
+      // are NOT — there's no Connections collection yet (Phase 2) to check
+      // "is this requester actually a connection" against. Fails closed: a
+      // profile set to those tiers is readable only by its own owner until
+      // Phase 2 lands and this rule can be tightened to actually check it,
+      // rather than pretending to enforce a tier it can't yet verify.
+      allow get: if request.auth != null
+        && (request.auth.uid == uid || resource.data.privacy.profileVisibility == 'Everyone');
+
+      allow create: if request.auth != null && request.auth.uid == uid;
+      allow update: if request.auth != null && request.auth.uid == uid;
+      allow delete: if false;
+
+      // No `list` on this collection: every real lookup already knows the
+      // uid (from an adventure's organizerId/participantIds), so there's no
+      // legitimate reason to allow enumerating all profiles.
+    }
   }
 }

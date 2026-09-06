@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ConfirmPanel } from '@/components/ui/ConfirmPanel';
@@ -15,7 +16,7 @@ import { colors, radius, spacing, typography } from '@/lib/theme';
 
 export default function AdventureDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { myId, adventures, joinAdventure, leaveAdventure, ensureThreadForAdventure } = useApp();
+  const { myId, adventures, users, fetchOtherProfile, joinAdventure, leaveAdventure, ensureThreadForAdventure } = useApp();
   const adventure = adventures.find((a) => a.id === id);
 
   const [agreed, setAgreed] = useState(false);
@@ -24,6 +25,14 @@ export default function AdventureDetail() {
   const [joinError, setJoinError] = useState<string | null>(null);
   const [leaveError, setLeaveError] = useState<string | null>(null);
   const [confirmingLeave, setConfirmingLeave] = useState(false);
+
+  useEffect(() => {
+    if (!adventure) return;
+    [adventure.organizerId, ...adventure.participantIds].forEach((uid) => {
+      if (!users[uid]) fetchOtherProfile(uid);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adventure?.organizerId, adventure?.participantIds.join(',')]);
 
   if (!adventure) {
     return (
@@ -78,6 +87,24 @@ export default function AdventureDetail() {
           {adventure.meetingTime ? `, ${adventure.meetingTime}` : ''} · {adventure.difficulty} · ~KSh{' '}
           {adventure.priceKsh.toLocaleString()} · {adventure.spotsFilled}/{adventure.spotsTotal} spots
         </Text>
+
+        <View style={styles.peopleSection}>
+          <Text style={styles.peopleTitle}>Who's going</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.peopleRow}>
+            {[adventure.organizerId, ...adventure.participantIds].map((uid) => {
+              const person = users[uid];
+              if (!person) return null;
+              return (
+                <Pressable key={uid} style={styles.personChip} onPress={() => router.push(`/profile/${uid}`)}>
+                  <Avatar initials={person.initials} hue={person.avatarHue} size={44} />
+                  <Text style={styles.personName} numberOfLines={1}>
+                    {uid === adventure.organizerId ? 'Organizer' : person.name.split(' ')[0]}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
 
         <Button label="Message organizer" onPress={handleMessageOrganizer} variant="secondary" style={{ marginTop: spacing.md }} />
 
@@ -173,4 +200,9 @@ const styles = StyleSheet.create({
   disclaimer: { ...typography.small, textAlign: 'center', marginTop: spacing.sm },
   goingBadgeRow: { marginTop: spacing.md },
   leaveLink: { color: colors.danger, textAlign: 'center', fontWeight: '600', marginTop: spacing.md, fontSize: 14 },
+  peopleSection: { marginTop: spacing.md, gap: spacing.sm },
+  peopleTitle: { ...typography.caption, fontWeight: '700' },
+  peopleRow: { flexDirection: 'row', gap: spacing.md },
+  personChip: { alignItems: 'center', width: 56 },
+  personName: { ...typography.small, marginTop: spacing.xs },
 });

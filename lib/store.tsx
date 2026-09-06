@@ -20,7 +20,8 @@ import {
   verifyPhoneCodeReal,
 } from './authProvider';
 import { ME_ID, initialAdventures, initialThreads, users } from './mockData';
-import { Adventure, NewAdventureDraft, Thread, User } from './types';
+import { ensureProfileReal, fetchProfileReal, subscribeProfileReal, updateProfileReal } from './profileProvider';
+import { Adventure, DEFAULT_PRIVACY, NewAdventureDraft, Thread, User } from './types';
 
 function authErrorMessage(e: unknown, fallback: string): string {
   const code = (e as { code?: string })?.code;
@@ -48,7 +49,28 @@ function authErrorMessage(e: unknown, fallback: string): string {
 }
 
 function defaultUser(id: string): User {
-  return { id, name: 'Explorer', initials: 'ME', role: 'Explorer', location: 'Nairobi', avatarHue: 205 };
+  return {
+    id,
+    name: 'Explorer',
+    initials: 'ME',
+    role: 'Explorer',
+    location: '',
+    avatarHue: 205,
+    username: '',
+    bio: '',
+    interests: [],
+    adventureCategories: [],
+    preferredDifficulty: null,
+    preferredSocialLevel: null,
+    preferredPace: null,
+    preferredIntensity: null,
+    experienceLevel: null,
+    tags: [],
+    completedAdventuresCount: 0,
+    connectionsCount: 0,
+    crewIds: [],
+    privacy: DEFAULT_PRIVACY,
+  };
 }
 
 const ONBOARDED_KEY = 'thrilliq.onboarded';
@@ -95,6 +117,8 @@ interface AppContextValue extends AppState {
   retryMessage: (threadId: string, messageId: string) => Promise<void>;
   markThreadRead: (threadId: string) => void;
   ensureThreadForAdventure: (adventureId: string, organizerId: string) => string;
+  updateProfile: (patch: Partial<User>) => Promise<void>;
+  fetchOtherProfile: (uid: string) => Promise<User>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -117,6 +141,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const myIdRef = useRef(myId);
   myIdRef.current = myId;
   const adventuresErrorRef = useRef<string | null>(null);
+  const usersStateRef = useRef(usersState);
+  usersStateRef.current = usersState;
 
   useEffect(() => {
     Promise.all([AsyncStorage.getItem(ONBOARDED_KEY), AsyncStorage.getItem(AUTHENTICATED_KEY)])
@@ -158,6 +184,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     );
   }, [authenticated, myId]);
 
+  // Real Firestore profile for the signed-in user, native only. Keeps
+  // usersState[myId] in sync with whatever's actually saved server-side.
+  useEffect(() => {
+    if (!IS_NATIVE || !authenticated) return;
+    return subscribeProfileReal(
+      myId,
+      (profile) => setUsersState((prev) => ({ ...prev, [myId]: profile })),
+      () => {
+        // Profile doc may not exist yet (ensureProfileReal creates it on
+        // sign-in); the local defaultUser() fallback covers the gap.
+      }
+    );
+  }, [authenticated, myId]);
+
   const completeOnboarding = useCallback(async () => {
     setOnboarded(true);
     try {
@@ -190,6 +230,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem(AUTHENTICATED_KEY, 'true');
     } catch {
       // Non-fatal: session just won't persist across restarts.
+    }
+    if (IS_NATIVE) {
+      const known = usersStateRef.current[myIdRef.current];
+      try {
+        await ensureProfileReal(myIdRef.current, { name: known?.name || 'Explorer', initials: known?.initials || 'ME' });
+      } catch {
+        // Non-fatal: the local defaultUser() fallback covers the gap until
+        // the next successful sign-in retries this.
+      }
     }
   }, []);
 
@@ -491,6 +540,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setThreads((prev) => prev.map((t) => (t.id === threadId ? { ...t, unread: false } : t)));
   }, []);
 
+  const updateProfile = useCallback(async (patch: Partial<User>) => {
+    setUsersState((prev) => ({ ...prev, [myIdRef.current]: { ...(prev[myIdRef.current] ?? defaultUser(myIdRef.current)), ...patch } }));
+    if (!IS_NATIVE) return;
+    try {
+      await updateProfileReal(myIdRef.current, patch);
+    } catch (e) {
+      throw new ApiError(e instanceof Error ? e.message : "Couldn't save your profile.");
+    }
+  }, []);
+
+  const fetchOtherProfile = useCallback(async (uid: string): Promise<User> => {
+    const cached = usersStateRef.current[uid];
+    if (cached) return cached;
+    if (IS_NATIVE) {
+      try {
+        const profile = await fetchProfileReal(uid);
+        if (profile) {
+          setUsersState((prev) => ({ ...prev, [uid]: profile }));
+          return profile;
+        }
+      } catch {
+        // Falls through to the generic placeholder below.
+      }
+    }
+    const placeholder = { ...defaultUser(uid), name: 'Someone', initials: '?' };
+    setUsersState((prev) => (prev[uid] ? prev : { ...prev, [uid]: placeholder }));
+    return placeholder;
+  }, []);
+
   const ensureThreadForAdventure = useCallback((adventureId: string, organizerId: string) => {
     const existing = threadsRef.current.find((t) => t.adventureId === adventureId && t.otherUserId === organizerId);
     if (existing) return existing.id;
@@ -528,6 +606,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       retryMessage,
       markThreadRead,
       ensureThreadForAdventure,
+      updateProfile,
+      fetchOtherProfile,
     }),
     [
       ready,
@@ -555,6 +635,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       retryMessage,
       markThreadRead,
       ensureThreadForAdventure,
+      updateProfile,
+      fetchOtherProfile,
     ]
   );
 

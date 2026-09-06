@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
@@ -54,12 +55,16 @@ export default function Profile() {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.identityRow}>
           <Avatar initials={me.initials} hue={me.avatarHue} size={56} />
-          <View>
+          <View style={styles.identityText}>
             <Text style={styles.name}>{me.name}</Text>
             <Text style={styles.role}>
-              {me.role} · {me.location}
+              {me.role}
+              {me.location ? ` · ${me.location}` : ''}
             </Text>
           </View>
+          <Pressable onPress={() => router.push('/profile/edit')} hitSlop={8} accessibilityLabel="Edit profile">
+            <Ionicons name="pencil" size={20} color={colors.textPrimary} />
+          </Pressable>
         </View>
 
         <View style={styles.statsRow}>
@@ -132,6 +137,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.lg, gap: spacing.lg },
   identityRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  identityText: { flex: 1 },
   name: { ...typography.heading },
   role: { ...typography.caption, marginTop: 2 },
   statsRow: {

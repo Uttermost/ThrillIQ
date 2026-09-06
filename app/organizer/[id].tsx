@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Badge } from '@/components/ui/Badge';
@@ -60,10 +60,10 @@ export default function OrganizerDashboard() {
             <Text style={styles.noParticipants}>No one has joined yet.</Text>
           ) : (
             adventure.participantIds.map((pid) => (
-              <View key={pid} style={styles.participantRow}>
+              <Pressable key={pid} style={styles.participantRow} onPress={() => router.push(`/profile/${pid}`)}>
                 <Text style={styles.participantName}>{users[pid]?.name ?? pid}</Text>
                 <Badge label="Joined" tone="success" />
-              </View>
+              </Pressable>
             ))
           )}
         </View>
