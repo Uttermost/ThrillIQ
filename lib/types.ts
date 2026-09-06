@@ -1,5 +1,6 @@
 export type ActivityType = 'Hike' | 'Road trip';
 export type Difficulty = 'Beginner' | 'Moderate' | 'Challenging';
+export type WhenBucket = 'This week' | 'This month' | 'Later';
 export type SocialLevel = 'Quiet' | 'Social' | 'Very Social';
 export type Pace = 'Relaxed' | 'Moderate' | 'Fast';
 export type Intensity = 'Low' | 'Medium' | 'High';
@@ -60,6 +61,10 @@ export interface Adventure {
   difficulty: Difficulty;
   dateLabel: string;
   meetingTime: string;
+  // Approximate, filterable date — organizers pick a "This week / This
+  // month / Later" bucket rather than an exact calendar date; dateLabel
+  // stays their own free-text description for display.
+  dateTimestamp: number;
   location: string;
   priceKsh: number;
   spotsTotal: number;
@@ -113,6 +118,7 @@ export interface NewAdventureDraft {
   spots: string;
   type: ActivityType;
   difficulty: Difficulty;
+  when: WhenBucket;
   noAlcohol: boolean;
   petsOk: boolean;
 }

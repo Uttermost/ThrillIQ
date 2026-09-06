@@ -1,5 +1,6 @@
 import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 
+import { timestampForBucket } from './dateBuckets';
 import { Adventure, NewAdventureDraft } from './types';
 
 const COLLECTION = 'adventures';
@@ -13,6 +14,7 @@ function fromDoc(doc: FirebaseFirestoreTypes.QueryDocumentSnapshot, myUid: strin
     difficulty: (data.difficulty as Adventure['difficulty']) ?? 'Moderate',
     dateLabel: (data.dateLabel as string) ?? 'Date TBC',
     meetingTime: (data.meetingTime as string) ?? '',
+    dateTimestamp: (data.dateTimestamp as number) ?? timestampForBucket('Later'),
     location: (data.location as string) ?? '',
     priceKsh: (data.priceKsh as number) ?? 0,
     spotsTotal: (data.spotsTotal as number) ?? 1,
@@ -88,6 +90,7 @@ export async function createAdventureReal(draft: NewAdventureDraft, organizerId:
     difficulty: draft.difficulty,
     dateLabel: draft.schedule.trim() || 'Date TBC',
     meetingTime: '',
+    dateTimestamp: timestampForBucket(draft.when),
     location: 'Nairobi area',
     priceKsh: parseInt(draft.priceKsh, 10) || 0,
     spotsTotal: spots,

@@ -19,6 +19,7 @@ import {
   subscribeMyId,
   verifyPhoneCodeReal,
 } from './authProvider';
+import { timestampForBucket } from './dateBuckets';
 import { ME_ID, initialAdventures, initialThreads, users } from './mockData';
 import { ensureProfileReal, fetchProfileReal, subscribeProfileReal, updateProfileReal } from './profileProvider';
 import { Adventure, AppNotification, DEFAULT_PRIVACY, DeepLink, NewAdventureDraft, NotificationType, Thread, User } from './types';
@@ -492,6 +493,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         difficulty: draft.difficulty,
         dateLabel: draft.schedule.trim() || 'Date TBC',
         meetingTime: '',
+        dateTimestamp: timestampForBucket(draft.when),
         location: 'Nairobi area',
         priceKsh: parseInt(draft.priceKsh, 10) || 0,
         spotsTotal: spots,

@@ -2,6 +2,9 @@ import { DEFAULT_PRIVACY, Adventure, Thread, User } from './types';
 
 export const ME_ID = 'u-vincent';
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const inDays = (n: number) => Date.now() + n * DAY_MS;
+
 export const users: Record<string, User> = {
   [ME_ID]: {
     id: ME_ID,
@@ -123,6 +126,7 @@ export const initialAdventures: Adventure[] = [
     difficulty: 'Moderate',
     dateLabel: 'Sat, Sep 12',
     meetingTime: '6:00am',
+    dateTimestamp: inDays(3),
     location: 'Ngong Hills, Kajiado',
     priceKsh: 1500,
     spotsTotal: 1,
@@ -141,6 +145,7 @@ export const initialAdventures: Adventure[] = [
     difficulty: 'Moderate',
     dateLabel: 'Sun, Sep 13',
     meetingTime: '7:00am',
+    dateTimestamp: inDays(6),
     location: 'Lake Naivasha',
     priceKsh: 4500,
     spotsTotal: 20,
@@ -159,6 +164,7 @@ export const initialAdventures: Adventure[] = [
     difficulty: 'Beginner',
     dateLabel: 'Wed, Sep 16',
     meetingTime: '5:30pm',
+    dateTimestamp: inDays(12),
     location: 'Karura Forest, Nairobi',
     priceKsh: 300,
     spotsTotal: 15,
@@ -177,6 +183,7 @@ export const initialAdventures: Adventure[] = [
     difficulty: 'Challenging',
     dateLabel: 'Fri, Sep 25',
     meetingTime: '5:00am',
+    dateTimestamp: inDays(40),
     location: 'Amboseli National Park',
     priceKsh: 12000,
     spotsTotal: 8,

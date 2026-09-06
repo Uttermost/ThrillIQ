@@ -8,9 +8,10 @@ import { ChipGroup } from '@/components/ui/ChipGroup';
 import { InlineError } from '@/components/ui/StateViews';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing, typography } from '@/lib/theme';
-import { ActivityType, Difficulty, NewAdventureDraft } from '@/lib/types';
+import { ActivityType, Difficulty, NewAdventureDraft, WhenBucket } from '@/lib/types';
 
 const DIFFICULTIES: Difficulty[] = ['Beginner', 'Moderate', 'Challenging'];
+const WHEN_BUCKETS: WhenBucket[] = ['This week', 'This month', 'Later'];
 
 const EMPTY_DRAFT: NewAdventureDraft = {
   title: '',
@@ -19,6 +20,7 @@ const EMPTY_DRAFT: NewAdventureDraft = {
   spots: '',
   type: 'Hike',
   difficulty: 'Moderate',
+  when: 'This week',
   noAlcohol: false,
   petsOk: false,
 };
@@ -58,6 +60,9 @@ export default function Create() {
   const setDifficulty = (values: Difficulty[]) => {
     if (values.length > 0) setDraft((d) => ({ ...d, difficulty: values[values.length - 1] }));
   };
+  const setWhen = (values: WhenBucket[]) => {
+    if (values.length > 0) setDraft((d) => ({ ...d, when: values[values.length - 1] }));
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -88,6 +93,9 @@ export default function Create() {
         </View>
 
         <ChipGroup label="Difficulty" options={DIFFICULTIES} selected={[draft.difficulty]} onChange={setDifficulty} multi={false} />
+
+        <ChipGroup label="When" options={WHEN_BUCKETS} selected={[draft.when]} onChange={setWhen} multi={false} />
+        <Text style={styles.hint}>An approximate window — so people can filter Discover by it. Put the exact date above.</Text>
 
         <View style={styles.row}>
           <TextInput
@@ -167,4 +175,5 @@ const styles = StyleSheet.create({
   toggleChipLabel: { ...typography.caption, fontWeight: '600' },
   toggleChipLabelActive: { color: colors.accent },
   successText: { color: colors.success, textAlign: 'center', fontWeight: '600' },
+  hint: { ...typography.small, marginTop: -spacing.xs },
 });

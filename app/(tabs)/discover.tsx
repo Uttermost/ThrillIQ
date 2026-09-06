@@ -7,12 +7,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AdventureCard } from '@/components/AdventureCard';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState, ErrorState } from '@/components/ui/StateViews';
+import { bucketForTimestamp } from '@/lib/dateBuckets';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing, typography } from '@/lib/theme';
-import { Adventure } from '@/lib/types';
+import { Adventure, Difficulty, WhenBucket } from '@/lib/types';
 
-type Filter = 'All' | 'Hike' | 'Road trip' | 'Beginner';
-const FILTERS: Filter[] = ['All', 'Hike', 'Road trip', 'Beginner'];
+type TypeFilter = 'All' | 'Hike' | 'Road trip';
+type DifficultyFilter = 'Any' | Difficulty;
+type WhenFilter = 'Any time' | WhenBucket;
+const TYPE_FILTERS: TypeFilter[] = ['All', 'Hike', 'Road trip'];
+const DIFFICULTY_FILTERS: DifficultyFilter[] = ['Any', 'Beginner', 'Moderate', 'Challenging'];
+const WHEN_FILTERS: WhenFilter[] = ['Any time', 'This week', 'This month', 'Later'];
 type Status = 'loading' | 'ready' | 'error';
 
 export default function Discover() {
@@ -20,7 +25,9 @@ export default function Discover() {
   const hasUnreadNotifications = notifications.some((n) => !n.read);
   const [status, setStatus] = useState<Status>('loading');
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<Filter>('All');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('All');
+  const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>('Any');
+  const [whenFilter, setWhenFilter] = useState<WhenFilter>('Any time');
   const [view, setView] = useState<'list' | 'map'>('list');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -36,13 +43,16 @@ export default function Discover() {
   }, [load]);
 
   const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const now = Date.now();
     return adventures.filter((a) => {
-      const matchesSearch = a.title.toLowerCase().includes(search.trim().toLowerCase());
-      const matchesFilter =
-        filter === 'All' || a.type === filter || (filter === 'Beginner' && a.difficulty === 'Beginner');
-      return matchesSearch && matchesFilter;
+      const matchesSearch = !q || a.title.toLowerCase().includes(q) || a.location.toLowerCase().includes(q);
+      const matchesType = typeFilter === 'All' || a.type === typeFilter;
+      const matchesDifficulty = difficultyFilter === 'Any' || a.difficulty === difficultyFilter;
+      const matchesWhen = whenFilter === 'Any time' || bucketForTimestamp(a.dateTimestamp, now) === whenFilter;
+      return matchesSearch && matchesType && matchesDifficulty && matchesWhen;
     });
-  }, [adventures, search, filter]);
+  }, [adventures, search, typeFilter, difficultyFilter, whenFilter]);
 
   useEffect(() => {
     if (!selectedId && filtered.length > 0) setSelectedId(filtered[0].id);
@@ -89,16 +99,33 @@ export default function Discover() {
         <TextInput
           value={search}
           onChangeText={setSearch}
-          placeholder="Search adventures"
+          placeholder="Search adventures or location"
           placeholderTextColor={colors.textMuted}
           style={styles.searchInput}
         />
       </View>
 
       <View style={styles.filters}>
-        {FILTERS.map((f) => (
-          <Pressable key={f} onPress={() => setFilter(f)} style={[styles.chip, filter === f && styles.chipActive]}>
-            <Text style={[styles.chipLabel, filter === f && styles.chipLabelActive]}>{f}</Text>
+        {TYPE_FILTERS.map((f) => (
+          <Pressable key={f} onPress={() => setTypeFilter(f)} style={[styles.chip, typeFilter === f && styles.chipActive]}>
+            <Text style={[styles.chipLabel, typeFilter === f && styles.chipLabelActive]}>{f}</Text>
+          </Pressable>
+        ))}
+      </View>
+      <View style={styles.filters}>
+        {DIFFICULTY_FILTERS.map((f) => (
+          <Pressable
+            key={f}
+            onPress={() => setDifficultyFilter(f)}
+            style={[styles.chip, difficultyFilter === f && styles.chipActive]}>
+            <Text style={[styles.chipLabel, difficultyFilter === f && styles.chipLabelActive]}>{f}</Text>
+          </Pressable>
+        ))}
+      </View>
+      <View style={styles.filters}>
+        {WHEN_FILTERS.map((f) => (
+          <Pressable key={f} onPress={() => setWhenFilter(f)} style={[styles.chip, whenFilter === f && styles.chipActive]}>
+            <Text style={[styles.chipLabel, whenFilter === f && styles.chipLabelActive]}>{f}</Text>
           </Pressable>
         ))}
       </View>

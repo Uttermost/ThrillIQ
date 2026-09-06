@@ -15,6 +15,9 @@ const admin = require('firebase-admin');
 admin.initializeApp({ credential: admin.credential.applicationDefault() });
 const db = admin.firestore();
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const inDays = (n) => Date.now() + n * DAY_MS;
+
 const DEMO_ADVENTURES = [
   {
     title: 'Ngong Hills sunrise hike',
@@ -22,6 +25,7 @@ const DEMO_ADVENTURES = [
     difficulty: 'Moderate',
     dateLabel: 'Sat, Sep 12',
     meetingTime: '6:00am',
+    dateTimestamp: inDays(3),
     location: 'Ngong Hills, Kajiado',
     priceKsh: 1500,
     spotsTotal: 12,
@@ -39,6 +43,7 @@ const DEMO_ADVENTURES = [
     difficulty: 'Moderate',
     dateLabel: 'Sun, Sep 13',
     meetingTime: '7:00am',
+    dateTimestamp: inDays(6),
     location: 'Lake Naivasha',
     priceKsh: 4500,
     spotsTotal: 20,
@@ -56,6 +61,7 @@ const DEMO_ADVENTURES = [
     difficulty: 'Beginner',
     dateLabel: 'Wed, Sep 16',
     meetingTime: '5:30pm',
+    dateTimestamp: inDays(12),
     location: 'Karura Forest, Nairobi',
     priceKsh: 300,
     spotsTotal: 15,
