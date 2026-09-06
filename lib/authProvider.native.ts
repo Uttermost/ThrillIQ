@@ -1,6 +1,29 @@
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+
+// The "Web application" OAuth client Firebase generated alongside the Android
+// one once a SHA-1 fingerprint was registered — GoogleSignin needs this to
+// mint an ID token Firebase will accept, not the Android client id itself.
+GoogleSignin.configure({
+  webClientId: '530380846105-ulg5uvhtfmjgenefutuao18q8p27sf2u.apps.googleusercontent.com',
+});
 
 let pendingConfirmation: FirebaseAuthTypes.ConfirmationResult | null = null;
+
+export async function signInWithGoogleReal(): Promise<string | null> {
+  await GoogleSignin.hasPlayServices();
+  const response = await GoogleSignin.signIn();
+  if (response.type !== 'success') {
+    throw new Error('Sign-in was cancelled.');
+  }
+  const idToken = response.data.idToken;
+  if (!idToken) {
+    throw new Error("Couldn't get a Google sign-in token.");
+  }
+  const credential = auth.GoogleAuthProvider.credential(idToken);
+  await auth().signInWithCredential(credential);
+  return response.data.user.name;
+}
 
 export async function signInWithEmailReal(email: string, password: string): Promise<void> {
   try {

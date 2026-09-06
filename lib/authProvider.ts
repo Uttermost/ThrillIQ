@@ -5,6 +5,10 @@
 // non-Metro tool) can resolve `./authProvider` — keep it in sync with
 // authProvider.web.ts.
 
+export async function signInWithGoogleReal(): Promise<string | null> {
+  throw new Error('Not implemented on web.');
+}
+
 export async function signInWithEmailReal(_email: string, _password: string): Promise<void> {}
 
 export async function sendPhoneCodeReal(_phone: string): Promise<void> {}

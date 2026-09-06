@@ -12,7 +12,20 @@
           "package_name": "com.uttermost.thrilliq"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "530380846105-edst8lvdvjs00jn0skq4sve0j5oethef.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.uttermost.thrilliq",
+            "certificate_hash": "a4f0358d13e75856ca1e82f968e43699606f6da1"
+          }
+        },
+        {
+          "client_id": "530380846105-ulg5uvhtfmjgenefutuao18q8p27sf2u.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyA-zxUNJpVsCLT6H-271jpf2CjD_YFaVNo"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "530380846105-ulg5uvhtfmjgenefutuao18q8p27sf2u.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

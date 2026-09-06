@@ -11,7 +11,14 @@ import {
   toggleLikeReal,
   updateAdventureReal,
 } from './adventuresProvider';
-import { sendPhoneCodeReal, signInWithEmailReal, signOutReal, subscribeMyId, verifyPhoneCodeReal } from './authProvider';
+import {
+  sendPhoneCodeReal,
+  signInWithEmailReal,
+  signInWithGoogleReal,
+  signOutReal,
+  subscribeMyId,
+  verifyPhoneCodeReal,
+} from './authProvider';
 import { ME_ID, initialAdventures, initialThreads, users } from './mockData';
 import { Adventure, NewAdventureDraft, Thread, User } from './types';
 
@@ -180,14 +187,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signInWithProvider = useCallback(
-    async (_provider: SocialProvider) => {
+    async (provider: SocialProvider) => {
+      // Google is real on native now that a SHA-1 fingerprint is registered.
+      // Apple stays simulated everywhere (deferred; needs a native module and
+      // an Apple Developer account), and Google stays simulated on web (no
+      // web SDK wired up).
+      if (IS_NATIVE && provider === 'google') {
+        if (simulateFailuresRef.current) {
+          throw new ApiError("Couldn't sign in. Try again.");
+        }
+        let name: string | null;
+        try {
+          name = await signInWithGoogleReal();
+        } catch (e) {
+          throw new ApiError(authErrorMessage(e, "Couldn't sign in. Try again."));
+        }
+        if (name) updateMyName(name);
+        await completeSignIn();
+        return;
+      }
       await delay(NETWORK_LATENCY_MS);
       if (simulateFailuresRef.current) {
         throw new ApiError("Couldn't sign in. Try again.");
       }
       await completeSignIn();
     },
-    [completeSignIn]
+    [completeSignIn, updateMyName]
   );
 
   const signInWithEmail = useCallback(
