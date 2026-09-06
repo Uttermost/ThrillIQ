@@ -4,7 +4,9 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     match /adventures/{adventureId} {
-      allow read: if request.auth != null;
+      // Adventures are the public "homepage" — browsable by anyone, signed
+      // in or not. Every write below still requires auth.
+      allow read: if true;
 
       allow create: if request.auth != null
         && request.resource.data.organizerId == request.auth.uid
@@ -64,8 +66,8 @@ service cloud.firestore {
       // profile set to those tiers is readable only by its own owner until
       // Phase 2 lands and this rule can be tightened to actually check it,
       // rather than pretending to enforce a tier it can't yet verify.
-      allow get: if request.auth != null
-        && (request.auth.uid == uid || resource.data.privacy.profileVisibility == 'Everyone');
+      allow get: if resource.data.privacy.profileVisibility == 'Everyone'
+        || (request.auth != null && request.auth.uid == uid);
 
       allow create: if request.auth != null && request.auth.uid == uid;
       allow update: if request.auth != null && request.auth.uid == uid;

@@ -16,7 +16,8 @@ import { colors, radius, spacing, typography } from '@/lib/theme';
 
 export default function AdventureDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { myId, adventures, users, fetchOtherProfile, joinAdventure, leaveAdventure, ensureThreadForAdventure } = useApp();
+  const { myId, authenticated, adventures, users, fetchOtherProfile, joinAdventure, leaveAdventure, ensureThreadForAdventure } =
+    useApp();
   const adventure = adventures.find((a) => a.id === id);
 
   const [agreed, setAgreed] = useState(false);
@@ -47,11 +48,19 @@ export default function AdventureDetail() {
   const isFull = adventure.spotsFilled >= adventure.spotsTotal;
 
   const handleMessageOrganizer = () => {
+    if (!authenticated) {
+      router.push('/auth');
+      return;
+    }
     const threadId = ensureThreadForAdventure(adventure.id, adventure.organizerId);
     router.push(`/chat/${threadId}`);
   };
 
   const handleJoin = async () => {
+    if (!authenticated) {
+      router.push('/auth');
+      return;
+    }
     setJoining(true);
     setJoinError(null);
     try {

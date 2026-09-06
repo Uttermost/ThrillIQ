@@ -16,7 +16,7 @@ const FILTERS: Filter[] = ['All', 'Hike', 'Road trip', 'Beginner'];
 type Status = 'loading' | 'ready' | 'error';
 
 export default function Discover() {
-  const { myId, adventures, notifications, fetchAdventures, toggleLike } = useApp();
+  const { myId, authenticated, adventures, notifications, fetchAdventures, toggleLike } = useApp();
   const hasUnreadNotifications = notifications.some((n) => !n.read);
   const [status, setStatus] = useState<Status>('loading');
   const [search, setSearch] = useState('');
@@ -56,6 +56,14 @@ export default function Discover() {
     } else {
       router.push(`/adventure/${a.id}`);
     }
+  };
+
+  const handleToggleLike = (id: string) => {
+    if (!authenticated) {
+      router.push('/auth');
+      return;
+    }
+    toggleLike(id);
   };
 
   return (
@@ -119,7 +127,7 @@ export default function Discover() {
           refreshControl={<RefreshControl refreshing={false} onRefresh={load} tintColor={colors.textSecondary} />}
           renderItem={({ item }) => (
             <View style={{ marginBottom: spacing.lg }}>
-              <AdventureCard adventure={item} onPress={() => openAdventure(item)} onToggleLike={() => toggleLike(item.id)} />
+              <AdventureCard adventure={item} onPress={() => openAdventure(item)} onToggleLike={() => handleToggleLike(item.id)} />
             </View>
           )}
         />

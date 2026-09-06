@@ -189,9 +189,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUsersState((prev) => (prev[myId] ? prev : { ...prev, [myId]: defaultUser(myId) }));
   }, [myId]);
 
-  // Real Firestore adventures feed, native + signed-in only.
+  // Real Firestore adventures feed. Adventures are publicly browsable, so
+  // this runs on native regardless of sign-in state.
   useEffect(() => {
-    if (!IS_NATIVE || !authenticated) return;
+    if (!IS_NATIVE) return;
     return subscribeAdventuresReal(
       myId,
       (list) => {

@@ -14,7 +14,8 @@ export default function Onboarding() {
 
   const handleGetStarted = async () => {
     await completeOnboarding();
-    router.replace('/auth');
+    // Discover is the public homepage — no sign-in required just to browse.
+    router.replace('/(tabs)/discover');
   };
 
   return (

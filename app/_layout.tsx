@@ -5,6 +5,19 @@ import { StatusBar } from 'expo-status-bar';
 import { AppProvider, useApp } from '@/lib/store';
 import { colors } from '@/lib/theme';
 
+// Discover, adventure detail, and viewing someone else's profile are the
+// public "homepage" — browsable without signing in. Posting (Create),
+// managing your own account (Profile tab + its edit/privacy subscreens),
+// and anything else that only makes sense for a signed-in identity
+// (Messages, Chat, the organizer dashboard, editing an adventure,
+// Notifications) require auth.
+const AUTH_REQUIRED_PREFIXES = ['/create', '/messages', '/chat', '/organizer', '/edit', '/notifications'];
+
+function requiresAuth(pathname: string): boolean {
+  if (pathname === '/profile' || pathname === '/profile/edit' || pathname === '/profile/privacy') return true;
+  return AUTH_REQUIRED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { ready, onboarded, authenticated } = useApp();
   const pathname = usePathname();
@@ -18,7 +31,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       if (pathname !== '/onboarding') router.replace('/onboarding');
       return;
     }
-    if (!authenticated) {
+    if (requiresAuth(pathname) && !authenticated) {
       if (!pathname.startsWith('/auth')) router.replace('/auth');
       return;
     }

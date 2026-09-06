@@ -54,6 +54,12 @@ export default function AuthLanding() {
         </View>
 
         <Text style={styles.disclaimer}>New here? We'll create your account automatically.</Text>
+
+        <Button
+          label="Not now — keep browsing"
+          variant="ghost"
+          onPress={() => router.replace('/(tabs)/discover')}
+        />
       </View>
     </SafeAreaView>
   );

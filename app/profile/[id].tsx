@@ -14,7 +14,7 @@ import { DEFAULT_PRIVACY, User } from '@/lib/types';
 
 export default function ParticipantProfile() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { myId, adventures, fetchOtherProfile, ensureThreadForAdventure } = useApp();
+  const { myId, authenticated, adventures, fetchOtherProfile, ensureThreadForAdventure } = useApp();
   const [profile, setProfile] = useState<User | null>(null);
 
   useEffect(() => {
@@ -57,6 +57,10 @@ export default function ParticipantProfile() {
   );
 
   const handleMessage = () => {
+    if (!authenticated) {
+      router.push('/auth');
+      return;
+    }
     const adventureId = sharedAdventures[0]?.id ?? `direct-${id}`;
     const threadId = ensureThreadForAdventure(adventureId, id);
     router.push(`/chat/${threadId}`);

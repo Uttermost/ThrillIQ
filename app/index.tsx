@@ -6,7 +6,7 @@ import { useApp } from '@/lib/store';
 import { colors } from '@/lib/theme';
 
 export default function Index() {
-  const { ready, authenticated, onboarded } = useApp();
+  const { ready, onboarded } = useApp();
 
   if (!ready) {
     return (
@@ -20,9 +20,7 @@ export default function Index() {
     return <Redirect href="/onboarding" />;
   }
 
-  if (!authenticated) {
-    return <Redirect href="/auth" />;
-  }
-
+  // Discover is the public homepage — signed in or not, land there. Signing
+  // in is only required for posting or accessing your profile.
   return <Redirect href="/(tabs)/discover" />;
 }
