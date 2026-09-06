@@ -6,9 +6,22 @@ Built with [Expo](https://expo.dev) (React Native + TypeScript) and [expo-router
 
 ## Scope
 
-This is the Phase 1 mobile client, built against a mock in-memory data layer (`lib/store.tsx`, `lib/mockData.ts`) so the UI, navigation, and every loading/empty/error/retry state can be validated before a real backend exists. The data layer is written so a real API can be swapped in later without touching the screens.
-
 Screens: onboarding, discover (list/map), adventure detail, chat, messages, create, profile, organizer dashboard, edit adventure — following the four-tab nav (Discover · Messages · Create · Profile) with adventure detail, chat, the organizer dashboard, and edit as drill-ins reached only by tapping into something specific.
+
+### What's real vs. mocked, by platform
+
+`@react-native-firebase` (auth + Firestore) is native-only, so the app is split by platform via Metro's `.native.ts`/`.web.ts` file convention (`lib/authProvider.*`, `lib/adventuresProvider.*`) behind one `useApp()` interface — screens don't know or care which backend they're talking to:
+
+|                          | Web                          | Android (native)                                  |
+| ------------------------ | ----------------------------- | -------------------------------------------------- |
+| Auth (email/phone)       | Simulated                     | Real Firebase Auth                                  |
+| Auth (Google/Apple)      | Simulated                     | Simulated — Google needs a SHA-1 fingerprint added to the Firebase console first; Apple is out of scope for now |
+| Adventures (discover/join/leave/like/create/edit/cancel) | Simulated, in-memory mock array (`lib/mockData.ts`) | Real Firestore (`adventures` collection), live via `onSnapshot` |
+| Messages/chat            | Simulated                     | Simulated (not yet migrated to Firestore)           |
+
+Native's Firestore starts **empty** rather than seeded with the demo data — the mock data's organizer/participant ids (`u-vincent`, `u-tom`, etc.) are fake and don't correspond to real Firebase users, so seeding them there would be pretend data pretending to be real. Sign up and create an adventure to see it flow through.
+
+Identity is dynamic (`useApp().myId`): the mock `ME_ID` on web, the signed-in Firebase uid on native — every screen that checks "is this me?" (organizer badges, "you're going", hosting stats) reads it from context rather than a hardcoded constant.
 
 ## Get started
 
