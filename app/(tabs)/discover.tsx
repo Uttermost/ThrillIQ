@@ -75,6 +75,9 @@ export default function Discover() {
             <Ionicons name="notifications-outline" size={22} color={colors.textPrimary} />
             {hasUnreadNotifications && <View style={styles.bellDot} />}
           </Pressable>
+          <Pressable onPress={load} hitSlop={8} accessibilityLabel="Refresh" disabled={status === 'loading'}>
+            <Ionicons name="refresh" size={20} color={status === 'loading' ? colors.textMuted : colors.textPrimary} />
+          </Pressable>
           <Pressable onPress={() => setView(view === 'list' ? 'map' : 'list')} style={styles.viewToggle}>
             <Text style={styles.viewToggleLabel}>{view === 'list' ? 'Map' : 'List'}</Text>
           </Pressable>
