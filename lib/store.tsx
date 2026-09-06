@@ -21,7 +21,13 @@ import {
 } from './authProvider';
 import { ME_ID, initialAdventures, initialThreads, users } from './mockData';
 import { ensureProfileReal, fetchProfileReal, subscribeProfileReal, updateProfileReal } from './profileProvider';
-import { Adventure, DEFAULT_PRIVACY, NewAdventureDraft, Thread, User } from './types';
+import { Adventure, AppNotification, DEFAULT_PRIVACY, DeepLink, NewAdventureDraft, NotificationType, Thread, User } from './types';
+
+let notificationSeq = 0;
+function makeNotification(type: NotificationType, title: string, body: string, deepLink: DeepLink | null): AppNotification {
+  notificationSeq += 1;
+  return { id: `n-${Date.now()}-${notificationSeq}`, type, title, body, createdAt: Date.now(), read: false, deepLink };
+}
 
 function authErrorMessage(e: unknown, fallback: string): string {
   const code = (e as { code?: string })?.code;
@@ -119,6 +125,9 @@ interface AppContextValue extends AppState {
   ensureThreadForAdventure: (adventureId: string, organizerId: string) => string;
   updateProfile: (patch: Partial<User>) => Promise<void>;
   fetchOtherProfile: (uid: string) => Promise<User>;
+  notifications: AppNotification[];
+  markNotificationRead: (id: string) => void;
+  markAllNotificationsRead: () => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -130,6 +139,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [myId, setMyId] = useState(ME_ID);
   const [adventures, setAdventures] = useState<Adventure[]>(IS_NATIVE ? [] : initialAdventures);
   const [threads, setThreads] = useState<Thread[]>(initialThreads);
+  const [notifications, setNotifications] = useState<AppNotification[]>(() =>
+    initialThreads
+      .filter((t) => t.unread)
+      .map((t) => {
+        const last = t.messages.at(-1);
+        const other = users[t.otherUserId];
+        return makeNotification(
+          'new_message',
+          other?.name ?? 'New message',
+          last?.text ?? '',
+          { screen: 'chat', id: t.id }
+        );
+      })
+  );
+  const hasLoadedAdventuresOnceRef = useRef(false);
   const [usersState, setUsersState] = useState<Record<string, User>>(users);
   const [simulateFailures, setSimulateFailures] = useState(false);
   const simulateFailuresRef = useRef(simulateFailures);
@@ -172,6 +196,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       myId,
       (list) => {
         adventuresErrorRef.current = null;
+        // Diff against the previous snapshot to surface real notifications —
+        // skip the very first snapshot after mount so loading existing
+        // adventures doesn't look like a flood of new events.
+        if (hasLoadedAdventuresOnceRef.current) {
+          const prevById = new Map(adventuresRef.current.map((a) => [a.id, a]));
+          const newIds = new Set(list.map((a) => a.id));
+          const fresh: AppNotification[] = [];
+          prevById.forEach((prev, prevId) => {
+            const mine = prev.organizerId === myId || prev.participantIds.includes(myId);
+            if (mine && !newIds.has(prevId)) {
+              fresh.push(makeNotification('adventure_cancelled', `${prev.title} was cancelled`, 'The organizer cancelled this adventure.', null));
+            }
+          });
+          list.forEach((curr) => {
+            const prev = prevById.get(curr.id);
+            if (!prev) return;
+            const mine = curr.organizerId === myId || curr.participantIds.includes(myId);
+            if (mine && (prev.title !== curr.title || prev.dateLabel !== curr.dateLabel)) {
+              fresh.push(
+                makeNotification('adventure_updated', `${curr.title} was updated`, 'Date or details changed.', { screen: 'adventure', id: curr.id })
+              );
+            }
+            if (curr.organizerId === myId && curr.participantIds.length > prev.participantIds.length) {
+              fresh.push(
+                makeNotification('participant_joined', 'New participant', `Someone joined ${curr.title}.`, { screen: 'organizer', id: curr.id })
+              );
+            }
+          });
+          if (fresh.length > 0) setNotifications((prevN) => [...fresh, ...prevN]);
+        }
+        hasLoadedAdventuresOnceRef.current = true;
         setAdventures(list);
       },
       (e) => {
@@ -569,6 +624,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return placeholder;
   }, []);
 
+  const markNotificationRead = useCallback((id: string) => {
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+  }, []);
+
+  const markAllNotificationsRead = useCallback(() => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  }, []);
+
   const ensureThreadForAdventure = useCallback((adventureId: string, organizerId: string) => {
     const existing = threadsRef.current.find((t) => t.adventureId === adventureId && t.otherUserId === organizerId);
     if (existing) return existing.id;
@@ -608,6 +671,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ensureThreadForAdventure,
       updateProfile,
       fetchOtherProfile,
+      notifications,
+      markNotificationRead,
+      markAllNotificationsRead,
     }),
     [
       ready,
@@ -637,6 +703,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ensureThreadForAdventure,
       updateProfile,
       fetchOtherProfile,
+      notifications,
+      markNotificationRead,
+      markAllNotificationsRead,
     ]
   );
 

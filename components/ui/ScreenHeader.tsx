@@ -5,7 +5,15 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, spacing, typography } from '@/lib/theme';
 
-export function ScreenHeader({ title, subtitle, onEdit }: { title: string; subtitle?: string; onEdit?: () => void }) {
+interface ScreenHeaderProps {
+  title: string;
+  subtitle?: string;
+  onEdit?: () => void;
+  actionIcon?: keyof typeof Ionicons.glyphMap;
+  actionLabel?: string;
+}
+
+export function ScreenHeader({ title, subtitle, onEdit, actionIcon = 'pencil', actionLabel = 'Edit' }: ScreenHeaderProps) {
   return (
     <View style={styles.row}>
       <Pressable onPress={() => router.back()} hitSlop={12} style={styles.back} accessibilityLabel="Go back">
@@ -22,8 +30,8 @@ export function ScreenHeader({ title, subtitle, onEdit }: { title: string; subti
         ) : null}
       </View>
       {onEdit ? (
-        <Pressable onPress={onEdit} hitSlop={12}>
-          <Ionicons name="pencil" size={20} color={colors.textPrimary} />
+        <Pressable onPress={onEdit} hitSlop={12} accessibilityLabel={actionLabel}>
+          <Ionicons name={actionIcon} size={20} color={colors.textPrimary} />
         </Pressable>
       ) : (
         <View style={{ width: 22 }} />

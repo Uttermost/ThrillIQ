@@ -16,7 +16,8 @@ const FILTERS: Filter[] = ['All', 'Hike', 'Road trip', 'Beginner'];
 type Status = 'loading' | 'ready' | 'error';
 
 export default function Discover() {
-  const { myId, adventures, fetchAdventures, toggleLike } = useApp();
+  const { myId, adventures, notifications, fetchAdventures, toggleLike } = useApp();
+  const hasUnreadNotifications = notifications.some((n) => !n.read);
   const [status, setStatus] = useState<Status>('loading');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('All');
@@ -61,9 +62,15 @@ export default function Discover() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.heading}>Discover</Text>
-        <Pressable onPress={() => setView(view === 'list' ? 'map' : 'list')} style={styles.viewToggle}>
-          <Text style={styles.viewToggleLabel}>{view === 'list' ? 'Map' : 'List'}</Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable onPress={() => router.push('/notifications')} hitSlop={8} style={styles.bellButton} accessibilityLabel="Notifications">
+            <Ionicons name="notifications-outline" size={22} color={colors.textPrimary} />
+            {hasUnreadNotifications && <View style={styles.bellDot} />}
+          </Pressable>
+          <Pressable onPress={() => setView(view === 'list' ? 'map' : 'list')} style={styles.viewToggle}>
+            <Text style={styles.viewToggleLabel}>{view === 'list' ? 'Map' : 'List'}</Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.searchWrap}>
@@ -162,6 +169,19 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   heading: { ...typography.title },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  bellButton: { position: 'relative' },
+  bellDot: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: colors.danger,
+    borderWidth: 1.5,
+    borderColor: colors.background,
+  },
   viewToggle: {
     backgroundColor: colors.surfaceMuted,
     paddingHorizontal: spacing.md,

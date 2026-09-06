@@ -47,6 +47,7 @@ export default function RootLayout() {
           <Stack.Screen name="profile/edit" />
           <Stack.Screen name="profile/privacy" />
           <Stack.Screen name="profile/[id]" />
+          <Stack.Screen name="notifications" />
           <Stack.Screen name="+not-found" />
         </Stack>
       </AuthGate>
