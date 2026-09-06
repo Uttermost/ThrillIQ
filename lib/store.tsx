@@ -104,7 +104,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [authenticated, setAuthenticated] = useState(false);
   const [onboarded, setOnboarded] = useState(false);
   const [myId, setMyId] = useState(ME_ID);
-  const [adventures, setAdventures] = useState<Adventure[]>(initialAdventures);
+  const [adventures, setAdventures] = useState<Adventure[]>(IS_NATIVE ? [] : initialAdventures);
   const [threads, setThreads] = useState<Thread[]>(initialThreads);
   const [usersState, setUsersState] = useState<Record<string, User>>(users);
   const [simulateFailures, setSimulateFailures] = useState(false);
@@ -116,6 +116,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   threadsRef.current = threads;
   const myIdRef = useRef(myId);
   myIdRef.current = myId;
+  const adventuresErrorRef = useRef<string | null>(null);
 
   useEffect(() => {
     Promise.all([AsyncStorage.getItem(ONBOARDED_KEY), AsyncStorage.getItem(AUTHENTICATED_KEY)])
@@ -143,10 +144,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!IS_NATIVE || !authenticated) return;
     return subscribeAdventuresReal(
       myId,
-      (list) => setAdventures(list),
-      () => {
-        // Leave the last-known list in place; fetchAdventures()'s own error
-        // path (via the dev toggle) is what drives the Discover error state.
+      (list) => {
+        adventuresErrorRef.current = null;
+        setAdventures(list);
+      },
+      (e) => {
+        // Surfaced the next time fetchAdventures() is called (mount or
+        // pull-to-refresh), which drives Discover's error/retry state —
+        // otherwise a permission-denied (e.g. rules not published yet)
+        // fails silently and Discover just looks empty forever.
+        adventuresErrorRef.current = e instanceof Error ? e.message : "Couldn't load adventures";
       }
     );
   }, [authenticated, myId]);
@@ -288,6 +295,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await delay(NETWORK_LATENCY_MS);
     if (simulateFailuresRef.current) {
       throw new ApiError("Couldn't load adventures");
+    }
+    if (IS_NATIVE && adventuresErrorRef.current) {
+      throw new ApiError(adventuresErrorRef.current);
     }
     return adventuresRef.current;
   }, []);

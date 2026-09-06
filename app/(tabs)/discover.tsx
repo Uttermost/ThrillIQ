@@ -96,7 +96,11 @@ export default function Discover() {
         <ErrorState title="Couldn't load adventures" message="Check your connection and try again." onRetry={load} />
       )}
 
-      {status === 'ready' && view === 'list' && filtered.length === 0 && (
+      {status === 'ready' && view === 'list' && filtered.length === 0 && adventures.length === 0 && (
+        <EmptyState icon="compass-outline" title="No adventures yet" message="Be the first — create one from the Create tab." />
+      )}
+
+      {status === 'ready' && view === 'list' && filtered.length === 0 && adventures.length > 0 && (
         <EmptyState icon="search-outline" title="No matches" message="Try a different search or filter." />
       )}
 

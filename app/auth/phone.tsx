@@ -16,15 +16,20 @@ export default function PhoneAuth() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canContinue = name.trim().length > 0 && phone.replace(/\D/g, '').length >= 9;
+  const digits = phone.replace(/\D/g, '');
+  const canContinue = name.trim().length > 0 && digits.length >= 9;
 
   const handleSendCode = async () => {
     if (!canContinue) return;
+    // Firebase's phone auth requires strict E.164 (+ and digits only) — the
+    // placeholder shows spaces as a formatting hint, so strip them here
+    // regardless of how the user actually typed it.
+    const normalizedPhone = `+${digits}`;
     setLoading(true);
     setError(null);
     try {
-      await sendPhoneCode(phone);
-      router.push({ pathname: '/auth/otp', params: { phone, name } });
+      await sendPhoneCode(normalizedPhone);
+      router.push({ pathname: '/auth/otp', params: { phone: normalizedPhone, name } });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong.');
     } finally {
