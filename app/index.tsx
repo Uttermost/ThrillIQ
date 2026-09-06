@@ -6,7 +6,7 @@ import { useApp } from '@/lib/store';
 import { colors } from '@/lib/theme';
 
 export default function Index() {
-  const { ready, onboarded } = useApp();
+  const { ready, authenticated, onboarded } = useApp();
 
   if (!ready) {
     return (
@@ -16,5 +16,13 @@ export default function Index() {
     );
   }
 
-  return <Redirect href={onboarded ? '/(tabs)/discover' : '/onboarding'} />;
+  if (!onboarded) {
+    return <Redirect href="/onboarding" />;
+  }
+
+  if (!authenticated) {
+    return <Redirect href="/auth" />;
+  }
+
+  return <Redirect href="/(tabs)/discover" />;
 }

@@ -14,7 +14,7 @@ export default function Onboarding() {
 
   const handleGetStarted = async () => {
     await completeOnboarding();
-    router.replace('/(tabs)/discover');
+    router.replace('/auth');
   };
 
   return (

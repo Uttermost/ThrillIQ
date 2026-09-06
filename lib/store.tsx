@@ -5,7 +5,10 @@ import { ME_ID, initialAdventures, initialThreads, users } from './mockData';
 import { Adventure, NewAdventureDraft, Thread, User } from './types';
 
 const ONBOARDED_KEY = 'thrilliq.onboarded';
+const AUTHENTICATED_KEY = 'thrilliq.authenticated';
 const NETWORK_LATENCY_MS = 650;
+
+export type SocialProvider = 'google' | 'apple';
 
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -15,6 +18,7 @@ export class ApiError extends Error {}
 
 interface AppState {
   ready: boolean;
+  authenticated: boolean;
   onboarded: boolean;
   adventures: Adventure[];
   threads: Thread[];
@@ -26,6 +30,11 @@ interface AppContextValue extends AppState {
   users: Record<string, User>;
   completeOnboarding: () => Promise<void>;
   setSimulateFailures: (value: boolean) => void;
+  signInWithProvider: (provider: SocialProvider) => Promise<void>;
+  signInWithEmail: (params: { name: string; email: string; password: string }) => Promise<void>;
+  sendPhoneCode: (phone: string) => Promise<void>;
+  verifyPhoneCode: (params: { phone: string; name: string; code: string }) => Promise<void>;
+  signOut: () => Promise<void>;
   fetchAdventures: () => Promise<Adventure[]>;
   joinAdventure: (id: string) => Promise<void>;
   leaveAdventure: (id: string) => Promise<void>;
@@ -43,9 +52,11 @@ const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
   const [onboarded, setOnboarded] = useState(false);
   const [adventures, setAdventures] = useState<Adventure[]>(initialAdventures);
   const [threads, setThreads] = useState<Thread[]>(initialThreads);
+  const [usersState, setUsersState] = useState<Record<string, User>>(users);
   const [simulateFailures, setSimulateFailures] = useState(false);
   const simulateFailuresRef = useRef(simulateFailures);
   simulateFailuresRef.current = simulateFailures;
@@ -55,9 +66,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   threadsRef.current = threads;
 
   useEffect(() => {
-    AsyncStorage.getItem(ONBOARDED_KEY)
-      .then((value) => setOnboarded(value === 'true'))
-      .catch(() => setOnboarded(false))
+    Promise.all([AsyncStorage.getItem(ONBOARDED_KEY), AsyncStorage.getItem(AUTHENTICATED_KEY)])
+      .then(([onboardedValue, authValue]) => {
+        setOnboarded(onboardedValue === 'true');
+        setAuthenticated(authValue === 'true');
+      })
+      .catch(() => {
+        setOnboarded(false);
+        setAuthenticated(false);
+      })
       .finally(() => setReady(true));
   }, []);
 
@@ -67,6 +84,86 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem(ONBOARDED_KEY, 'true');
     } catch {
       // Non-fatal: onboarding state just won't persist across restarts.
+    }
+  }, []);
+
+  const updateMyName = useCallback((name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const initials = trimmed
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? '')
+      .join('');
+    setUsersState((prev) => ({ ...prev, [ME_ID]: { ...prev[ME_ID], name: trimmed, initials: initials || prev[ME_ID].initials } }));
+  }, []);
+
+  const completeSignIn = useCallback(async () => {
+    setAuthenticated(true);
+    try {
+      await AsyncStorage.setItem(AUTHENTICATED_KEY, 'true');
+    } catch {
+      // Non-fatal: session just won't persist across restarts.
+    }
+  }, []);
+
+  const signInWithProvider = useCallback(
+    async (_provider: SocialProvider) => {
+      await delay(NETWORK_LATENCY_MS);
+      if (simulateFailuresRef.current) {
+        throw new ApiError("Couldn't sign in. Try again.");
+      }
+      await completeSignIn();
+    },
+    [completeSignIn]
+  );
+
+  const signInWithEmail = useCallback(
+    async ({ name, email, password }: { name: string; email: string; password: string }) => {
+      await delay(NETWORK_LATENCY_MS);
+      if (simulateFailuresRef.current) {
+        throw new ApiError("Couldn't sign in. Check your details and try again.");
+      }
+      if (!email.includes('@') || password.length < 6) {
+        throw new ApiError('Enter a valid email and a password of at least 6 characters.');
+      }
+      updateMyName(name);
+      await completeSignIn();
+    },
+    [completeSignIn, updateMyName]
+  );
+
+  const sendPhoneCode = useCallback(async (phone: string) => {
+    await delay(NETWORK_LATENCY_MS);
+    if (simulateFailuresRef.current) {
+      throw new ApiError("Couldn't send the code. Check your connection.");
+    }
+    if (phone.replace(/\D/g, '').length < 9) {
+      throw new ApiError('Enter a valid phone number.');
+    }
+  }, []);
+
+  const verifyPhoneCode = useCallback(
+    async ({ name, code }: { phone: string; name: string; code: string }) => {
+      await delay(NETWORK_LATENCY_MS);
+      if (simulateFailuresRef.current) {
+        throw new ApiError('Incorrect code. Check your messages and try again.');
+      }
+      if (code.length !== 6) {
+        throw new ApiError('Enter the 6-digit code.');
+      }
+      updateMyName(name);
+      await completeSignIn();
+    },
+    [completeSignIn, updateMyName]
+  );
+
+  const signOut = useCallback(async () => {
+    setAuthenticated(false);
+    try {
+      await AsyncStorage.removeItem(AUTHENTICATED_KEY);
+    } catch {
+      // Non-fatal: local state is already signed out.
     }
   }, []);
 
@@ -226,14 +323,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<AppContextValue>(
     () => ({
       ready,
+      authenticated,
       onboarded,
       adventures,
       threads,
       simulateFailures,
-      me: users[ME_ID],
-      users,
+      me: usersState[ME_ID],
+      users: usersState,
       completeOnboarding,
       setSimulateFailures,
+      signInWithProvider,
+      signInWithEmail,
+      sendPhoneCode,
+      verifyPhoneCode,
+      signOut,
       fetchAdventures,
       joinAdventure,
       leaveAdventure,
@@ -248,11 +351,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       ready,
+      authenticated,
       onboarded,
       adventures,
       threads,
       simulateFailures,
+      usersState,
       completeOnboarding,
+      signInWithProvider,
+      signInWithEmail,
+      sendPhoneCode,
+      verifyPhoneCode,
+      signOut,
       fetchAdventures,
       joinAdventure,
       leaveAdventure,

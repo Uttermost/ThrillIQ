@@ -12,6 +12,10 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="onboarding" />
+        <Stack.Screen name="auth/index" />
+        <Stack.Screen name="auth/email" />
+        <Stack.Screen name="auth/phone" />
+        <Stack.Screen name="auth/otp" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="adventure/[id]" />
         <Stack.Screen name="chat/[id]" />
