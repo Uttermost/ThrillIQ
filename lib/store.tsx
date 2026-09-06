@@ -1,8 +1,34 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
+import { signInWithEmailReal, sendPhoneCodeReal, signOutReal, verifyPhoneCodeReal } from './authProvider';
 import { ME_ID, initialAdventures, initialThreads, users } from './mockData';
 import { Adventure, NewAdventureDraft, Thread, User } from './types';
+
+function authErrorMessage(e: unknown, fallback: string): string {
+  const code = (e as { code?: string })?.code;
+  switch (code) {
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential':
+      return 'Incorrect email or password.';
+    case 'auth/invalid-email':
+      return 'Enter a valid email address.';
+    case 'auth/weak-password':
+      return 'Choose a stronger password (at least 6 characters).';
+    case 'auth/email-already-in-use':
+      return 'That email is already in use with a different password.';
+    case 'auth/invalid-phone-number':
+      return 'Enter a valid phone number.';
+    case 'auth/invalid-verification-code':
+      return 'Incorrect code. Check your messages and try again.';
+    case 'auth/too-many-requests':
+      return 'Too many attempts. Try again in a moment.';
+    case 'auth/network-request-failed':
+      return "Couldn't reach the server. Check your connection.";
+    default:
+      return e instanceof Error && e.message ? e.message : fallback;
+  }
+}
 
 const ONBOARDED_KEY = 'thrilliq.onboarded';
 const AUTHENTICATED_KEY = 'thrilliq.authenticated';
@@ -120,12 +146,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithEmail = useCallback(
     async ({ name, email, password }: { name: string; email: string; password: string }) => {
-      await delay(NETWORK_LATENCY_MS);
       if (simulateFailuresRef.current) {
+        await delay(NETWORK_LATENCY_MS);
         throw new ApiError("Couldn't sign in. Check your details and try again.");
       }
       if (!email.includes('@') || password.length < 6) {
         throw new ApiError('Enter a valid email and a password of at least 6 characters.');
+      }
+      try {
+        await signInWithEmailReal(email, password);
+      } catch (e) {
+        throw new ApiError(authErrorMessage(e, "Couldn't sign in. Check your details and try again."));
       }
       updateMyName(name);
       await completeSignIn();
@@ -134,23 +165,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const sendPhoneCode = useCallback(async (phone: string) => {
-    await delay(NETWORK_LATENCY_MS);
-    if (simulateFailuresRef.current) {
-      throw new ApiError("Couldn't send the code. Check your connection.");
-    }
     if (phone.replace(/\D/g, '').length < 9) {
       throw new ApiError('Enter a valid phone number.');
+    }
+    if (simulateFailuresRef.current) {
+      await delay(NETWORK_LATENCY_MS);
+      throw new ApiError("Couldn't send the code. Check your connection.");
+    }
+    try {
+      await sendPhoneCodeReal(phone);
+    } catch (e) {
+      throw new ApiError(authErrorMessage(e, "Couldn't send the code. Check your connection."));
     }
   }, []);
 
   const verifyPhoneCode = useCallback(
     async ({ name, code }: { phone: string; name: string; code: string }) => {
-      await delay(NETWORK_LATENCY_MS);
-      if (simulateFailuresRef.current) {
-        throw new ApiError('Incorrect code. Check your messages and try again.');
-      }
       if (code.length !== 6) {
         throw new ApiError('Enter the 6-digit code.');
+      }
+      if (simulateFailuresRef.current) {
+        await delay(NETWORK_LATENCY_MS);
+        throw new ApiError('Incorrect code. Check your messages and try again.');
+      }
+      try {
+        await verifyPhoneCodeReal(code);
+      } catch (e) {
+        throw new ApiError(authErrorMessage(e, 'Incorrect code. Check your messages and try again.'));
       }
       updateMyName(name);
       await completeSignIn();
@@ -164,6 +205,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.removeItem(AUTHENTICATED_KEY);
     } catch {
       // Non-fatal: local state is already signed out.
+    }
+    try {
+      await signOutReal();
+    } catch {
+      // Non-fatal: local session is already cleared either way.
     }
   }, []);
 
