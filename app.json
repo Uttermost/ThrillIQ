@@ -13,7 +13,8 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.uttermost.thrilliq"
     },
     "android": {
       "package": "com.uttermost.thrilliq",
@@ -31,6 +32,15 @@
     "plugins": [
       "expo-router",
       "@react-native-firebase/app"
-    ]
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "066e33c2-8d04-426b-bc99-ce8204d58aaa"
+      }
+    },
+    "owner": "graphtechnologies"
   }
 }
