@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "530380846105",
+    "project_id": "thrilliq",
+    "storage_bucket": "thrilliq.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:530380846105:android:352b97c9d753d2dabae688",
+        "android_client_info": {
+          "package_name": "com.uttermost.thrilliq"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA-zxUNJpVsCLT6H-271jpf2CjD_YFaVNo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
