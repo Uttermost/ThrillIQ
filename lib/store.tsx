@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ME_ID, initialAdventures, initialThreads, users } from './mockData';
-import { Adventure, ChatMessage, NewAdventureDraft, Thread, User } from './types';
+import { Adventure, NewAdventureDraft, Thread, User } from './types';
 
 const ONBOARDED_KEY = 'thrilliq.onboarded';
 const NETWORK_LATENCY_MS = 650;

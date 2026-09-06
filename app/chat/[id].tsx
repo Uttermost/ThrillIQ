@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { ME_ID } from '@/lib/mockData';
 import { useApp } from '@/lib/store';
-import { colors, radius, spacing, typography } from '@/lib/theme';
+import { colors, radius, spacing } from '@/lib/theme';
 
 export default function Chat() {
   const { id } = useLocalSearchParams<{ id: string }>();
