@@ -4,10 +4,13 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/Button';
+import { ChipGroup } from '@/components/ui/ChipGroup';
 import { InlineError } from '@/components/ui/StateViews';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing, typography } from '@/lib/theme';
-import { ActivityType, NewAdventureDraft } from '@/lib/types';
+import { ActivityType, Difficulty, NewAdventureDraft } from '@/lib/types';
+
+const DIFFICULTIES: Difficulty[] = ['Beginner', 'Moderate', 'Challenging'];
 
 const EMPTY_DRAFT: NewAdventureDraft = {
   title: '',
@@ -52,6 +55,9 @@ export default function Create() {
   };
 
   const toggleType = (type: ActivityType) => setDraft((d) => ({ ...d, type }));
+  const setDifficulty = (values: Difficulty[]) => {
+    if (values.length > 0) setDraft((d) => ({ ...d, difficulty: values[values.length - 1] }));
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -80,6 +86,8 @@ export default function Create() {
             </Pressable>
           ))}
         </View>
+
+        <ChipGroup label="Difficulty" options={DIFFICULTIES} selected={[draft.difficulty]} onChange={setDifficulty} multi={false} />
 
         <View style={styles.row}>
           <TextInput
