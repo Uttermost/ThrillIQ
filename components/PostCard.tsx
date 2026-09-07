@@ -6,6 +6,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SharePostSheet } from '@/components/SharePostSheet';
 import { Avatar } from '@/components/ui/Avatar';
 import { Card } from '@/components/ui/Card';
+import { ReportSheet } from '@/components/ui/ReportSheet';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { useApp } from '@/lib/store';
 import { colors, iconSize, radius, spacing, type } from '@/lib/theme';
@@ -32,6 +33,7 @@ export function PostCard({ post, onToggleLike, onShared, hideCommentLink, hideCr
   const adventure = post.adventureId ? adventures.find((a) => a.id === post.adventureId) : undefined;
   const crew = post.crewId ? crews.find((c) => c.id === post.crewId) : undefined;
   const [shareSheetVisible, setShareSheetVisible] = useState(false);
+  const [reportSheetVisible, setReportSheetVisible] = useState(false);
   const [justShared, setJustShared] = useState(false);
   const [following, setFollowing] = useState(false);
   const isFollowing = myFollowingIds.has(post.authorId);
@@ -81,10 +83,20 @@ export function PostCard({ post, onToggleLike, onShared, hideCommentLink, hideCr
             <Text style={styles.timestamp}>{formatRelativeTime(post.createdAt)}</Text>
           </View>
         </Pressable>
-        {post.authorId !== myId && !isFollowing && (
-          <Pressable style={styles.followPill} onPress={handleFollow} disabled={following} hitSlop={8} accessibilityLabel="Follow author">
-            <Text style={styles.followPillLabel}>Follow</Text>
-          </Pressable>
+        {post.authorId !== myId && (
+          <View style={styles.headerActions}>
+            {!isFollowing && (
+              <Pressable style={styles.followPill} onPress={handleFollow} disabled={following} hitSlop={8} accessibilityLabel="Follow author">
+                <Text style={styles.followPillLabel}>Follow</Text>
+              </Pressable>
+            )}
+            <Pressable
+              onPress={() => (authenticated ? setReportSheetVisible(true) : router.push('/auth'))}
+              hitSlop={8}
+              accessibilityLabel="Report post">
+              <Ionicons name="flag-outline" size={18} color={colors.textMuted} />
+            </Pressable>
+          </View>
         )}
       </View>
 
@@ -148,6 +160,7 @@ export function PostCard({ post, onToggleLike, onShared, hideCommentLink, hideCr
       </View>
 
       <SharePostSheet visible={shareSheetVisible} onClose={() => setShareSheetVisible(false)} post={post} onShared={handleShared} />
+      <ReportSheet visible={reportSheetVisible} onClose={() => setReportSheetVisible(false)} targetType="post" targetId={post.id} />
     </Card>
   );
 }
@@ -157,6 +170,7 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   authorRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   authorText: { flex: 1 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   followPill: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,

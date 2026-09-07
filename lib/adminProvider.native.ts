@@ -8,12 +8,26 @@ const AUDIT_LOG = 'auditLog';
 export async function submitReportReal(report: {
   targetType: Report['targetType'];
   targetId: string;
+  contextId?: string;
   reporterId: string;
   reason: Report['reason'];
   details: string;
 }): Promise<Report> {
   const id = `report-${Date.now()}`;
-  const doc: Report = { id, ...report, status: 'open', createdAt: Date.now() };
+  // Firestore rejects an explicit `undefined` field value, so contextId is
+  // only included in the write when actually present — same pattern as
+  // Post.photos/PostComment.parentCommentId elsewhere in this file's peers.
+  const doc: Report = {
+    id,
+    targetType: report.targetType,
+    targetId: report.targetId,
+    ...(report.contextId ? { contextId: report.contextId } : {}),
+    reporterId: report.reporterId,
+    reason: report.reason,
+    details: report.details,
+    status: 'open',
+    createdAt: Date.now(),
+  };
   await firestore().collection(REPORTS).doc(id).set(doc);
   return doc;
 }

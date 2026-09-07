@@ -15,9 +15,12 @@ interface ReportSheetProps {
   onClose: () => void;
   targetType: ReportTargetType;
   targetId: string;
+  // Only meaningful for targetType 'comment' — the post it belongs to, so
+  // admin can navigate there (comments have no page of their own).
+  contextId?: string;
 }
 
-export function ReportSheet({ visible, onClose, targetType, targetId }: ReportSheetProps) {
+export function ReportSheet({ visible, onClose, targetType, targetId, contextId }: ReportSheetProps) {
   const { submitReport } = useApp();
   const { width } = useWindowDimensions();
   const isWide = width > CONTENT_MAX_WIDTH;
@@ -40,7 +43,7 @@ export function ReportSheet({ visible, onClose, targetType, targetId }: ReportSh
     setSubmitting(true);
     setError(null);
     try {
-      await submitReport({ targetType, targetId, reason: reason[0], details });
+      await submitReport({ targetType, targetId, contextId, reason: reason[0], details });
       setSubmitted(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong.');

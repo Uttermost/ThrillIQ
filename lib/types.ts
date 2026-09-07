@@ -73,7 +73,7 @@ export interface User {
   isAdmin?: boolean;
 }
 
-export type ReportTargetType = 'adventure' | 'user' | 'review';
+export type ReportTargetType = 'adventure' | 'user' | 'review' | 'post' | 'comment';
 export type ReportReason = 'Spam' | 'Inappropriate content' | 'Safety concern' | 'Other';
 export type ReportStatus = 'open' | 'resolved' | 'dismissed';
 
@@ -81,6 +81,11 @@ export interface Report {
   id: string;
   targetType: ReportTargetType;
   targetId: string;
+  // Only set for a 'comment' report — the id of the post it belongs to.
+  // Comments have no page of their own, so admin needs this to navigate
+  // to the right place; every other targetType is navigable from targetId
+  // alone.
+  contextId?: string;
   reporterId: string;
   reason: ReportReason;
   details: string;

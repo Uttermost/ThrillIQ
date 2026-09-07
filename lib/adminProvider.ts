@@ -7,6 +7,7 @@ import { AuditLogEntry, Report, ReportStatus } from './types';
 export async function submitReportReal(_report: {
   targetType: Report['targetType'];
   targetId: string;
+  contextId?: string;
   reporterId: string;
   reason: Report['reason'];
   details: string;

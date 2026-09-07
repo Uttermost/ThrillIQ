@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PostCard } from '@/components/PostCard';
 import { Avatar } from '@/components/ui/Avatar';
+import { ReportSheet } from '@/components/ui/ReportSheet';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { ErrorState } from '@/components/ui/StateViews';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -19,7 +20,7 @@ type Status = 'loading' | 'ready' | 'error';
 
 export default function PostDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { me, users, authenticated, posts, toggleLikePost, toggleLikeComment, recordShare, fetchCommentsForPost, createComment, fetchOtherProfile } =
+  const { myId, me, users, authenticated, posts, toggleLikePost, toggleLikeComment, recordShare, fetchCommentsForPost, createComment, fetchOtherProfile } =
     useApp();
   const post = posts.find((p) => p.id === id);
 
@@ -28,6 +29,7 @@ export default function PostDetail() {
   const [draft, setDraft] = useState('');
   const [posting, setPosting] = useState(false);
   const [replyingTo, setReplyingTo] = useState<{ id: string; authorName: string } | null>(null);
+  const [reportingCommentId, setReportingCommentId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -169,6 +171,14 @@ export default function PostDetail() {
                         <Text style={styles.replyLink}>Reply</Text>
                       </Pressable>
                     )}
+                    {item.authorId !== myId && (
+                      <Pressable
+                        onPress={() => (authenticated ? setReportingCommentId(item.id) : router.push('/auth'))}
+                        hitSlop={8}
+                        accessibilityLabel="Report comment">
+                        <Text style={styles.reportLink}>Report</Text>
+                      </Pressable>
+                    )}
                   </View>
                 </View>
               </View>
@@ -211,6 +221,13 @@ export default function PostDetail() {
           </Pressable>
         )}
       </KeyboardAvoidingView>
+      <ReportSheet
+        visible={!!reportingCommentId}
+        onClose={() => setReportingCommentId(null)}
+        targetType="comment"
+        targetId={reportingCommentId ?? ''}
+        contextId={post.id}
+      />
     </SafeAreaView>
   );
 }
@@ -240,6 +257,7 @@ const styles = StyleSheet.create({
   commentLikeBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   commentLikeCount: { ...type.secondary, color: colors.textSecondary },
   replyLink: { ...type.secondary, color: colors.primary, fontWeight: '700' },
+  reportLink: { ...type.secondary, color: colors.textMuted },
   replyingToRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

@@ -99,13 +99,25 @@ export default function Admin() {
               ) : (
                 reports.map((r) => {
                   const reporter = users[r.reporterId];
+                  // Comments have no page of their own — contextId (the
+                  // post they belong to) is where admin can actually see
+                  // one in place; every other target type is navigable
+                  // from targetId alone.
+                  const targetHref =
+                    r.targetType === 'user'
+                      ? `/profile/${r.targetId}`
+                      : r.targetType === 'post'
+                        ? `/post/${r.targetId}`
+                        : r.targetType === 'comment'
+                          ? (r.contextId ? `/post/${r.contextId}` : null)
+                          : `/adventure/${r.targetId}`;
                   return (
                     <View key={r.id} style={styles.card}>
                       <View style={styles.cardHeader}>
                         <Badge label={r.reason} tone="accent" />
                         <Text style={styles.cardDate}>{formatRelativeTime(r.createdAt)}</Text>
                       </View>
-                      <Pressable onPress={() => router.push(r.targetType === 'user' ? `/profile/${r.targetId}` : `/adventure/${r.targetId}`)}>
+                      <Pressable onPress={() => targetHref && router.push(targetHref)} disabled={!targetHref}>
                         <Text style={styles.cardTarget}>
                           Reported {r.targetType}: {r.targetId}
                         </Text>

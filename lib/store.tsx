@@ -211,7 +211,7 @@ interface AppContextValue extends AppState {
   fetchWaitlist: (adventureId: string) => Promise<WaitlistEntry[]>;
   joinWaitlist: (adventureId: string) => Promise<void>;
   leaveWaitlist: (adventureId: string) => Promise<void>;
-  submitReport: (input: { targetType: Report['targetType']; targetId: string; reason: Report['reason']; details: string }) => Promise<void>;
+  submitReport: (input: { targetType: Report['targetType']; targetId: string; contextId?: string; reason: Report['reason']; details: string }) => Promise<void>;
   fetchOpenReports: () => Promise<Report[]>;
   resolveReport: (report: Report, status: ReportStatus) => Promise<void>;
   fetchAuditLog: () => Promise<AuditLogEntry[]>;
@@ -1237,7 +1237,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const submitReport = useCallback(
-    async ({ targetType, targetId, reason, details }: { targetType: Report['targetType']; targetId: string; reason: Report['reason']; details: string }) => {
+    async ({
+      targetType,
+      targetId,
+      contextId,
+      reason,
+      details,
+    }: {
+      targetType: Report['targetType'];
+      targetId: string;
+      contextId?: string;
+      reason: Report['reason'];
+      details: string;
+    }) => {
       if (simulateFailuresRef.current) {
         await delay(NETWORK_LATENCY_MS);
         throw new ApiError("Couldn't submit your report. Try again.");
@@ -1248,6 +1260,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           id: `report-${Date.now()}`,
           targetType,
           targetId,
+          ...(contextId ? { contextId } : {}),
           reporterId: myIdRef.current,
           reason,
           details: details.trim(),
@@ -1258,7 +1271,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       try {
-        await submitReportReal({ targetType, targetId, reporterId: myIdRef.current, reason, details: details.trim() });
+        await submitReportReal({ targetType, targetId, contextId, reporterId: myIdRef.current, reason, details: details.trim() });
       } catch (e) {
         throw new ApiError(e instanceof Error ? e.message : "Couldn't submit your report. Try again.");
       }
