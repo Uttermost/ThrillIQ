@@ -84,8 +84,13 @@ export interface Adventure {
   latitude: number | null;
   longitude: number | null;
   priceKsh: number;
+  cancellationPolicy: string;
   spotsTotal: number;
   spotsFilled: number;
+  childrenWelcome: boolean;
+  equipment: string;
+  included: string;
+  excluded: string;
   organizerId: string;
   participantIds: string[];
   guidelines: string[];
@@ -132,7 +137,9 @@ export interface NewAdventureDraft {
   title: string;
   description: string;
   schedule: string;
+  location: string;
   priceKsh: string;
+  cancellationPolicy: string;
   spots: string;
   category: Category;
   difficulty: Difficulty;
@@ -142,6 +149,10 @@ export interface NewAdventureDraft {
   transport: Transport;
   audience: Audience[];
   when: WhenBucket;
+  childrenWelcome: boolean;
+  equipment: string;
+  included: string;
+  excluded: string;
   noAlcohol: boolean;
   petsOk: boolean;
 }
