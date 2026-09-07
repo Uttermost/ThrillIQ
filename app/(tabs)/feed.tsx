@@ -16,8 +16,10 @@ import { Post } from '@/lib/types';
 const POST_MAX = 500;
 type Status = 'loading' | 'ready' | 'error';
 
+type FeedTab = 'forYou' | 'following';
+
 export default function Feed() {
-  const { myId, me, authenticated, adventures, posts, fetchPosts, createPost, toggleLikePost, recordShare } = useApp();
+  const { myId, me, authenticated, adventures, posts, fetchPosts, createPost, toggleLikePost, recordShare, myFollowingIds } = useApp();
   const [status, setStatus] = useState<Status>('loading');
   const [refreshing, setRefreshing] = useState(false);
   const [text, setText] = useState('');
@@ -25,6 +27,7 @@ export default function Feed() {
   const [taggedAdventureId, setTaggedAdventureId] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
+  const [tab, setTab] = useState<FeedTab>('forYou');
 
   const load = useCallback(() => {
     setStatus('loading');
@@ -53,6 +56,18 @@ export default function Feed() {
   );
 
   const sorted = useMemo(() => [...posts].sort((a, b) => b.createdAt - a.createdAt), [posts]);
+  const visible = useMemo(
+    () => (tab === 'following' ? sorted.filter((p) => myFollowingIds.has(p.authorId)) : sorted),
+    [sorted, tab, myFollowingIds]
+  );
+
+  const handleTabChange = (next: FeedTab) => {
+    if (next === 'following' && !authenticated) {
+      router.push('/auth');
+      return;
+    }
+    setTab(next);
+  };
 
   const handlePost = async () => {
     if (!text.trim()) return;
@@ -90,6 +105,15 @@ export default function Feed() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <Text style={styles.heading}>Feed</Text>
 
+      <View style={styles.tabRow}>
+        <Pressable onPress={() => handleTabChange('forYou')} style={[styles.tabBtn, tab === 'forYou' && styles.tabBtnActive]}>
+          <Text style={[styles.tabLabel, tab === 'forYou' && styles.tabLabelActive]}>For You</Text>
+        </Pressable>
+        <Pressable onPress={() => handleTabChange('following')} style={[styles.tabBtn, tab === 'following' && styles.tabBtnActive]}>
+          <Text style={[styles.tabLabel, tab === 'following' && styles.tabLabelActive]}>Following</Text>
+        </Pressable>
+      </View>
+
       {status === 'loading' && (
         <View style={styles.list}>
           <Skeleton style={{ height: 120, marginBottom: spacing.md }} />
@@ -101,7 +125,7 @@ export default function Feed() {
 
       {status === 'ready' && (
         <FlatList
-          data={sorted}
+          data={visible}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.textSecondary} />}
@@ -156,7 +180,15 @@ export default function Feed() {
             </View>
           )}
           ListEmptyComponent={
-            <EmptyState icon="chatbubbles-outline" title="No posts yet" message="Be the first to share something with the community." />
+            tab === 'following' ? (
+              <EmptyState
+                icon="person-add-outline"
+                title="Not following anyone yet"
+                message="Follow people from their profile to see their posts here."
+              />
+            ) : (
+              <EmptyState icon="chatbubbles-outline" title="No posts yet" message="Be the first to share something with the community." />
+            )
           }
         />
       )}
@@ -167,6 +199,11 @@ export default function Feed() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   heading: { ...type.screenHeading, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.md },
+  tabRow: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg, marginBottom: spacing.md },
+  tabBtn: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: radius.pill, backgroundColor: colors.surfaceMuted },
+  tabBtnActive: { backgroundColor: colors.primary },
+  tabLabel: { ...type.chip, color: colors.textSecondary },
+  tabLabelActive: { color: '#fff' },
   list: { padding: spacing.lg, paddingTop: 0, gap: spacing.md },
   composer: {
     backgroundColor: colors.surface,

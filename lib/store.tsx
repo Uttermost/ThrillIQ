@@ -24,6 +24,7 @@ import { fetchAuditLogReal, fetchOpenReportsReal, recordAuditLogReal, resolveRep
 import { fetchConnectionsForReal, respondToConnectionRequestReal, sendConnectionRequestReal } from './connectionsProvider';
 import { createCrewReal, joinCrewReal, leaveCrewReal, subscribeCrewsReal } from './crewsProvider';
 import { formatDateLabel, formatTimeLabel } from './dateFormat';
+import { fetchFollowersReal, fetchFollowingReal, followUserReal, unfollowUserReal } from './followsProvider';
 import {
   ME_ID,
   initialAcknowledgements,
@@ -31,6 +32,7 @@ import {
   initialAuditLog,
   initialConnections,
   initialCrews,
+  initialFollows,
   initialPostComments,
   initialPosts,
   initialReports,
@@ -52,6 +54,7 @@ import {
   Crew,
   DEFAULT_PRIVACY,
   DeepLink,
+  Follow,
   NewAdventureDraft,
   NotificationType,
   Post,
@@ -186,6 +189,14 @@ interface AppContextValue extends AppState {
   fetchCommentsForPost: (postId: string) => Promise<PostComment[]>;
   createComment: (input: { postId: string; text: string }) => Promise<PostComment>;
   recordShare: (postId: string) => void;
+  // Who the signed-in user follows — always available without a fetch (a
+  // small, own-account-scoped set), unlike per-profile follower/following
+  // counts below which are fetched on demand per screen.
+  myFollowingIds: Set<string>;
+  fetchFollowersFor: (uid: string) => Promise<Follow[]>;
+  fetchFollowingFor: (uid: string) => Promise<Follow[]>;
+  followUser: (uid: string) => Promise<void>;
+  unfollowUser: (uid: string) => Promise<void>;
   fetchConnectionsFor: (uid: string) => Promise<Connection[]>;
   sendConnectionRequest: (toUserId: string) => Promise<void>;
   respondToConnectionRequest: (connectionId: string, accept: boolean) => Promise<void>;
@@ -216,6 +227,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [postComments, setPostComments] = useState<PostComment[]>(IS_NATIVE ? [] : initialPostComments);
   const postCommentsRef = useRef(postComments);
   postCommentsRef.current = postComments;
+  // On web this holds the whole mock follow graph (initialFollows), same as
+  // crews/adventures. On native it holds only the signed-in user's own
+  // following edges (populated below) — never the full collection, which
+  // isn't meant to be globally loaded the way the small demo ones are.
+  const [follows, setFollows] = useState<Follow[]>(IS_NATIVE ? [] : initialFollows);
+  const followsRef = useRef(follows);
+  followsRef.current = follows;
+  const myFollowingIds = useMemo(() => new Set(follows.filter((f) => f.followerId === myId).map((f) => f.followingId)), [follows, myId]);
   const [threads, setThreads] = useState<Thread[]>(initialThreads);
   const [notifications, setNotifications] = useState<AppNotification[]>(() =>
     initialThreads
@@ -367,6 +386,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     );
   }, []);
+
+  // Unlike the live subscriptions above, this is a one-shot fetch of just
+  // the signed-in user's own following edges — not the whole follows
+  // collection, which has no reason to be loaded client-side in full.
+  useEffect(() => {
+    if (!IS_NATIVE || !authenticated) return;
+    let cancelled = false;
+    fetchFollowingReal(myId)
+      .then((list) => {
+        if (!cancelled) setFollows(list);
+      })
+      .catch(() => {
+        // Best-effort: myFollowingIds just stays empty/stale on failure.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authenticated, myId]);
 
   // Real Firestore posts feed — publicly browsable like adventures/crews.
   useEffect(() => {
@@ -881,6 +918,69 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     incrementShareCountReal(id).catch(() => {});
+  }, []);
+
+  const fetchFollowersFor = useCallback(async (uid: string): Promise<Follow[]> => {
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      return followsRef.current.filter((f) => f.followingId === uid);
+    }
+    try {
+      return await fetchFollowersReal(uid);
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const fetchFollowingFor = useCallback(async (uid: string): Promise<Follow[]> => {
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      return followsRef.current.filter((f) => f.followerId === uid);
+    }
+    try {
+      return await fetchFollowingReal(uid);
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const followUser = useCallback(async (uid: string) => {
+    if (simulateFailuresRef.current) {
+      await delay(NETWORK_LATENCY_MS);
+      throw new ApiError("Couldn't follow. Try again.");
+    }
+    const id = `${myIdRef.current}_${uid}`;
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      if (followsRef.current.some((f) => f.id === id)) return;
+      setFollows((prev) => [...prev, { id, followerId: myIdRef.current, followingId: uid, createdAt: Date.now() }]);
+      return;
+    }
+    try {
+      const created = await followUserReal(myIdRef.current, uid);
+      setFollows((prev) => (prev.some((f) => f.id === created.id) ? prev : [...prev, created]));
+    } catch (e) {
+      throw new ApiError(e instanceof Error ? e.message : "Couldn't follow. Try again.");
+    }
+  }, []);
+
+  const unfollowUser = useCallback(async (uid: string) => {
+    if (simulateFailuresRef.current) {
+      await delay(NETWORK_LATENCY_MS);
+      throw new ApiError("Couldn't unfollow. Try again.");
+    }
+    const id = `${myIdRef.current}_${uid}`;
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      setFollows((prev) => prev.filter((f) => f.id !== id));
+      return;
+    }
+    try {
+      await unfollowUserReal(myIdRef.current, uid);
+      setFollows((prev) => prev.filter((f) => f.id !== id));
+    } catch (e) {
+      throw new ApiError(e instanceof Error ? e.message : "Couldn't unfollow. Try again.");
+    }
   }, []);
 
   const fetchConnectionsFor = useCallback(async (uid: string): Promise<Connection[]> => {
@@ -1414,6 +1514,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchCommentsForPost,
       createComment,
       recordShare,
+      myFollowingIds,
+      fetchFollowersFor,
+      fetchFollowingFor,
+      followUser,
+      unfollowUser,
       fetchConnectionsFor,
       sendConnectionRequest,
       respondToConnectionRequest,
@@ -1474,6 +1579,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchCommentsForPost,
       createComment,
       recordShare,
+      myFollowingIds,
+      fetchFollowersFor,
+      fetchFollowingFor,
+      followUser,
+      unfollowUser,
       fetchConnectionsFor,
       sendConnectionRequest,
       respondToConnectionRequest,

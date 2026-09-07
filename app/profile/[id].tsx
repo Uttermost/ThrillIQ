@@ -29,12 +29,20 @@ export default function ParticipantProfile() {
     sendConnectionRequest,
     respondToConnectionRequest,
     ensureThreadForAdventure,
+    myFollowingIds,
+    fetchFollowersFor,
+    fetchFollowingFor,
+    followUser,
+    unfollowUser,
   } = useApp();
   const [profile, setProfile] = useState<User | null>(null);
   const [reviews, setReviews] = useState<Review[] | null>(null);
   const [connections, setConnections] = useState<Connection[] | null>(null);
   const [connectionBusy, setConnectionBusy] = useState(false);
   const [reportVisible, setReportVisible] = useState(false);
+  const [followerCount, setFollowerCount] = useState<number | null>(null);
+  const [followingCount, setFollowingCount] = useState<number | null>(null);
+  const [followBusy, setFollowBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,6 +83,21 @@ export default function ParticipantProfile() {
       cancelled = true;
     };
   }, [id, fetchConnectionsFor]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setFollowerCount(null);
+    setFollowingCount(null);
+    fetchFollowersFor(id).then((list) => {
+      if (!cancelled) setFollowerCount(list.length);
+    });
+    fetchFollowingFor(id).then((list) => {
+      if (!cancelled) setFollowingCount(list.length);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, fetchFollowersFor, fetchFollowingFor]);
 
   const averageRating = useMemo(() => {
     if (!reviews || reviews.length === 0) return null;
@@ -156,6 +179,30 @@ export default function ParticipantProfile() {
     }
   };
 
+  const isFollowing = myFollowingIds.has(id);
+
+  const handleFollowToggle = async () => {
+    if (!authenticated) {
+      router.push('/auth');
+      return;
+    }
+    setFollowBusy(true);
+    try {
+      if (isFollowing) {
+        await unfollowUser(id);
+        setFollowerCount((prev) => (prev != null ? Math.max(0, prev - 1) : prev));
+      } else {
+        await followUser(id);
+        setFollowerCount((prev) => (prev != null ? prev + 1 : prev));
+      }
+    } catch {
+      // Best-effort: the button just reflects myFollowingIds either way,
+      // which only changes once the write actually succeeded.
+    } finally {
+      setFollowBusy(false);
+    }
+  };
+
   const handleMessage = () => {
     if (!authenticated) {
       router.push('/auth');
@@ -175,6 +222,16 @@ export default function ParticipantProfile() {
           <Text style={styles.name}>{profile.name}</Text>
           {!!profile.username && <Text style={styles.username}>@{profile.username}</Text>}
           {showLocation && <Text style={styles.location}>{profile.location}</Text>}
+          {!isSelf && (
+            <Button
+              label={isFollowing ? 'Following' : 'Follow'}
+              accessibilityLabel={isFollowing ? 'Unfollow' : 'Follow'}
+              variant={isFollowing ? 'secondary' : 'primary'}
+              onPress={handleFollowToggle}
+              loading={followBusy}
+              style={styles.followBtn}
+            />
+          )}
         </View>
 
         {!!profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}
@@ -195,12 +252,12 @@ export default function ParticipantProfile() {
           </View>
         )}
 
-        {(privacy.showCompletedAdventures || privacy.showConnections) && (
-          <View style={styles.statsRow}>
-            {privacy.showCompletedAdventures && <Stat value={profile.completedAdventuresCount ?? 0} label="Completed" />}
-            {privacy.showConnections && <Stat value={acceptedConnectionCount} label="Connections" />}
-          </View>
-        )}
+        <View style={styles.statsRow}>
+          {privacy.showCompletedAdventures && <Stat value={profile.completedAdventuresCount ?? 0} label="Completed" />}
+          {privacy.showConnections && <Stat value={acceptedConnectionCount} label="Connections" />}
+          <Stat value={followerCount ?? 0} label="Followers" />
+          <Stat value={followingCount ?? 0} label="Following" />
+        </View>
 
         {privacy.showCrews && memberCrews.length > 0 && (
           <View style={styles.chipRow}>
@@ -298,6 +355,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.lg, gap: spacing.md },
   header: { alignItems: 'center', gap: spacing.xs },
+  followBtn: { marginTop: spacing.sm, minWidth: 140 },
   name: { ...typography.heading, marginTop: spacing.sm },
   username: { ...typography.caption },
   location: { ...typography.small },

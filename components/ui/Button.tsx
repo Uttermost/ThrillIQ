@@ -12,14 +12,20 @@ interface ButtonProps {
   disabled?: boolean;
   loading?: boolean;
   style?: ViewStyle;
+  // Only needed when `label` alone would be ambiguous on screen (e.g. a
+  // toggle button whose text matches an unrelated label elsewhere on the
+  // same screen) — falls back to `label` otherwise, same as before this
+  // prop existed.
+  accessibilityLabel?: string;
 }
 
-export function Button({ label, onPress, variant = 'primary', disabled, loading, style }: ButtonProps) {
+export function Button({ label, onPress, variant = 'primary', disabled, loading, style, accessibilityLabel }: ButtonProps) {
   const isDisabled = disabled || loading;
   return (
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
+      accessibilityLabel={accessibilityLabel ?? label}
       style={({ pressed }) => [
         styles.base,
         variant === 'secondary' || variant === 'ghost' ? styles.secondaryHeight : styles.primaryHeight,

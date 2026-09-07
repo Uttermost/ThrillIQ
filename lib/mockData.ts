@@ -4,6 +4,7 @@ import {
   Crew,
   DEFAULT_PRIVACY,
   Adventure,
+  Follow,
   Post,
   PostComment,
   Report,
@@ -448,6 +449,18 @@ export const initialConnections: Connection[] = [
     status: 'pending',
     createdAt: inDays(-1),
   },
+];
+
+// Deliberately not symmetric with initialConnections — Follow and Connection
+// are different relationships (see the Follow type comment). The
+// signed-in user follows Tom, an organizer they're not Connected to, to
+// show that following doesn't require a mutual connection first.
+export const initialFollows: Follow[] = [
+  { id: `${ME_ID}_u-tom`, followerId: ME_ID, followingId: 'u-tom', createdAt: inDays(-20) },
+  { id: `${ME_ID}_u-amina`, followerId: ME_ID, followingId: 'u-amina', createdAt: inDays(-14) },
+  { id: `u-brian_${ME_ID}`, followerId: 'u-brian', followingId: ME_ID, createdAt: inDays(-28) },
+  { id: `u-tom_${ME_ID}`, followerId: 'u-tom', followingId: ME_ID, createdAt: inDays(-9) },
+  { id: 'u-kevin_u-tom', followerId: 'u-kevin', followingId: 'u-tom', createdAt: inDays(-40) },
 ];
 
 // a-amboseli is the one seed adventure at capacity (8/8) — a natural seed

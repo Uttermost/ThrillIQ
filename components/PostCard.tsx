@@ -24,11 +24,13 @@ interface PostCardProps {
 }
 
 export function PostCard({ post, onToggleLike, onShared, hideCommentLink }: PostCardProps) {
-  const { myId, users, adventures, fetchOtherProfile } = useApp();
+  const { myId, authenticated, users, adventures, fetchOtherProfile, myFollowingIds, followUser } = useApp();
   const author = users[post.authorId];
   const adventure = post.adventureId ? adventures.find((a) => a.id === post.adventureId) : undefined;
   const [sharing, setSharing] = useState(false);
   const [justShared, setJustShared] = useState(false);
+  const [following, setFollowing] = useState(false);
+  const isFollowing = myFollowingIds.has(post.authorId);
 
   useEffect(() => {
     if (!users[post.authorId]) fetchOtherProfile(post.authorId);
@@ -41,6 +43,22 @@ export function PostCard({ post, onToggleLike, onShared, hideCommentLink }: Post
   const openAdventure = () => {
     if (!adventure) return;
     router.push(adventure.organizerId === myId ? `/organizer/${adventure.id}` : `/adventure/${adventure.id}`);
+  };
+
+  const handleFollow = async () => {
+    if (!authenticated) {
+      router.push('/auth');
+      return;
+    }
+    setFollowing(true);
+    try {
+      await followUser(post.authorId);
+    } catch {
+      // Best-effort: the pill just stays visible on failure (myFollowingIds
+      // only changes once the write actually succeeded).
+    } finally {
+      setFollowing(false);
+    }
   };
 
   const handleShare = async () => {
@@ -60,13 +78,20 @@ export function PostCard({ post, onToggleLike, onShared, hideCommentLink }: Post
 
   return (
     <Card style={styles.card}>
-      <Pressable style={styles.authorRow} onPress={() => router.push(`/profile/${post.authorId}`)}>
-        <Avatar initials={author?.initials ?? '?'} hue={author?.avatarHue ?? 200} size={40} />
-        <View style={styles.authorText}>
-          <Text style={styles.authorName}>{author?.name ?? 'Someone'}</Text>
-          <Text style={styles.timestamp}>{formatRelativeTime(post.createdAt)}</Text>
-        </View>
-      </Pressable>
+      <View style={styles.headerRow}>
+        <Pressable style={styles.authorRow} onPress={() => router.push(`/profile/${post.authorId}`)}>
+          <Avatar initials={author?.initials ?? '?'} hue={author?.avatarHue ?? 200} size={40} />
+          <View style={styles.authorText}>
+            <Text style={styles.authorName}>{author?.name ?? 'Someone'}</Text>
+            <Text style={styles.timestamp}>{formatRelativeTime(post.createdAt)}</Text>
+          </View>
+        </Pressable>
+        {post.authorId !== myId && !isFollowing && (
+          <Pressable style={styles.followPill} onPress={handleFollow} disabled={following} hitSlop={8} accessibilityLabel="Follow author">
+            <Text style={styles.followPillLabel}>Follow</Text>
+          </Pressable>
+        )}
+      </View>
 
       <Text style={styles.text}>{post.text}</Text>
 
@@ -119,8 +144,17 @@ export function PostCard({ post, onToggleLike, onShared, hideCommentLink }: Post
 
 const styles = StyleSheet.create({
   card: { gap: spacing.sm },
-  authorRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  authorRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   authorText: { flex: 1 },
+  followPill: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  followPillLabel: { ...type.chip, color: colors.primary },
   authorName: { ...type.bodyEmphasis },
   timestamp: { ...type.secondary, color: colors.textMuted },
   text: { ...type.body, color: colors.textPrimary },

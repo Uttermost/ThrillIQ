@@ -187,6 +187,16 @@ export interface WaitlistEntry {
   createdAt: number;
 }
 
+// One-way and unapproved — deliberately distinct from Connection, which is
+// mutual and gates messaging/visibility. A Follow just curates the Feed's
+// "Following" filter; following someone needs no acceptance from them.
+export interface Follow {
+  id: string; // `${followerId}_${followingId}` — deterministic, at most one row per direction
+  followerId: string;
+  followingId: string;
+  createdAt: number;
+}
+
 export type ConnectionStatus = 'pending' | 'accepted';
 
 export interface Connection {
