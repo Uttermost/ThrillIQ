@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/ui/Avatar';
@@ -12,13 +12,27 @@ import { StarRating } from '@/components/ui/StarRating';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing, typography } from '@/lib/theme';
-import { DEFAULT_PRIVACY, Review, User } from '@/lib/types';
+import { Connection, DEFAULT_PRIVACY, Review, User } from '@/lib/types';
 
 export default function ParticipantProfile() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { myId, authenticated, adventures, users, fetchOtherProfile, fetchReviewsForOrganizer, ensureThreadForAdventure } = useApp();
+  const {
+    myId,
+    authenticated,
+    adventures,
+    crews,
+    users,
+    fetchOtherProfile,
+    fetchReviewsForOrganizer,
+    fetchConnectionsFor,
+    sendConnectionRequest,
+    respondToConnectionRequest,
+    ensureThreadForAdventure,
+  } = useApp();
   const [profile, setProfile] = useState<User | null>(null);
   const [reviews, setReviews] = useState<Review[] | null>(null);
+  const [connections, setConnections] = useState<Connection[] | null>(null);
+  const [connectionBusy, setConnectionBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,10 +63,25 @@ export default function ParticipantProfile() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reviews]);
 
+  useEffect(() => {
+    let cancelled = false;
+    setConnections(null);
+    fetchConnectionsFor(id).then((list) => {
+      if (!cancelled) setConnections(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, fetchConnectionsFor]);
+
   const averageRating = useMemo(() => {
     if (!reviews || reviews.length === 0) return null;
     return reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
   }, [reviews]);
+
+  const myConnection = connections?.find((c) => c.participantIds.includes(myId)) ?? null;
+  const acceptedConnectionCount = connections?.filter((c) => c.status === 'accepted').length ?? 0;
+  const memberCrews = crews.filter((c) => c.memberIds.includes(id));
 
   // Computable today without a Connections system: adventures where both
   // people appear, either as organizer or participant.
@@ -81,6 +110,49 @@ export default function ParticipantProfile() {
   const preferenceBits = [profile.experienceLevel, profile.preferredSocialLevel, profile.preferredPace ? `${profile.preferredPace} pace` : null].filter(
     Boolean
   );
+
+  const handleConnect = async () => {
+    if (!authenticated) {
+      router.push('/auth');
+      return;
+    }
+    setConnectionBusy(true);
+    try {
+      await sendConnectionRequest(id);
+      setConnections((prev) => [
+        ...(prev ?? []),
+        {
+          id: '',
+          participantIds: [myId, id].sort() as [string, string],
+          requesterId: myId,
+          recipientId: id,
+          status: 'pending' as const,
+          createdAt: Date.now(),
+        },
+      ]);
+    } catch {
+      // Best-effort: the button just stays as "Connect" on failure.
+    } finally {
+      setConnectionBusy(false);
+    }
+  };
+
+  const handleRespond = async (accept: boolean) => {
+    if (!myConnection) return;
+    setConnectionBusy(true);
+    try {
+      await respondToConnectionRequest(myConnection.id, accept);
+      setConnections((prev) =>
+        (prev ?? [])
+          .map((c) => (c.id === myConnection.id ? { ...c, status: 'accepted' as const } : c))
+          .filter((c) => accept || c.id !== myConnection.id)
+      );
+    } catch {
+      // Best-effort: the buttons just stay visible on failure.
+    } finally {
+      setConnectionBusy(false);
+    }
+  };
 
   const handleMessage = () => {
     if (!authenticated) {
@@ -121,10 +193,20 @@ export default function ParticipantProfile() {
           </View>
         )}
 
-        {privacy.showCompletedAdventures && (
+        {(privacy.showCompletedAdventures || privacy.showConnections) && (
           <View style={styles.statsRow}>
-            <Stat value={profile.completedAdventuresCount ?? 0} label="Completed" />
-            {privacy.showConnections && <Stat value={profile.connectionsCount ?? 0} label="Connections" />}
+            {privacy.showCompletedAdventures && <Stat value={profile.completedAdventuresCount ?? 0} label="Completed" />}
+            {privacy.showConnections && <Stat value={acceptedConnectionCount} label="Connections" />}
+          </View>
+        )}
+
+        {privacy.showCrews && memberCrews.length > 0 && (
+          <View style={styles.chipRow}>
+            {memberCrews.map((c) => (
+              <Pressable key={c.id} onPress={() => router.push(`/crew/${c.id}`)}>
+                <Badge label={c.name} tone="neutral" />
+              </Pressable>
+            ))}
           </View>
         )}
 
@@ -161,6 +243,22 @@ export default function ParticipantProfile() {
                 </View>
               );
             })}
+          </View>
+        )}
+
+        {!isSelf && privacy.whoCanConnect !== 'Nobody' && connections && (
+          <View style={styles.connectionActions}>
+            {!myConnection && <Button label="Connect" variant="secondary" onPress={handleConnect} loading={connectionBusy} />}
+            {myConnection?.status === 'accepted' && <Badge label="✓ Connected" tone="success" />}
+            {myConnection?.status === 'pending' && myConnection.requesterId === myId && (
+              <Badge label="Request sent" tone="neutral" />
+            )}
+            {myConnection?.status === 'pending' && myConnection.requesterId === id && (
+              <View style={styles.respondRow}>
+                <Button label="Accept" onPress={() => handleRespond(true)} loading={connectionBusy} style={styles.respondBtn} />
+                <Button label="Decline" variant="secondary" onPress={() => handleRespond(false)} loading={connectionBusy} style={styles.respondBtn} />
+              </View>
+            )}
           </View>
         )}
 
@@ -223,4 +321,7 @@ const styles = StyleSheet.create({
   reviewerName: { ...typography.caption, fontWeight: '600', color: colors.textPrimary },
   reviewDate: { ...typography.small },
   reviewText: { ...typography.caption },
+  connectionActions: { marginTop: spacing.sm, alignItems: 'center' },
+  respondRow: { flexDirection: 'row', gap: spacing.sm, width: '100%' },
+  respondBtn: { flex: 1 },
 });

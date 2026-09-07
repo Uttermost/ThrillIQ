@@ -59,6 +59,30 @@ service cloud.firestore {
       allow delete: if request.auth != null && resource.data.organizerId == request.auth.uid;
     }
 
+    match /connections/{connId} {
+      // Unlike crews/reviews/acknowledgements, a connection is private
+      // between its two participants — not public-by-design.
+      allow read: if request.auth != null && resource.data.participantIds.hasAny([request.auth.uid]);
+
+      allow create: if request.auth != null
+        && request.resource.data.requesterId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.participantIds.hasAll([request.resource.data.requesterId, request.resource.data.recipientId])
+        && connId == (request.resource.data.requesterId < request.resource.data.recipientId
+              ? request.resource.data.requesterId + '_' + request.resource.data.recipientId
+              : request.resource.data.recipientId + '_' + request.resource.data.requesterId);
+
+      // Accept: only the recipient, only pending -> accepted, nothing else.
+      allow update: if request.auth != null
+        && resource.data.recipientId == request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'accepted'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+
+      // Decline (as recipient) or disconnect (either side, once accepted).
+      allow delete: if request.auth != null && resource.data.participantIds.hasAny([request.auth.uid]);
+    }
+
     match /crews/{crewId} {
       // Crews are publicly browsable, like adventures.
       allow read: if true;

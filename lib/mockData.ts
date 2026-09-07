@@ -1,4 +1,8 @@
-import { Crew, DEFAULT_PRIVACY, Adventure, Review, SafetyAcknowledgement, Thread, User } from './types';
+import { Connection, Crew, DEFAULT_PRIVACY, Adventure, Review, SafetyAcknowledgement, Thread, User } from './types';
+
+function pairId(a: string, b: string): string {
+  return [a, b].sort().join('_');
+}
 
 export const ME_ID = 'u-vincent';
 
@@ -24,7 +28,6 @@ export const users: Record<string, User> = {
     experienceLevel: 'Intermediate',
     tags: ['Photography', 'Solo adventures'],
     completedAdventuresCount: 4,
-    connectionsCount: 2,
     privacy: DEFAULT_PRIVACY,
   },
   'u-tom': {
@@ -45,7 +48,6 @@ export const users: Record<string, User> = {
     experienceLevel: 'Advanced',
     tags: ['Networking', 'Families'],
     completedAdventuresCount: 18,
-    connectionsCount: 34,
     privacy: DEFAULT_PRIVACY,
   },
   'u-kevin': {
@@ -66,7 +68,6 @@ export const users: Record<string, User> = {
     experienceLevel: 'Beginner',
     tags: [],
     completedAdventuresCount: 1,
-    connectionsCount: 0,
     privacy: DEFAULT_PRIVACY,
   },
   'u-amina': {
@@ -87,7 +88,6 @@ export const users: Record<string, User> = {
     experienceLevel: 'Intermediate',
     tags: ['Solo adventures'],
     completedAdventuresCount: 6,
-    connectionsCount: 3,
     privacy: DEFAULT_PRIVACY,
   },
   'u-brian': {
@@ -108,7 +108,6 @@ export const users: Record<string, User> = {
     experienceLevel: 'Intermediate',
     tags: ['Couples'],
     completedAdventuresCount: 3,
-    connectionsCount: 1,
     privacy: DEFAULT_PRIVACY,
   },
 };
@@ -328,6 +327,33 @@ export const initialCrews: Crew[] = [
     memberIds: ['u-tom', 'u-brian', 'u-kevin'],
     ownerId: 'u-tom',
     createdAt: inDays(-120),
+  },
+];
+
+export const initialConnections: Connection[] = [
+  {
+    id: pairId(ME_ID, 'u-brian'),
+    participantIds: [ME_ID, 'u-brian'].sort() as [string, string],
+    requesterId: ME_ID,
+    recipientId: 'u-brian',
+    status: 'accepted',
+    createdAt: inDays(-30),
+  },
+  {
+    id: pairId(ME_ID, 'u-amina'),
+    participantIds: [ME_ID, 'u-amina'].sort() as [string, string],
+    requesterId: 'u-amina',
+    recipientId: ME_ID,
+    status: 'accepted',
+    createdAt: inDays(-15),
+  },
+  {
+    id: pairId(ME_ID, 'u-kevin'),
+    participantIds: [ME_ID, 'u-kevin'].sort() as [string, string],
+    requesterId: 'u-kevin',
+    recipientId: ME_ID,
+    status: 'pending',
+    createdAt: inDays(-1),
   },
 ];
 

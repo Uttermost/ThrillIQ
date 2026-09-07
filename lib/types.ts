@@ -55,7 +55,6 @@ export interface User {
   experienceLevel?: ExperienceLevel | null;
   tags?: ProfileTag[];
   completedAdventuresCount?: number;
-  connectionsCount?: number;
   privacy?: PrivacySettings;
 }
 
@@ -136,6 +135,19 @@ export interface AppNotification {
   createdAt: number;
   read: boolean;
   deepLink: DeepLink | null;
+}
+
+export type ConnectionStatus = 'pending' | 'accepted';
+
+export interface Connection {
+  id: string;
+  // Sorted [a, b] pair, purely so a single array-contains query finds every
+  // connection involving a given uid regardless of who sent the request.
+  participantIds: [string, string];
+  requesterId: string;
+  recipientId: string;
+  status: ConnectionStatus;
+  createdAt: number;
 }
 
 export interface Crew {

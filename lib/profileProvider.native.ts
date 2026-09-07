@@ -23,7 +23,6 @@ function fromDoc(uid: string, data: Record<string, unknown>): User {
     experienceLevel: (data.experienceLevel as User['experienceLevel']) ?? null,
     tags: (data.tags as User['tags']) ?? [],
     completedAdventuresCount: (data.completedAdventuresCount as number) ?? 0,
-    connectionsCount: (data.connectionsCount as number) ?? 0,
     privacy: (data.privacy as User['privacy']) ?? DEFAULT_PRIVACY,
   };
 }
@@ -64,7 +63,6 @@ export async function ensureProfileReal(uid: string, seed: { name: string; initi
     experienceLevel: null,
     tags: [],
     completedAdventuresCount: 0,
-    connectionsCount: 0,
     privacy: DEFAULT_PRIVACY,
     createdAt: firestore.FieldValue.serverTimestamp(),
   });

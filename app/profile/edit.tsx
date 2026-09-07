@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -33,8 +33,19 @@ const EXPERIENCE_OPTIONS: ExperienceLevel[] = ['Beginner', 'Intermediate', 'Adva
 const TAG_OPTIONS: ProfileTag[] = ['Photography', 'Networking', 'Families', 'Solo adventures', 'Couples'];
 
 export default function EditProfile() {
-  const { me, myId, crews, updateProfile } = useApp();
+  const { me, myId, crews, fetchConnectionsFor, updateProfile } = useApp();
   const crewCount = crews.filter((c) => c.memberIds.includes(myId)).length;
+  const [connectionCount, setConnectionCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchConnectionsFor(myId).then((list) => {
+      if (!cancelled) setConnectionCount(list.filter((c) => c.status === 'accepted').length);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [myId, fetchConnectionsFor]);
 
   const [name, setName] = useState(me.name);
   const [username, setUsername] = useState(me.username ?? '');
@@ -152,7 +163,7 @@ export default function EditProfile() {
 
         <View style={styles.statsRow}>
           <Stat value={me.completedAdventuresCount ?? 0} label="Completed" />
-          <Stat value={me.connectionsCount ?? 0} label="Connections" />
+          <Stat value={connectionCount} label="Connections" />
           <Stat value={crewCount} label="Crews" />
         </View>
 

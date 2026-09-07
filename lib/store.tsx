@@ -20,14 +20,16 @@ import {
   verifyPhoneCodeReal,
 } from './authProvider';
 import { fetchAcknowledgementsReal, recordAcknowledgementReal } from './acknowledgementsProvider';
+import { fetchConnectionsForReal, respondToConnectionRequestReal, sendConnectionRequestReal } from './connectionsProvider';
 import { createCrewReal, joinCrewReal, leaveCrewReal, subscribeCrewsReal } from './crewsProvider';
 import { timestampForBucket } from './dateBuckets';
-import { ME_ID, initialAcknowledgements, initialAdventures, initialCrews, initialReviews, initialThreads, users } from './mockData';
+import { ME_ID, initialAcknowledgements, initialAdventures, initialConnections, initialCrews, initialReviews, initialThreads, users } from './mockData';
 import { ensureProfileReal, fetchProfileReal, subscribeProfileReal, updateProfileReal } from './profileProvider';
 import { fetchReviewsForOrganizerReal, hasReviewedReal, submitReviewReal } from './reviewsProvider';
 import {
   Adventure,
   AppNotification,
+  Connection,
   Crew,
   DEFAULT_PRIVACY,
   DeepLink,
@@ -89,7 +91,6 @@ function defaultUser(id: string): User {
     experienceLevel: null,
     tags: [],
     completedAdventuresCount: 0,
-    connectionsCount: 0,
     privacy: DEFAULT_PRIVACY,
   };
 }
@@ -153,6 +154,9 @@ interface AppContextValue extends AppState {
   createCrew: (input: { name: string; description: string }) => Promise<Crew>;
   joinCrew: (id: string) => Promise<void>;
   leaveCrew: (id: string) => Promise<void>;
+  fetchConnectionsFor: (uid: string) => Promise<Connection[]>;
+  sendConnectionRequest: (toUserId: string) => Promise<void>;
+  respondToConnectionRequest: (connectionId: string, accept: boolean) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -195,6 +199,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [acknowledgements, setAcknowledgements] = useState<SafetyAcknowledgement[]>(initialAcknowledgements);
   const acknowledgementsRef = useRef(acknowledgements);
   acknowledgementsRef.current = acknowledgements;
+  // Web-mock master list of every connection; native fetches per uid instead.
+  const [connections, setConnections] = useState<Connection[]>(initialConnections);
+  const connectionsRef = useRef(connections);
+  connectionsRef.current = connections;
   const [simulateFailures, setSimulateFailures] = useState(false);
   const simulateFailuresRef = useRef(simulateFailures);
   simulateFailuresRef.current = simulateFailures;
@@ -703,6 +711,64 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const fetchConnectionsFor = useCallback(async (uid: string): Promise<Connection[]> => {
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      return connectionsRef.current.filter((c) => c.participantIds.includes(uid));
+    }
+    try {
+      return await fetchConnectionsForReal(uid);
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const sendConnectionRequest = useCallback(async (toUserId: string) => {
+    if (simulateFailuresRef.current) {
+      await delay(NETWORK_LATENCY_MS);
+      throw new ApiError("Couldn't send the request. Try again.");
+    }
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      const id = [myIdRef.current, toUserId].sort().join('_');
+      if (connectionsRef.current.some((c) => c.id === id)) return;
+      const created: Connection = {
+        id,
+        participantIds: [myIdRef.current, toUserId].sort() as [string, string],
+        requesterId: myIdRef.current,
+        recipientId: toUserId,
+        status: 'pending',
+        createdAt: Date.now(),
+      };
+      setConnections((prev) => [...prev, created]);
+      return;
+    }
+    try {
+      await sendConnectionRequestReal(myIdRef.current, toUserId);
+    } catch (e) {
+      throw new ApiError(e instanceof Error ? e.message : "Couldn't send the request. Try again.");
+    }
+  }, []);
+
+  const respondToConnectionRequest = useCallback(async (connectionId: string, accept: boolean) => {
+    if (simulateFailuresRef.current) {
+      await delay(NETWORK_LATENCY_MS);
+      throw new ApiError("Couldn't update the request. Try again.");
+    }
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      setConnections((prev) =>
+        prev.map((c) => (c.id === connectionId ? (accept ? { ...c, status: 'accepted' as const } : null) : c)).filter((c): c is Connection => c !== null)
+      );
+      return;
+    }
+    try {
+      await respondToConnectionRequestReal(connectionId, accept);
+    } catch (e) {
+      throw new ApiError(e instanceof Error ? e.message : "Couldn't update the request. Try again.");
+    }
+  }, []);
+
   const sendMessage = useCallback(async (threadId: string, text: string) => {
     const messageId = `m-${Date.now()}`;
     setThreads((prev) =>
@@ -959,6 +1025,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createCrew,
       joinCrew,
       leaveCrew,
+      fetchConnectionsFor,
+      sendConnectionRequest,
+      respondToConnectionRequest,
     }),
     [
       ready,
@@ -1001,6 +1070,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createCrew,
       joinCrew,
       leaveCrew,
+      fetchConnectionsFor,
+      sendConnectionRequest,
+      respondToConnectionRequest,
     ]
   );
 

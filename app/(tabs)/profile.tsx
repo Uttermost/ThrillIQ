@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -14,10 +14,21 @@ import { Adventure } from '@/lib/types';
 type Tab = 'Upcoming' | 'Liked' | 'Hosting';
 
 export default function Profile() {
-  const { myId, me, adventures, crews, simulateFailures, setSimulateFailures, signOut } = useApp();
+  const { myId, me, adventures, crews, fetchConnectionsFor, simulateFailures, setSimulateFailures, signOut } = useApp();
   const myCrewCount = crews.filter((c) => c.memberIds.includes(myId)).length;
+  const [connectionCount, setConnectionCount] = useState(0);
   const [tab, setTab] = useState<Tab>('Upcoming');
   const [confirmingLogout, setConfirmingLogout] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchConnectionsFor(myId).then((list) => {
+      if (!cancelled) setConnectionCount(list.filter((c) => c.status === 'accepted').length);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [myId, fetchConnectionsFor]);
 
   const handleLogout = async () => {
     await signOut();
@@ -80,6 +91,13 @@ export default function Profile() {
           <Ionicons name="people-outline" size={20} color={colors.textPrimary} />
           <Text style={styles.crewsRowLabel}>Crews</Text>
           <Text style={styles.crewsRowCount}>{myCrewCount}</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+        </Pressable>
+
+        <Pressable style={styles.crewsRow} onPress={() => router.push('/connections')}>
+          <Ionicons name="person-add-outline" size={20} color={colors.textPrimary} />
+          <Text style={styles.crewsRowLabel}>Connections</Text>
+          <Text style={styles.crewsRowCount}>{connectionCount}</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
         </Pressable>
 
