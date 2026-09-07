@@ -42,7 +42,7 @@ import {
   initialWaitlist,
   users,
 } from './mockData';
-import { createPostCommentReal, fetchCommentsForPostReal, toggleLikeCommentReal } from './postCommentsProvider';
+import { createPostCommentReal, deletePostCommentReal, fetchCommentsForPostReal, toggleLikeCommentReal } from './postCommentsProvider';
 import { createPostReal, deletePostReal, incrementShareCountReal, subscribePostsReal, toggleLikePostReal } from './postsProvider';
 import { createRepostReal, removeRepostReal, subscribeRepostsReal, toggleLikeRepostReal } from './repostsProvider';
 import { ensureProfileReal, fetchProfileReal, subscribeProfileReal, updateProfileReal } from './profileProvider';
@@ -194,6 +194,7 @@ interface AppContextValue extends AppState {
   fetchCommentsForPost: (postId: string) => Promise<PostComment[]>;
   createComment: (input: { postId: string; text: string; parentCommentId?: string | null }) => Promise<PostComment>;
   toggleLikeComment: (commentId: string, currentlyLiked: boolean) => void;
+  deleteComment: (postId: string, commentId: string) => Promise<void>;
   recordShare: (postId: string) => void;
   createRepost: (input: { postId: string; comment?: string }) => Promise<void>;
   removeRepost: (postId: string) => Promise<void>;
@@ -1001,6 +1002,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // Admin-only today — the moderation queue (app/admin.tsx) is the only
+  // caller, deleting a reported comment. No self-service "delete my own
+  // comment" flow exists yet, so this doesn't check authorship client-side;
+  // firestore.rules is the real gate on native.
+  const deleteComment = useCallback(async (postId: string, commentId: string): Promise<void> => {
+    if (simulateFailuresRef.current) {
+      await delay(NETWORK_LATENCY_MS);
+      throw new ApiError("Couldn't delete that comment. Try again.");
+    }
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      setPostComments((prev) => prev.filter((c) => c.id !== commentId));
+      setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, commentCount: Math.max(0, p.commentCount - 1) } : p)));
+      return;
+    }
+    try {
+      await deletePostCommentReal(postId, commentId);
+    } catch (e) {
+      throw new ApiError(e instanceof Error ? e.message : "Couldn't delete that comment. Try again.");
+    }
+  }, []);
+
   // Fire-and-forget, same style as toggleLike/toggleLikePost — the caller
   // (lib/share.ts via the UI) already confirmed the share itself completed
   // before calling this, so a failed count-increment isn't worth surfacing.
@@ -1798,6 +1821,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchCommentsForPost,
       createComment,
       toggleLikeComment,
+      deleteComment,
       recordShare,
       createRepost,
       removeRepost,
@@ -1869,6 +1893,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchCommentsForPost,
       createComment,
       toggleLikeComment,
+      deleteComment,
       recordShare,
       createRepost,
       removeRepost,

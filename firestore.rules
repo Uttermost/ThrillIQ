@@ -190,7 +190,20 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['shareCount'])
         && request.resource.data.shareCount == resource.data.shareCount + 1;
 
-      allow delete: if request.auth != null && resource.data.authorId == request.auth.uid;
+      // Comment count also decrements by exactly -1 when admin deletes a
+      // reported comment (deletePostCommentReal's batch) — restricted to
+      // admin since there's no self-service "delete my own comment" flow
+      // yet, only the moderation queue.
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['commentCount'])
+        && request.resource.data.commentCount == resource.data.commentCount - 1
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+
+      // Author can delete their own post; admin can delete anyone's — the
+      // moderation queue (app/admin.tsx) deletes reported posts this way.
+      allow delete: if request.auth != null
+        && (resource.data.authorId == request.auth.uid
+            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true);
     }
 
     match /postComments/{commentId} {
@@ -226,7 +239,11 @@ service cloud.firestore {
             && request.resource.data.likeCount == resource.data.likeCount - 1)
         );
 
-      allow delete: if request.auth != null && resource.data.authorId == request.auth.uid;
+      // Author can delete their own comment; admin can delete anyone's —
+      // same reasoning as the posts delete rule above.
+      allow delete: if request.auth != null
+        && (resource.data.authorId == request.auth.uid
+            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true);
     }
 
     match /reposts/{repostId} {

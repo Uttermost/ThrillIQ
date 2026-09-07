@@ -18,3 +18,5 @@ export async function createPostCommentReal(_input: {
 }
 
 export async function toggleLikeCommentReal(_commentId: string, _myUid: string, _currentlyLiked: boolean): Promise<void> {}
+
+export async function deletePostCommentReal(_postId: string, _commentId: string): Promise<void> {}

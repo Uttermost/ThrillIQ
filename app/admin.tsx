@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { ConfirmPanel } from '@/components/ui/ConfirmPanel';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { EmptyState, InlineError } from '@/components/ui/StateViews';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -16,11 +17,13 @@ import { AuditLogEntry, Report } from '@/lib/types';
 type Status = 'loading' | 'ready' | 'error';
 
 export default function Admin() {
-  const { me, users, fetchOtherProfile, fetchOpenReports, resolveReport, fetchAuditLog } = useApp();
+  const { me, users, fetchOtherProfile, fetchOpenReports, resolveReport, fetchAuditLog, deletePost, deleteComment } = useApp();
   const [reports, setReports] = useState<Report[]>([]);
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
   const [status, setStatus] = useState<Status>('loading');
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setStatus('loading');
@@ -63,6 +66,41 @@ export default function Admin() {
       ]);
     } catch {
       // Best-effort: the report just stays in the open list on failure.
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // Deletes the reported content itself, then resolves the report — the
+  // two-step "Resolve"/"Dismiss" above just marks a report reviewed, this
+  // is the one that actually removes what was reported. Only posts and
+  // comments have a delete action wired up (see deletePost/deleteComment
+  // in lib/store.tsx); adventure/user/review reports still only resolve.
+  const handleDeleteContent = async (report: Report) => {
+    setBusyId(report.id);
+    setDeleteError(null);
+    try {
+      if (report.targetType === 'post') {
+        await deletePost(report.targetId);
+      } else if (report.targetType === 'comment' && report.contextId) {
+        await deleteComment(report.contextId, report.targetId);
+      }
+      await resolveReport(report, 'resolved');
+      setReports((prev) => prev.filter((r) => r.id !== report.id));
+      setConfirmingDeleteId(null);
+      setAuditLog((prev) => [
+        {
+          id: `local-${Date.now()}`,
+          actorId: me.id,
+          action: `Deleted reported ${report.targetType}`,
+          targetType: report.targetType,
+          targetId: report.targetId,
+          createdAt: Date.now(),
+        },
+        ...prev,
+      ]);
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : 'Something went wrong.');
     } finally {
       setBusyId(null);
     }
@@ -124,21 +162,45 @@ export default function Admin() {
                       </Pressable>
                       <Text style={styles.cardMeta}>Filed by {reporter?.name ?? r.reporterId}</Text>
                       {!!r.details && <Text style={styles.cardDetails}>{r.details}</Text>}
-                      <View style={styles.actionsRow}>
-                        <Button
-                          label="Resolve"
-                          onPress={() => handleResolve(r, 'resolved')}
+                      {confirmingDeleteId === r.id ? (
+                        <ConfirmPanel
+                          message={deleteError ?? `This deletes the reported ${r.targetType} and can't be undone.`}
+                          confirmLabel={`Delete ${r.targetType}`}
+                          cancelLabel="Keep it"
                           loading={busyId === r.id}
-                          style={styles.actionBtn}
+                          onConfirm={() => handleDeleteContent(r)}
+                          onCancel={() => {
+                            setConfirmingDeleteId(null);
+                            setDeleteError(null);
+                          }}
                         />
-                        <Button
-                          label="Dismiss"
-                          variant="secondary"
-                          onPress={() => handleResolve(r, 'dismissed')}
-                          loading={busyId === r.id}
-                          style={styles.actionBtn}
-                        />
-                      </View>
+                      ) : (
+                        <View style={styles.actionsRow}>
+                          <Button
+                            label="Resolve"
+                            onPress={() => handleResolve(r, 'resolved')}
+                            loading={busyId === r.id}
+                            style={styles.actionBtn}
+                          />
+                          <Button
+                            label="Dismiss"
+                            variant="secondary"
+                            onPress={() => handleResolve(r, 'dismissed')}
+                            loading={busyId === r.id}
+                            style={styles.actionBtn}
+                          />
+                          {(r.targetType === 'post' || r.targetType === 'comment') && (
+                            <Button
+                              label="Delete"
+                              accessibilityLabel={`Delete reported ${r.targetType}`}
+                              variant="danger"
+                              onPress={() => setConfirmingDeleteId(r.id)}
+                              disabled={busyId === r.id}
+                              style={styles.actionBtn}
+                            />
+                          )}
+                        </View>
+                      )}
                     </View>
                   );
                 })

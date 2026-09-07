@@ -72,3 +72,20 @@ export async function toggleLikeCommentReal(commentId: string, myUid: string, cu
       likeCount: firestore.FieldValue.increment(currentlyLiked ? -1 : 1),
     });
 }
+
+// Admin-only today (see the commentCount decrement rule in firestore.rules)
+// — deletes the comment and decrements its post's commentCount in one
+// atomic batch, the mirror image of createPostCommentReal's batch above.
+// Doesn't cascade to any replies pointing at this comment (one level deep,
+// so at most direct replies): they're simply never rendered once their
+// parent isn't in the top-level list post/[id].tsx builds, without needing
+// to be deleted themselves — same "orphan degrades to invisible" approach
+// as deletePostReal.
+export async function deletePostCommentReal(postId: string, commentId: string): Promise<void> {
+  const commentRef = firestore().collection(COLLECTION).doc(commentId);
+  const postRef = firestore().collection('posts').doc(postId);
+  const batch = firestore().batch();
+  batch.delete(commentRef);
+  batch.update(postRef, { commentCount: firestore.FieldValue.increment(-1) });
+  await batch.commit();
+}
