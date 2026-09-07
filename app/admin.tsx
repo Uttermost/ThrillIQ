@@ -85,25 +85,38 @@ export default function Admin() {
       } else if (report.targetType === 'comment' && report.contextId) {
         await deleteComment(report.contextId, report.targetId);
       }
-      await resolveReport(report, 'resolved');
-      setReports((prev) => prev.filter((r) => r.id !== report.id));
-      setConfirmingDeleteId(null);
-      setAuditLog((prev) => [
-        {
-          id: `local-${Date.now()}`,
-          actorId: me.id,
-          action: `Deleted reported ${report.targetType}`,
-          targetType: report.targetType,
-          targetId: report.targetId,
-          createdAt: Date.now(),
-        },
-        ...prev,
-      ]);
     } catch (e) {
+      // The content itself failed to delete — nothing happened, so this is
+      // the one case that should actually block and let admin retry.
       setDeleteError(e instanceof Error ? e.message : 'Something went wrong.');
-    } finally {
       setBusyId(null);
+      return;
     }
+    // The content is gone by this point — resolving the report is just
+    // bookkeeping on top of that. Treating a failure here as the whole
+    // action failing would invite admin to hit "Delete" again on content
+    // that's already deleted: deleteComment's batch would decrement the
+    // post's commentCount a second time, since deletePostCommentReal has
+    // no way to know the comment was already gone.
+    try {
+      await resolveReport(report, 'resolved');
+    } catch {
+      // Best-effort — the content is deleted either way.
+    }
+    setReports((prev) => prev.filter((r) => r.id !== report.id));
+    setConfirmingDeleteId(null);
+    setAuditLog((prev) => [
+      {
+        id: `local-${Date.now()}`,
+        actorId: me.id,
+        action: `Deleted reported ${report.targetType}`,
+        targetType: report.targetType,
+        targetId: report.targetId,
+        createdAt: Date.now(),
+      },
+      ...prev,
+    ]);
+    setBusyId(null);
   };
 
   if (!me.isAdmin) {

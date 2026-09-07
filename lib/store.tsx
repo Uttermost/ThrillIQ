@@ -1119,10 +1119,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     try {
       await createRepostReal({ userId: myIdRef.current, postId, comment });
-      await incrementShareCountReal(postId);
     } catch (e) {
       throw new ApiError(e instanceof Error ? e.message : "Couldn't repost. Try again.");
     }
+    // Best-effort, same as the plain recordShare action below — the repost
+    // itself already succeeded by this point, so a failed count bump isn't
+    // worth surfacing as a repost failure. Previously this was awaited
+    // inside the same try block: a network blip here threw *after* the
+    // repost doc was already created, so the UI showed a failure for an
+    // action that had actually succeeded — and if the user retried,
+    // createRepostReal's unconditional `.set()` on the same deterministic
+    // id would silently reset the repost's likeCount/likedBy/createdAt.
+    incrementShareCountReal(postId).catch(() => {});
   }, []);
 
   const removeRepost = useCallback(async (postId: string): Promise<void> => {
