@@ -164,7 +164,7 @@ interface AppContextValue extends AppState {
   createAdventure: (draft: NewAdventureDraft) => Promise<Adventure>;
   updateAdventure: (id: string, patch: { title: string; schedule: string }) => Promise<void>;
   cancelAdventure: (id: string) => Promise<void>;
-  sendMessage: (threadId: string, text: string) => Promise<void>;
+  sendMessage: (threadId: string, text: string, sharedPostId?: string) => Promise<void>;
   retryMessage: (threadId: string, messageId: string) => Promise<void>;
   markThreadRead: (threadId: string) => void;
   ensureThreadForAdventure: (adventureId: string, organizerId: string) => string;
@@ -1201,7 +1201,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const sendMessage = useCallback(async (threadId: string, text: string) => {
+  const sendMessage = useCallback(async (threadId: string, text: string, sharedPostId?: string) => {
     const messageId = `m-${Date.now()}`;
     setThreads((prev) =>
       prev.map((t) =>
@@ -1210,7 +1210,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               ...t,
               messages: [
                 ...t.messages,
-                { id: messageId, threadId, senderId: myIdRef.current, text, status: 'sent', createdAt: Date.now() },
+                {
+                  id: messageId,
+                  threadId,
+                  senderId: myIdRef.current,
+                  text,
+                  status: 'sent',
+                  ...(sharedPostId ? { sharedPostId } : {}),
+                  createdAt: Date.now(),
+                },
               ],
             }
           : t

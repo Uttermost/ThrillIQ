@@ -3,10 +3,10 @@ import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { SharePostSheet } from '@/components/SharePostSheet';
 import { Avatar } from '@/components/ui/Avatar';
 import { Card } from '@/components/ui/Card';
 import { formatRelativeTime } from '@/lib/relativeTime';
-import { sharePost } from '@/lib/share';
 import { useApp } from '@/lib/store';
 import { colors, iconSize, radius, spacing, type } from '@/lib/theme';
 import { Post } from '@/lib/types';
@@ -31,7 +31,7 @@ export function PostCard({ post, onToggleLike, onShared, hideCommentLink, hideCr
   const author = users[post.authorId];
   const adventure = post.adventureId ? adventures.find((a) => a.id === post.adventureId) : undefined;
   const crew = post.crewId ? crews.find((c) => c.id === post.crewId) : undefined;
-  const [sharing, setSharing] = useState(false);
+  const [shareSheetVisible, setShareSheetVisible] = useState(false);
   const [justShared, setJustShared] = useState(false);
   const [following, setFollowing] = useState(false);
   const isFollowing = myFollowingIds.has(post.authorId);
@@ -65,19 +65,10 @@ export function PostCard({ post, onToggleLike, onShared, hideCommentLink, hideCr
     }
   };
 
-  const handleShare = async () => {
-    if (sharing) return;
-    setSharing(true);
-    try {
-      const completed = await sharePost(post);
-      if (completed) {
-        onShared();
-        setJustShared(true);
-        setTimeout(() => setJustShared(false), 1500);
-      }
-    } finally {
-      setSharing(false);
-    }
+  const handleShared = () => {
+    onShared();
+    setJustShared(true);
+    setTimeout(() => setJustShared(false), 1500);
   };
 
   return (
@@ -150,11 +141,13 @@ export function PostCard({ post, onToggleLike, onShared, hideCommentLink, hideCr
           <Text style={styles.actionCount}>{post.commentCount}</Text>
         </Pressable>
 
-        <Pressable style={styles.actionBtn} onPress={handleShare} hitSlop={8} disabled={sharing} accessibilityLabel="Share post">
+        <Pressable style={styles.actionBtn} onPress={() => setShareSheetVisible(true)} hitSlop={8} accessibilityLabel="Share post">
           <Ionicons name="share-outline" size={iconSize.inline} color={colors.textSecondary} />
           <Text style={styles.actionCount}>{justShared ? 'Shared' : post.shareCount}</Text>
         </Pressable>
       </View>
+
+      <SharePostSheet visible={shareSheetVisible} onClose={() => setShareSheetVisible(false)} post={post} onShared={handleShared} />
     </Card>
   );
 }

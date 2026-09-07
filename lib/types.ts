@@ -145,6 +145,9 @@ export interface ChatMessage {
   senderId: string;
   text: string;
   status: 'sent' | 'failed';
+  // Set when this message is a post shared into the thread rather than a
+  // plain chat message — `text` becomes an optional caption alongside it.
+  sharedPostId?: string;
   createdAt: number;
 }
 

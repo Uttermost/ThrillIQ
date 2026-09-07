@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Image, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
@@ -12,7 +12,7 @@ const UNKNOWN_USER = { id: '', name: 'Someone', initials: '?', role: '', locatio
 
 export default function Chat() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { myId, threads, adventures, users, sendMessage, retryMessage, markThreadRead } = useApp();
+  const { myId, threads, adventures, posts, users, sendMessage, retryMessage, markThreadRead, fetchOtherProfile } = useApp();
   const [draft, setDraft] = useState('');
 
   const thread = threads.find((t) => t.id === id);
@@ -20,6 +20,15 @@ export default function Chat() {
   useEffect(() => {
     if (thread?.unread) markThreadRead(thread.id);
   }, [thread, markThreadRead]);
+
+  useEffect(() => {
+    thread?.messages.forEach((m) => {
+      if (!m.sharedPostId) return;
+      const sharedPost = posts.find((p) => p.id === m.sharedPostId);
+      if (sharedPost && !users[sharedPost.authorId]) fetchOtherProfile(sharedPost.authorId);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [thread?.messages.length, posts]);
 
   if (!thread) {
     return (
@@ -49,11 +58,37 @@ export default function Chat() {
           contentContainerStyle={styles.messages}
           renderItem={({ item }) => {
             const mine = item.senderId === myId;
+            const sharedPost = item.sharedPostId ? posts.find((p) => p.id === item.sharedPostId) : undefined;
+            const sharedPostAuthor = sharedPost ? users[sharedPost.authorId] : undefined;
             return (
               <View style={[styles.bubbleRow, mine && styles.bubbleRowMine]}>
-                <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}>
-                  <Text style={mine ? styles.bubbleTextMine : styles.bubbleTextTheirs}>{item.text}</Text>
-                </View>
+                {!!item.text && (
+                  <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}>
+                    <Text style={mine ? styles.bubbleTextMine : styles.bubbleTextTheirs}>{item.text}</Text>
+                  </View>
+                )}
+                {item.sharedPostId && (
+                  <Pressable
+                    style={[styles.sharedPostCard, mine ? styles.bubbleMine : styles.bubbleTheirs]}
+                    onPress={() => router.push(`/post/${item.sharedPostId}`)}>
+                    {sharedPost ? (
+                      <>
+                        <View style={styles.sharedPostHeader}>
+                          <Ionicons name="chatbubbles-outline" size={13} color={mine ? colors.hosting : colors.textSecondary} />
+                          <Text style={[styles.sharedPostAuthor, mine ? styles.bubbleTextMine : styles.bubbleTextTheirs]} numberOfLines={1}>
+                            {sharedPostAuthor?.name ?? 'Someone'}'s post
+                          </Text>
+                        </View>
+                        {!!sharedPost.photos?.[0] && <Image source={{ uri: sharedPost.photos[0] }} style={styles.sharedPostImage} />}
+                        <Text style={mine ? styles.bubbleTextMine : styles.bubbleTextTheirs} numberOfLines={3}>
+                          {sharedPost.text}
+                        </Text>
+                      </>
+                    ) : (
+                      <Text style={mine ? styles.bubbleTextMine : styles.bubbleTextTheirs}>This post is no longer available.</Text>
+                    )}
+                  </Pressable>
+                )}
                 {mine && item.status === 'failed' && (
                   <Pressable onPress={() => retryMessage(thread.id, item.id)} style={styles.failedRow}>
                     <Text style={styles.failedText}>Failed to send · Tap to retry</Text>
@@ -96,6 +131,10 @@ const styles = StyleSheet.create({
   bubbleMine: { backgroundColor: colors.accentMuted, borderTopRightRadius: 4 },
   bubbleTextTheirs: { color: colors.textPrimary, fontSize: 14 },
   bubbleTextMine: { color: colors.hosting, fontSize: 14 },
+  sharedPostCard: { maxWidth: '80%', borderRadius: radius.md, padding: spacing.md, gap: spacing.xs, marginTop: 4 },
+  sharedPostHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  sharedPostAuthor: { fontSize: 12, fontWeight: '700' },
+  sharedPostImage: { width: '100%', height: 100, borderRadius: radius.sm },
   failedRow: { marginTop: 2 },
   failedText: { color: colors.danger, fontSize: 12, fontWeight: '600' },
   inputRow: {

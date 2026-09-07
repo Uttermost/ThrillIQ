@@ -50,7 +50,7 @@ export default function Messages() {
                     {isHosting ? ' · you\'re hosting' : ''}
                   </Text>
                   <Text style={[styles.preview, item.unread && styles.previewUnread]} numberOfLines={1}>
-                    {lastMessage?.text}
+                    {lastMessage?.sharedPostId && !lastMessage.text ? 'Shared a post' : lastMessage?.text}
                   </Text>
                 </View>
                 {item.unread && <View style={styles.dot} />}
