@@ -58,13 +58,15 @@ function useSharablePeople(myId: string, enabled: boolean) {
 }
 
 export function SharePostSheet({ visible, onClose, post, onShared }: SharePostSheetProps) {
-  const { myId, authenticated, users, fetchOtherProfile, ensureThreadForAdventure, sendMessage } = useApp();
+  const { myId, authenticated, users, reposts, createRepost, removeRepost, fetchOtherProfile, ensureThreadForAdventure, sendMessage } = useApp();
   const { width } = useWindowDimensions();
   const isWide = width > CONTENT_MAX_WIDTH;
   const people = useSharablePeople(myId, authenticated);
   const [caption, setCaption] = useState('');
   const [sharingExternally, setSharingExternally] = useState(false);
   const [sendingTo, setSendingTo] = useState<string | null>(null);
+  const [reposting, setReposting] = useState(false);
+  const alreadyReposted = authenticated && reposts.some((r) => r.userId === myId && r.postId === post.id);
 
   useEffect(() => {
     people.forEach((p) => {
@@ -88,6 +90,26 @@ export function SharePostSheet({ visible, onClose, post, onShared }: SharePostSh
       }
     } finally {
       setSharingExternally(false);
+    }
+  };
+
+  const handleToggleRepost = async () => {
+    if (!authenticated) {
+      handleClose();
+      router.push('/auth');
+      return;
+    }
+    setReposting(true);
+    try {
+      if (alreadyReposted) {
+        await removeRepost(post.id);
+      } else {
+        await createRepost({ postId: post.id, comment: caption.trim() || undefined });
+        onShared();
+      }
+      handleClose();
+    } finally {
+      setReposting(false);
     }
   };
 
@@ -116,6 +138,19 @@ export function SharePostSheet({ visible, onClose, post, onShared }: SharePostSh
             {sharingExternally ? <ActivityIndicator size="small" color={colors.primary} /> : <Ionicons name="share-outline" size={18} color={colors.primary} />}
           </View>
           <Text style={styles.externalLabel}>Share externally</Text>
+        </Pressable>
+
+        <Pressable style={styles.externalRow} onPress={handleToggleRepost} disabled={reposting}>
+          <View style={styles.externalIcon}>
+            {reposting ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Ionicons name="repeat-outline" size={18} color={alreadyReposted ? colors.accent : colors.primary} />
+            )}
+          </View>
+          <Text style={[styles.externalLabel, alreadyReposted && styles.removeRepostLabel]}>
+            {alreadyReposted ? 'Remove repost' : 'Repost to your feed'}
+          </Text>
         </Pressable>
 
         <Text style={styles.sectionLabel}>Send to a conversation</Text>
@@ -194,6 +229,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   externalLabel: { ...type.bodyEmphasis, color: colors.primary },
+  removeRepostLabel: { color: colors.accent },
   sectionLabel: { ...type.inputLabel, color: colors.textSecondary, marginTop: spacing.xs },
   captionInput: {
     backgroundColor: colors.surfaceMuted,

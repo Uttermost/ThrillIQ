@@ -229,6 +229,38 @@ service cloud.firestore {
       allow delete: if request.auth != null && resource.data.authorId == request.auth.uid;
     }
 
+    match /reposts/{repostId} {
+      // Publicly browsable, like the post they repost.
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        // Deterministic id doubles as the one-repost-per-(user,post)
+        // constraint — a second create for the same pair is a same-id
+        // overwrite, which lands in `update` below and is denied there.
+        && repostId == request.resource.data.userId + '_' + request.resource.data.postId
+        && request.resource.data.likedBy == []
+        && request.resource.data.likeCount == 0
+        && (!('comment' in request.resource.data)
+            || (request.resource.data.comment is string && request.resource.data.comment.size() <= 300))
+        && exists(/databases/$(database)/documents/posts/$(request.resource.data.postId));
+
+      // Like/unlike: same shape as the posts/postComments like rule.
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'likeCount'])
+        && (
+          (request.resource.data.likedBy == resource.data.likedBy.concat([request.auth.uid])
+            && !resource.data.likedBy.hasAny([request.auth.uid])
+            && request.resource.data.likeCount == resource.data.likeCount + 1)
+          ||
+          (request.resource.data.likedBy == resource.data.likedBy.removeAll([request.auth.uid])
+            && resource.data.likedBy.hasAny([request.auth.uid])
+            && request.resource.data.likeCount == resource.data.likeCount - 1)
+        );
+
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
     match /reviews/{reviewId} {
       // Reviews are shown on an organizer's public profile — readable by
       // anyone. Doc id is deterministic (`${adventureId}_${reviewerId}`),

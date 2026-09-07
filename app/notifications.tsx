@@ -22,6 +22,7 @@ const ICONS: Record<NotificationType, keyof typeof Ionicons.glyphMap> = {
   post_commented: 'chatbubble-ellipses-outline',
   new_follower: 'person-add-outline',
   crew_post: 'people-circle-outline',
+  post_reposted: 'repeat-outline',
 };
 
 function timeAgo(ts: number): string {

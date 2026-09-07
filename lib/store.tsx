@@ -36,6 +36,7 @@ import {
   initialPostComments,
   initialPosts,
   initialReports,
+  initialReposts,
   initialReviews,
   initialThreads,
   initialWaitlist,
@@ -43,6 +44,7 @@ import {
 } from './mockData';
 import { createPostCommentReal, fetchCommentsForPostReal, toggleLikeCommentReal } from './postCommentsProvider';
 import { createPostReal, incrementShareCountReal, subscribePostsReal, toggleLikePostReal } from './postsProvider';
+import { createRepostReal, removeRepostReal, subscribeRepostsReal, toggleLikeRepostReal } from './repostsProvider';
 import { ensureProfileReal, fetchProfileReal, subscribeProfileReal, updateProfileReal } from './profileProvider';
 import { fetchReviewsForAdventureReal, fetchReviewsForOrganizerReal, hasReviewedReal, submitReviewReal } from './reviewsProvider';
 import { fetchWaitlistForUserReal, fetchWaitlistReal, joinWaitlistReal, leaveWaitlistReal } from './waitlistProvider';
@@ -61,6 +63,7 @@ import {
   PostComment,
   Report,
   ReportStatus,
+  Repost,
   Review,
   SafetyAcknowledgement,
   Thread,
@@ -142,6 +145,7 @@ interface AppState {
   adventures: Adventure[];
   crews: Crew[];
   posts: Post[];
+  reposts: Repost[];
   threads: Thread[];
   simulateFailures: boolean;
 }
@@ -190,6 +194,9 @@ interface AppContextValue extends AppState {
   createComment: (input: { postId: string; text: string; parentCommentId?: string | null }) => Promise<PostComment>;
   toggleLikeComment: (commentId: string, currentlyLiked: boolean) => void;
   recordShare: (postId: string) => void;
+  createRepost: (input: { postId: string; comment?: string }) => Promise<void>;
+  removeRepost: (postId: string) => Promise<void>;
+  toggleLikeRepost: (id: string) => void;
   // Who the signed-in user follows — always available without a fetch (a
   // small, own-account-scoped set), unlike per-profile follower/following
   // counts below which are fetched on demand per screen.
@@ -228,6 +235,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [postComments, setPostComments] = useState<PostComment[]>(IS_NATIVE ? [] : initialPostComments);
   const postCommentsRef = useRef(postComments);
   postCommentsRef.current = postComments;
+  // Reposts ARE globally reactive like posts/crews (unlike comments) — a
+  // single small feed-shaped collection, not per-user data.
+  const [reposts, setReposts] = useState<Repost[]>(IS_NATIVE ? [] : initialReposts);
+  const repostsRef = useRef(reposts);
+  repostsRef.current = reposts;
   // On web this holds the whole mock follow graph (initialFollows), same as
   // crews/adventures. On native it holds only the signed-in user's own
   // following edges (populated below) — never the full collection, which
@@ -417,6 +429,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
       (e) => {
         postsErrorRef.current = e instanceof Error ? e.message : "Couldn't load the feed";
+      }
+    );
+  }, [myId]);
+
+  // Real Firestore reposts feed — same shape as posts above (publicly
+  // browsable, capped, globally reactive on native).
+  useEffect(() => {
+    if (!IS_NATIVE) return;
+    return subscribeRepostsReal(
+      myId,
+      (list) => setReposts(list),
+      () => {
+        // Best-effort, same as follows above — reposts just stay stale/empty
+        // on failure rather than blocking the rest of the Feed.
       }
     );
   }, [myId]);
@@ -963,6 +989,61 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     incrementShareCountReal(id).catch(() => {});
+  }, []);
+
+  // Reposting counts as a share (recordShare bumps shareCount the same as
+  // any other completed share), plus it creates its own Feed item.
+  const createRepost = useCallback(async ({ postId, comment }: { postId: string; comment?: string }): Promise<void> => {
+    if (simulateFailuresRef.current) {
+      await delay(NETWORK_LATENCY_MS);
+      throw new ApiError("Couldn't repost. Try again.");
+    }
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      const id = `${myIdRef.current}_${postId}`;
+      if (repostsRef.current.some((r) => r.id === id)) return;
+      const created: Repost = {
+        id,
+        userId: myIdRef.current,
+        postId,
+        comment: comment?.trim() || undefined,
+        likeCount: 0,
+        likedByMe: false,
+        createdAt: Date.now(),
+      };
+      setReposts((prev) => [created, ...prev]);
+      setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, shareCount: p.shareCount + 1 } : p)));
+      return;
+    }
+    try {
+      await createRepostReal({ userId: myIdRef.current, postId, comment });
+      await incrementShareCountReal(postId);
+    } catch (e) {
+      throw new ApiError(e instanceof Error ? e.message : "Couldn't repost. Try again.");
+    }
+  }, []);
+
+  const removeRepost = useCallback(async (postId: string): Promise<void> => {
+    const id = `${myIdRef.current}_${postId}`;
+    if (!IS_NATIVE) {
+      setReposts((prev) => prev.filter((r) => r.id !== id));
+      return;
+    }
+    await removeRepostReal(myIdRef.current, postId).catch(() => {
+      // Best-effort, same as other removals in this file.
+    });
+  }, []);
+
+  const toggleLikeRepost = useCallback((id: string) => {
+    if (!IS_NATIVE) {
+      setReposts((prev) => prev.map((r) => (r.id === id ? { ...r, likedByMe: !r.likedByMe, likeCount: r.likeCount + (r.likedByMe ? -1 : 1) } : r)));
+      return;
+    }
+    const target = repostsRef.current.find((r) => r.id === id);
+    if (!target) return;
+    toggleLikeRepostReal(id, myIdRef.current, target.likedByMe).catch(() => {
+      // Best-effort, same as post/comment likes.
+    });
   }, []);
 
   const fetchFollowersFor = useCallback(async (uid: string): Promise<Follow[]> => {
@@ -1553,7 +1634,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               ]
         );
       });
-  }, [posts, crews, myId]);
+
+    posts
+      .filter((p) => p.authorId === myId)
+      .forEach((p) => {
+        if (!reposts.some((r) => r.postId === p.id && r.userId !== myId)) return;
+        const nid = `n-repost-${p.id}`;
+        if (notificationsRef.current.some((n) => n.id === nid)) return;
+        setNotifications((prev) =>
+          prev.some((n) => n.id === nid)
+            ? prev
+            : [
+                { id: nid, type: 'post_reposted', title: 'Someone reposted your post', body: p.text, createdAt: now, read: false, deepLink: { screen: 'post', id: p.id } },
+                ...prev,
+              ]
+        );
+      });
+  }, [posts, crews, reposts, myId]);
 
   // Who follows me — a one-shot check per sign-in (fetchFollowersFor is a
   // single query, not a live subscription), same simplification as above:
@@ -1622,6 +1719,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       adventures,
       crews,
       posts,
+      reposts,
       threads,
       simulateFailures,
       me: usersState[myId] ?? defaultUser(myId),
@@ -1666,6 +1764,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createComment,
       toggleLikeComment,
       recordShare,
+      createRepost,
+      removeRepost,
+      toggleLikeRepost,
       myFollowingIds,
       fetchFollowersFor,
       fetchFollowingFor,
@@ -1690,6 +1791,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       adventures,
       crews,
       posts,
+      reposts,
       threads,
       simulateFailures,
       usersState,
@@ -1732,6 +1834,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createComment,
       toggleLikeComment,
       recordShare,
+      createRepost,
+      removeRepost,
+      toggleLikeRepost,
       myFollowingIds,
       fetchFollowersFor,
       fetchFollowingFor,

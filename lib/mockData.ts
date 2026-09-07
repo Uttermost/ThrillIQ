@@ -8,6 +8,7 @@ import {
   Post,
   PostComment,
   Report,
+  Repost,
   Review,
   SafetyAcknowledgement,
   Thread,
@@ -366,6 +367,22 @@ export const initialPosts: Post[] = [
     commentCount: 0,
     shareCount: 0,
     createdAt: inDays(-3),
+  },
+];
+
+// A repost is its own Feed item, distinct from Post.shareCount above (which
+// only counts external/in-thread shares). Kevin reposting Brian's post here
+// is deliberately asymmetric from initialConnections/initialFollows — it
+// exercises the "reposted by someone I don't already follow" case too.
+export const initialReposts: Repost[] = [
+  {
+    id: 'u-kevin_p-brian-naivasha',
+    userId: 'u-kevin',
+    postId: 'p-brian-naivasha',
+    comment: 'This is exactly the trip I was asking about gear for.',
+    likedByMe: false,
+    likeCount: 2,
+    createdAt: inDays(-1),
   },
 ];
 

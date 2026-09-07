@@ -170,7 +170,8 @@ export type NotificationType =
   | 'post_liked'
   | 'post_commented'
   | 'new_follower'
-  | 'crew_post';
+  | 'crew_post'
+  | 'post_reposted';
 
 export interface DeepLink {
   screen: 'adventure' | 'organizer' | 'chat' | 'post' | 'profile' | 'crew';
@@ -263,6 +264,22 @@ export interface Post {
   // resolves, or the clipboard-copy fallback succeeds) — never just for
   // opening the share sheet, so this stays an honest count.
   shareCount: number;
+  createdAt: number;
+}
+
+// A repost is its own feed item — distinct from Post.shareCount (a plain
+// counter for external/in-thread shares that never appear as content
+// themselves). Reposting is idempotent per (user, post): the deterministic
+// id doubles as "have I already reposted this" without a query, and
+// re-tapping in the UI removes it rather than creating a duplicate.
+export interface Repost {
+  id: string; // `${userId}_${postId}`
+  userId: string;
+  postId: string;
+  // Optional "quote" text shown above the embedded original post.
+  comment?: string;
+  likeCount: number;
+  likedByMe: boolean;
   createdAt: number;
 }
 

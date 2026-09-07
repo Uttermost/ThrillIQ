@@ -5,6 +5,7 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PostCard } from '@/components/PostCard';
+import { RepostCard } from '@/components/RepostCard';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { PhotoPicker } from '@/components/ui/PhotoPicker';
@@ -12,15 +13,33 @@ import { EmptyState, ErrorState } from '@/components/ui/StateViews';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing, type } from '@/lib/theme';
-import { Post } from '@/lib/types';
+import { Post, Repost } from '@/lib/types';
 
 const POST_MAX = 500;
 type Status = 'loading' | 'ready' | 'error';
 
 type FeedTab = 'forYou' | 'following';
 
+// A repost is its own Feed item alongside plain posts — merged into one
+// timestamp-sorted list rather than two separate sections.
+type FeedItem = { kind: 'post'; id: string; createdAt: number; post: Post } | { kind: 'repost'; id: string; createdAt: number; repost: Repost };
+
 export default function Feed() {
-  const { myId, me, authenticated, adventures, crews, posts, fetchPosts, createPost, toggleLikePost, recordShare, myFollowingIds } = useApp();
+  const {
+    myId,
+    me,
+    authenticated,
+    adventures,
+    crews,
+    posts,
+    reposts,
+    fetchPosts,
+    createPost,
+    toggleLikePost,
+    toggleLikeRepost,
+    recordShare,
+    myFollowingIds,
+  } = useApp();
   const [status, setStatus] = useState<Status>('loading');
   const [refreshing, setRefreshing] = useState(false);
   const [text, setText] = useState('');
@@ -60,10 +79,18 @@ export default function Feed() {
   // adventure-tagging restriction above, enforced server-side too.
   const myCrews = useMemo(() => crews.filter((c) => c.memberIds.includes(myId)), [crews, myId]);
 
-  const sorted = useMemo(() => [...posts].sort((a, b) => b.createdAt - a.createdAt), [posts]);
+  const feedItems = useMemo<FeedItem[]>(() => {
+    const postItems: FeedItem[] = posts.map((p) => ({ kind: 'post', id: `post-${p.id}`, createdAt: p.createdAt, post: p }));
+    const repostItems: FeedItem[] = reposts.map((r) => ({ kind: 'repost', id: `repost-${r.id}`, createdAt: r.createdAt, repost: r }));
+    return [...postItems, ...repostItems].sort((a, b) => b.createdAt - a.createdAt);
+  }, [posts, reposts]);
+
   const visible = useMemo(
-    () => (tab === 'following' ? sorted.filter((p) => myFollowingIds.has(p.authorId)) : sorted),
-    [sorted, tab, myFollowingIds]
+    () =>
+      tab === 'following'
+        ? feedItems.filter((item) => myFollowingIds.has(item.kind === 'post' ? item.post.authorId : item.repost.userId))
+        : feedItems,
+    [feedItems, tab, myFollowingIds]
   );
 
   const handleTabChange = (next: FeedTab) => {
@@ -97,6 +124,14 @@ export default function Feed() {
       return;
     }
     toggleLikePost(post.id);
+  };
+
+  const handleToggleLikeRepost = (repost: Repost) => {
+    if (!authenticated) {
+      router.push('/auth');
+      return;
+    }
+    toggleLikeRepost(repost.id);
   };
 
   // The share sheet itself (or the clipboard fallback) fires regardless of
@@ -205,11 +240,21 @@ export default function Feed() {
               </Pressable>
             )
           }
-          renderItem={({ item }) => (
-            <View style={styles.postWrap}>
-              <PostCard post={item} onToggleLike={() => handleToggleLike(item)} onShared={() => handleShared(item)} />
-            </View>
-          )}
+          renderItem={({ item }) =>
+            item.kind === 'post' ? (
+              <View style={styles.postWrap}>
+                <PostCard post={item.post} onToggleLike={() => handleToggleLike(item.post)} onShared={() => handleShared(item.post)} />
+              </View>
+            ) : (
+              <View style={styles.postWrap}>
+                <RepostCard
+                  repost={item.repost}
+                  post={posts.find((p) => p.id === item.repost.postId)}
+                  onToggleLike={() => handleToggleLikeRepost(item.repost)}
+                />
+              </View>
+            )
+          }
           ListEmptyComponent={
             tab === 'following' ? (
               <EmptyState
