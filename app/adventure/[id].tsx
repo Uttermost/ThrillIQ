@@ -28,6 +28,9 @@ export default function AdventureDetail() {
     ensureThreadForAdventure,
     hasReviewed,
     submitReview,
+    fetchWaitlist,
+    joinWaitlist,
+    leaveWaitlist,
   } = useApp();
   const adventure = adventures.find((a) => a.id === id);
 
@@ -37,6 +40,9 @@ export default function AdventureDetail() {
   const [joinError, setJoinError] = useState<string | null>(null);
   const [leaveError, setLeaveError] = useState<string | null>(null);
   const [confirmingLeave, setConfirmingLeave] = useState(false);
+  const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null);
+  const [waitlistBusy, setWaitlistBusy] = useState(false);
+  const [waitlistError, setWaitlistError] = useState<string | null>(null);
   const [alreadyReviewed, setAlreadyReviewed] = useState(false);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
@@ -68,6 +74,23 @@ export default function AdventureDetail() {
       cancelled = true;
     };
   }, [canReview, adventureId, hasReviewed]);
+
+  const needsWaitlist = !!adventure && adventure.spotsFilled >= adventure.spotsTotal && !adventure.participantIds.includes(myId);
+  useEffect(() => {
+    if (!needsWaitlist || !adventureId) {
+      setWaitlistPosition(null);
+      return;
+    }
+    let cancelled = false;
+    fetchWaitlist(adventureId).then((list) => {
+      if (cancelled) return;
+      const idx = list.findIndex((w) => w.userId === myId);
+      setWaitlistPosition(idx === -1 ? null : idx + 1);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [needsWaitlist, adventureId, myId, fetchWaitlist]);
 
   if (!adventure) {
     return (
@@ -135,6 +158,37 @@ export default function AdventureDetail() {
       setLeaveError(e instanceof Error ? e.message : 'Something went wrong.');
     } finally {
       setLeaving(false);
+    }
+  };
+
+  const handleJoinWaitlist = async () => {
+    if (!authenticated) {
+      router.push('/auth');
+      return;
+    }
+    setWaitlistBusy(true);
+    setWaitlistError(null);
+    try {
+      await joinWaitlist(adventure.id);
+      const list = await fetchWaitlist(adventure.id);
+      setWaitlistPosition(list.findIndex((w) => w.userId === myId) + 1 || null);
+    } catch (e) {
+      setWaitlistError(e instanceof Error ? e.message : 'Something went wrong.');
+    } finally {
+      setWaitlistBusy(false);
+    }
+  };
+
+  const handleLeaveWaitlist = async () => {
+    setWaitlistBusy(true);
+    setWaitlistError(null);
+    try {
+      await leaveWaitlist(adventure.id);
+      setWaitlistPosition(null);
+    } catch (e) {
+      setWaitlistError(e instanceof Error ? e.message : 'Something went wrong.');
+    } finally {
+      setWaitlistBusy(false);
     }
   };
 
@@ -273,7 +327,20 @@ export default function AdventureDetail() {
       </ScrollView>
 
       <View style={styles.bottomBar}>
-        {!isJoined ? (
+        {isFull && !isJoined ? (
+          <>
+            {waitlistError && <InlineError message={waitlistError} onRetry={waitlistPosition ? handleLeaveWaitlist : handleJoinWaitlist} />}
+            {waitlistPosition ? (
+              <>
+                <Badge label={`You're #${waitlistPosition} on the waitlist`} tone="accent" style={{ alignSelf: 'center' }} />
+                <Button label="Leave waitlist" variant="secondary" onPress={handleLeaveWaitlist} loading={waitlistBusy} />
+              </>
+            ) : (
+              <Button label="Join waitlist" onPress={handleJoinWaitlist} loading={waitlistBusy} />
+            )}
+            <Text style={styles.disclaimer}>We'll let you know here if a spot opens up.</Text>
+          </>
+        ) : !isJoined ? (
           <>
             {joinError && <InlineError message={joinError} onRetry={handleJoin} />}
             <Pressable style={styles.agreeRow} onPress={() => setAgreed((v) => !v)}>
@@ -282,7 +349,7 @@ export default function AdventureDetail() {
               </View>
               <Text style={styles.agreeLabel}>I agree to the adventure guidelines</Text>
             </Pressable>
-            <Button label={isFull ? 'Adventure full' : 'Join Adventure'} onPress={handleJoin} disabled={!agreed || isFull} loading={joining} />
+            <Button label="Join Adventure" onPress={handleJoin} disabled={!agreed} loading={joining} />
             <Text style={styles.disclaimer}>Joining does not charge you. Pay the organizer directly.</Text>
           </>
         ) : confirmingLeave ? (

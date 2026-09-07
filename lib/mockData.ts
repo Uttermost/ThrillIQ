@@ -1,4 +1,4 @@
-import { Connection, Crew, DEFAULT_PRIVACY, Adventure, Review, SafetyAcknowledgement, Thread, User } from './types';
+import { Connection, Crew, DEFAULT_PRIVACY, Adventure, Review, SafetyAcknowledgement, Thread, User, WaitlistEntry } from './types';
 
 function pairId(a: string, b: string): string {
   return [a, b].sort().join('_');
@@ -356,6 +356,10 @@ export const initialConnections: Connection[] = [
     createdAt: inDays(-1),
   },
 ];
+
+// a-amboseli is the one seed adventure at capacity (8/8) — a natural seed
+// case for the waitlist.
+export const initialWaitlist: WaitlistEntry[] = [{ id: 'a-amboseli_u-kevin', adventureId: 'a-amboseli', userId: 'u-kevin', createdAt: inDays(-2) }];
 
 export const initialThreads: Thread[] = [
   {

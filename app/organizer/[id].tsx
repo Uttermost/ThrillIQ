@@ -11,17 +11,18 @@ import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing, typography } from '@/lib/theme';
-import { SafetyAcknowledgement } from '@/lib/types';
+import { SafetyAcknowledgement, WaitlistEntry } from '@/lib/types';
 
 export default function OrganizerDashboard() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { adventures, users, cancelAdventure, fetchAcknowledgementsForAdventure } = useApp();
+  const { adventures, users, fetchOtherProfile, cancelAdventure, fetchAcknowledgementsForAdventure, fetchWaitlist } = useApp();
   const adventure = adventures.find((a) => a.id === id);
 
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [acknowledgements, setAcknowledgements] = useState<SafetyAcknowledgement[]>([]);
+  const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -33,6 +34,24 @@ export default function OrganizerDashboard() {
       cancelled = true;
     };
   }, [id, fetchAcknowledgementsForAdventure]);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    fetchWaitlist(id).then((list) => {
+      if (!cancelled) setWaitlist(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, fetchWaitlist, adventure?.spotsFilled]);
+
+  useEffect(() => {
+    waitlist.forEach((w) => {
+      if (!users[w.userId]) fetchOtherProfile(w.userId);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waitlist]);
 
   if (!adventure) {
     return (
@@ -88,6 +107,18 @@ export default function OrganizerDashboard() {
           )}
         </View>
 
+        {waitlist.length > 0 && (
+          <View style={styles.participants}>
+            <Text style={styles.sectionTitle}>Waitlist</Text>
+            {waitlist.map((w, i) => (
+              <Pressable key={w.id} style={styles.participantRow} onPress={() => router.push(`/profile/${w.userId}`)}>
+                <Text style={styles.participantName}>{users[w.userId]?.name ?? w.userId}</Text>
+                <Badge label={`#${i + 1}`} tone="neutral" />
+              </Pressable>
+            ))}
+          </View>
+        )}
+
         {!confirmingCancel ? (
           <Button label="Cancel adventure" variant="danger" onPress={() => setConfirmingCancel(true)} style={{ marginTop: spacing.xl }} />
         ) : (
@@ -126,6 +157,7 @@ const styles = StyleSheet.create({
   spotsLabel: { ...typography.caption },
   spotsValue: { ...typography.subheading, fontSize: 15 },
   participants: { gap: spacing.sm },
+  sectionTitle: { ...typography.subheading, fontSize: 15 },
   noParticipants: { ...typography.caption },
   participantRow: {
     flexDirection: 'row',

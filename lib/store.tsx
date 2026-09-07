@@ -23,9 +23,20 @@ import { fetchAcknowledgementsReal, recordAcknowledgementReal } from './acknowle
 import { fetchConnectionsForReal, respondToConnectionRequestReal, sendConnectionRequestReal } from './connectionsProvider';
 import { createCrewReal, joinCrewReal, leaveCrewReal, subscribeCrewsReal } from './crewsProvider';
 import { timestampForBucket } from './dateBuckets';
-import { ME_ID, initialAcknowledgements, initialAdventures, initialConnections, initialCrews, initialReviews, initialThreads, users } from './mockData';
+import {
+  ME_ID,
+  initialAcknowledgements,
+  initialAdventures,
+  initialConnections,
+  initialCrews,
+  initialReviews,
+  initialThreads,
+  initialWaitlist,
+  users,
+} from './mockData';
 import { ensureProfileReal, fetchProfileReal, subscribeProfileReal, updateProfileReal } from './profileProvider';
 import { fetchReviewsForOrganizerReal, hasReviewedReal, submitReviewReal } from './reviewsProvider';
+import { fetchWaitlistForUserReal, fetchWaitlistReal, joinWaitlistReal, leaveWaitlistReal } from './waitlistProvider';
 import {
   Adventure,
   AppNotification,
@@ -39,6 +50,7 @@ import {
   SafetyAcknowledgement,
   Thread,
   User,
+  WaitlistEntry,
 } from './types';
 
 let notificationSeq = 0;
@@ -157,6 +169,9 @@ interface AppContextValue extends AppState {
   fetchConnectionsFor: (uid: string) => Promise<Connection[]>;
   sendConnectionRequest: (toUserId: string) => Promise<void>;
   respondToConnectionRequest: (connectionId: string, accept: boolean) => Promise<void>;
+  fetchWaitlist: (adventureId: string) => Promise<WaitlistEntry[]>;
+  joinWaitlist: (adventureId: string) => Promise<void>;
+  leaveWaitlist: (adventureId: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -203,6 +218,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [connections, setConnections] = useState<Connection[]>(initialConnections);
   const connectionsRef = useRef(connections);
   connectionsRef.current = connections;
+  // Web-mock master list of every waitlist entry; native fetches per
+  // adventure/user instead.
+  const [waitlist, setWaitlist] = useState<WaitlistEntry[]>(initialWaitlist);
+  const waitlistRef = useRef(waitlist);
+  waitlistRef.current = waitlist;
+  // Adventure ids the current user is waitlisted for — refreshed on sign-in
+  // and after joining/leaving a waitlist; drives the waitlist_spot_open
+  // notification below without a per-render Firestore query.
+  const [myWaitlistedAdventureIds, setMyWaitlistedAdventureIds] = useState<string[]>([]);
   const [simulateFailures, setSimulateFailures] = useState(false);
   const simulateFailuresRef = useRef(simulateFailures);
   simulateFailuresRef.current = simulateFailures;
@@ -769,6 +793,75 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const refreshMyWaitlist = useCallback(async () => {
+    const mine = !IS_NATIVE
+      ? waitlistRef.current.filter((w) => w.userId === myIdRef.current)
+      : await fetchWaitlistForUserReal(myIdRef.current).catch(() => []);
+    setMyWaitlistedAdventureIds(mine.map((w) => w.adventureId));
+  }, []);
+
+  useEffect(() => {
+    refreshMyWaitlist();
+  }, [myId, refreshMyWaitlist]);
+
+  const fetchWaitlist = useCallback(async (adventureId: string): Promise<WaitlistEntry[]> => {
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      return waitlistRef.current.filter((w) => w.adventureId === adventureId).sort((a, b) => a.createdAt - b.createdAt);
+    }
+    try {
+      return await fetchWaitlistReal(adventureId);
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const joinWaitlist = useCallback(
+    async (adventureId: string) => {
+      if (simulateFailuresRef.current) {
+        await delay(NETWORK_LATENCY_MS);
+        throw new ApiError("Couldn't join the waitlist. Try again.");
+      }
+      const id = `${adventureId}_${myIdRef.current}`;
+      if (!IS_NATIVE) {
+        await delay(NETWORK_LATENCY_MS);
+        if (waitlistRef.current.some((w) => w.id === id)) return;
+        setWaitlist((prev) => [...prev, { id, adventureId, userId: myIdRef.current, createdAt: Date.now() }]);
+        await refreshMyWaitlist();
+        return;
+      }
+      try {
+        await joinWaitlistReal(adventureId, myIdRef.current);
+        await refreshMyWaitlist();
+      } catch (e) {
+        throw new ApiError(e instanceof Error ? e.message : "Couldn't join the waitlist. Try again.");
+      }
+    },
+    [refreshMyWaitlist]
+  );
+
+  const leaveWaitlist = useCallback(
+    async (adventureId: string) => {
+      if (simulateFailuresRef.current) {
+        await delay(NETWORK_LATENCY_MS);
+        throw new ApiError("Couldn't leave the waitlist. Try again.");
+      }
+      if (!IS_NATIVE) {
+        await delay(NETWORK_LATENCY_MS);
+        setWaitlist((prev) => prev.filter((w) => !(w.adventureId === adventureId && w.userId === myIdRef.current)));
+        await refreshMyWaitlist();
+        return;
+      }
+      try {
+        await leaveWaitlistReal(adventureId, myIdRef.current);
+        await refreshMyWaitlist();
+      } catch (e) {
+        throw new ApiError(e instanceof Error ? e.message : "Couldn't leave the waitlist. Try again.");
+      }
+    },
+    [refreshMyWaitlist]
+  );
+
   const sendMessage = useCallback(async (threadId: string, text: string) => {
     const messageId = `m-${Date.now()}`;
     setThreads((prev) =>
@@ -954,7 +1047,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           );
         });
       });
-  }, [adventures, myId, hasReviewed]);
+
+    adventures
+      .filter((a) => myWaitlistedAdventureIds.includes(a.id) && a.spotsFilled < a.spotsTotal && !a.participantIds.includes(myId))
+      .forEach((a) => {
+        const nid = `n-waitlist-${a.id}`;
+        if (notificationsRef.current.some((n) => n.id === nid)) return;
+        setNotifications((prev) =>
+          prev.some((n) => n.id === nid)
+            ? prev
+            : [
+                {
+                  id: nid,
+                  type: 'waitlist_spot_open',
+                  title: `A spot opened up in ${a.title}!`,
+                  body: 'Join now before it fills again.',
+                  createdAt: now,
+                  read: false,
+                  deepLink: { screen: 'adventure', id: a.id },
+                },
+                ...prev,
+              ]
+        );
+      });
+  }, [adventures, myId, hasReviewed, myWaitlistedAdventureIds]);
 
   const fetchAcknowledgementsForAdventure = useCallback(async (adventureId: string): Promise<SafetyAcknowledgement[]> => {
     if (!IS_NATIVE) return acknowledgementsRef.current.filter((a) => a.adventureId === adventureId);
@@ -1028,6 +1144,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchConnectionsFor,
       sendConnectionRequest,
       respondToConnectionRequest,
+      fetchWaitlist,
+      joinWaitlist,
+      leaveWaitlist,
     }),
     [
       ready,
@@ -1073,6 +1192,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchConnectionsFor,
       sendConnectionRequest,
       respondToConnectionRequest,
+      fetchWaitlist,
+      joinWaitlist,
+      leaveWaitlist,
     ]
   );
 

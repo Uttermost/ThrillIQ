@@ -120,7 +120,8 @@ export type NotificationType =
   | 'participant_joined'
   | 'new_message'
   | 'adventure_reminder'
-  | 'review_prompt';
+  | 'review_prompt'
+  | 'waitlist_spot_open';
 
 export interface DeepLink {
   screen: 'adventure' | 'organizer' | 'chat';
@@ -135,6 +136,13 @@ export interface AppNotification {
   createdAt: number;
   read: boolean;
   deepLink: DeepLink | null;
+}
+
+export interface WaitlistEntry {
+  id: string;
+  adventureId: string;
+  userId: string;
+  createdAt: number;
 }
 
 export type ConnectionStatus = 'pending' | 'accepted';
