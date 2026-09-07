@@ -271,6 +271,10 @@ export interface PostComment {
   postId: string;
   authorId: string;
   text: string;
+  // Set when this comment replies to another comment on the same post.
+  // One level deep only — replying to a reply attaches to that reply's own
+  // top-level parent, not to the reply itself (see app/post/[id].tsx).
+  parentCommentId?: string | null;
   createdAt: number;
 }
 

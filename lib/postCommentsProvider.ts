@@ -8,6 +8,11 @@ export async function fetchCommentsForPostReal(_postId: string): Promise<PostCom
   return [];
 }
 
-export async function createPostCommentReal(_input: { postId: string; authorId: string; text: string }): Promise<PostComment> {
+export async function createPostCommentReal(_input: {
+  postId: string;
+  authorId: string;
+  text: string;
+  parentCommentId?: string | null;
+}): Promise<PostComment> {
   throw new Error('Not implemented on web.');
 }

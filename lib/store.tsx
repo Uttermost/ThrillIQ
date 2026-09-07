@@ -187,7 +187,7 @@ interface AppContextValue extends AppState {
   createPost: (input: { text: string; photos?: string[]; adventureId?: string | null; crewId?: string | null }) => Promise<Post>;
   toggleLikePost: (id: string) => void;
   fetchCommentsForPost: (postId: string) => Promise<PostComment[]>;
-  createComment: (input: { postId: string; text: string }) => Promise<PostComment>;
+  createComment: (input: { postId: string; text: string; parentCommentId?: string | null }) => Promise<PostComment>;
   recordShare: (postId: string) => void;
   // Who the signed-in user follows — always available without a fetch (a
   // small, own-account-scoped set), unlike per-profile follower/following
@@ -904,24 +904,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const createComment = useCallback(async ({ postId, text }: { postId: string; text: string }): Promise<PostComment> => {
-    if (simulateFailuresRef.current) {
-      await delay(NETWORK_LATENCY_MS);
-      throw new ApiError("Couldn't post your comment. Try again.");
-    }
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      const created: PostComment = { id: `pc-${Date.now()}`, postId, authorId: myIdRef.current, text: text.trim(), createdAt: Date.now() };
-      setPostComments((prev) => [...prev, created]);
-      setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, commentCount: p.commentCount + 1 } : p)));
-      return created;
-    }
-    try {
-      return await createPostCommentReal({ postId, authorId: myIdRef.current, text: text.trim() });
-    } catch (e) {
-      throw new ApiError(e instanceof Error ? e.message : "Couldn't post your comment. Try again.");
-    }
-  }, []);
+  const createComment = useCallback(
+    async ({ postId, text, parentCommentId }: { postId: string; text: string; parentCommentId?: string | null }): Promise<PostComment> => {
+      if (simulateFailuresRef.current) {
+        await delay(NETWORK_LATENCY_MS);
+        throw new ApiError("Couldn't post your comment. Try again.");
+      }
+      if (!IS_NATIVE) {
+        await delay(NETWORK_LATENCY_MS);
+        const created: PostComment = {
+          id: `pc-${Date.now()}`,
+          postId,
+          authorId: myIdRef.current,
+          text: text.trim(),
+          parentCommentId: parentCommentId ?? null,
+          createdAt: Date.now(),
+        };
+        setPostComments((prev) => [...prev, created]);
+        setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, commentCount: p.commentCount + 1 } : p)));
+        return created;
+      }
+      try {
+        return await createPostCommentReal({ postId, authorId: myIdRef.current, text: text.trim(), parentCommentId });
+      } catch (e) {
+        throw new ApiError(e instanceof Error ? e.message : "Couldn't post your comment. Try again.");
+      }
+    },
+    []
+  );
 
   // Fire-and-forget, same style as toggleLike/toggleLikePost — the caller
   // (lib/share.ts via the UI) already confirmed the share itself completed

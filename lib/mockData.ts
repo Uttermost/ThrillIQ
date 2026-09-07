@@ -318,7 +318,7 @@ export const initialPosts: Post[] = [
     adventureId: 'a-naivasha',
     likedByMe: true,
     likeCount: 4,
-    commentCount: 2,
+    commentCount: 3,
     shareCount: 1,
     createdAt: inDays(-1),
   },
@@ -386,6 +386,14 @@ export const initialPostComments: PostComment[] = [
     authorId: 'u-kevin',
     text: 'Same, first time for me too. See you there!',
     createdAt: inDays(-1) + 1000 * 60 * 90,
+  },
+  {
+    id: 'pc-brian-naivasha-reply-1',
+    postId: 'p-brian-naivasha',
+    authorId: 'u-brian',
+    parentCommentId: 'pc-tom-naivasha-1',
+    text: 'Good shout, packing the 200mm.',
+    createdAt: inDays(-1) + 1000 * 60 * 100,
   },
   {
     id: `pc-${ME_ID}-amboseli-1`,

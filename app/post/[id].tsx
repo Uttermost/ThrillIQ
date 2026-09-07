@@ -1,5 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -25,6 +26,7 @@ export default function PostDetail() {
   const [comments, setComments] = useState<PostComment[]>([]);
   const [draft, setDraft] = useState('');
   const [posting, setPosting] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<{ id: string; authorName: string } | null>(null);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -46,6 +48,22 @@ export default function PostDetail() {
       if (!users[c.authorId]) fetchOtherProfile(c.authorId);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comments]);
+
+  // Top-level comments each followed by their own replies, one level deep
+  // — replying to a reply attaches to that reply's top-level parent, not
+  // to the reply itself, so there's never a third level to render here.
+  const displayList = useMemo(() => {
+    const topLevel = comments.filter((c) => !c.parentCommentId).sort((a, b) => a.createdAt - b.createdAt);
+    const list: (PostComment & { isReply: boolean })[] = [];
+    topLevel.forEach((c) => {
+      list.push({ ...c, isReply: false });
+      comments
+        .filter((r) => r.parentCommentId === c.id)
+        .sort((a, b) => a.createdAt - b.createdAt)
+        .forEach((r) => list.push({ ...r, isReply: true }));
+    });
+    return list;
   }, [comments]);
 
   if (!post) {
@@ -75,11 +93,15 @@ export default function PostDetail() {
     if (!text || posting) return;
     setPosting(true);
     setDraft('');
+    const parentCommentId = replyingTo?.id ?? null;
     try {
-      const created = await createComment({ postId: post.id, text });
+      const created = await createComment({ postId: post.id, text, parentCommentId });
       setComments((prev) => [...prev, created]);
+      setReplyingTo(null);
     } catch {
-      // Restore the draft so the comment isn't just silently lost.
+      // Restore the draft so the comment isn't just silently lost — but
+      // keep the reply target too, so retrying still replies to the
+      // right comment instead of silently becoming a top-level one.
       setDraft(text);
     } finally {
       setPosting(false);
@@ -91,7 +113,7 @@ export default function PostDetail() {
       <ScreenHeader title="Post" />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>
         <FlatList
-          data={comments}
+          data={displayList}
           keyExtractor={(c) => c.id}
           contentContainerStyle={styles.list}
           ListHeaderComponent={
@@ -106,38 +128,53 @@ export default function PostDetail() {
           renderItem={({ item }) => {
             const author = users[item.authorId];
             return (
-              <View style={styles.commentRow}>
-                <Avatar initials={author?.initials ?? '?'} hue={author?.avatarHue ?? 200} size={32} />
+              <View style={[styles.commentRow, item.isReply && styles.replyRow]}>
+                <Avatar initials={author?.initials ?? '?'} hue={author?.avatarHue ?? 200} size={item.isReply ? 26 : 32} />
                 <View style={styles.commentBody}>
                   <View style={styles.commentHeader}>
                     <Text style={styles.commentAuthor}>{author?.name ?? 'Someone'}</Text>
                     <Text style={styles.commentTime}>{formatRelativeTime(item.createdAt)}</Text>
                   </View>
                   <Text style={styles.commentText}>{item.text}</Text>
+                  {!item.isReply && authenticated && (
+                    <Pressable onPress={() => setReplyingTo({ id: item.id, authorName: author?.name ?? 'Someone' })} hitSlop={8}>
+                      <Text style={styles.replyLink}>Reply</Text>
+                    </Pressable>
+                  )}
                 </View>
               </View>
             );
           }}
         />
         {authenticated ? (
-          <View style={styles.inputRow}>
-            <Avatar initials={me.initials} hue={me.avatarHue} size={32} />
-            <TextInput
-              value={draft}
-              onChangeText={setDraft}
-              placeholder="Write a comment…"
-              placeholderTextColor={colors.textMuted}
-              style={styles.input}
-              maxLength={COMMENT_MAX}
-              multiline
-            />
-            <Pressable
-              onPress={handleSend}
-              accessibilityLabel="Post comment"
-              style={[styles.sendButton, (!draft.trim() || posting) && styles.sendButtonDisabled]}
-              disabled={!draft.trim() || posting}>
-              <Text style={styles.sendButtonLabel}>Post</Text>
-            </Pressable>
+          <View>
+            {replyingTo && (
+              <View style={styles.replyingToRow}>
+                <Text style={styles.replyingToText}>Replying to {replyingTo.authorName}</Text>
+                <Pressable onPress={() => setReplyingTo(null)} hitSlop={8} accessibilityLabel="Cancel reply">
+                  <Ionicons name="close" size={16} color={colors.textSecondary} />
+                </Pressable>
+              </View>
+            )}
+            <View style={styles.inputRow}>
+              <Avatar initials={me.initials} hue={me.avatarHue} size={32} />
+              <TextInput
+                value={draft}
+                onChangeText={setDraft}
+                placeholder={replyingTo ? `Reply to ${replyingTo.authorName}…` : 'Write a comment…'}
+                placeholderTextColor={colors.textMuted}
+                style={styles.input}
+                maxLength={COMMENT_MAX}
+                multiline
+              />
+              <Pressable
+                onPress={handleSend}
+                accessibilityLabel="Post comment"
+                style={[styles.sendButton, (!draft.trim() || posting) && styles.sendButtonDisabled]}
+                disabled={!draft.trim() || posting}>
+                <Text style={styles.sendButtonLabel}>Post</Text>
+              </Pressable>
+            </View>
           </View>
         ) : (
           <Pressable style={styles.signInPrompt} onPress={() => router.push('/auth')}>
@@ -158,6 +195,7 @@ const styles = StyleSheet.create({
   commentsLabel: { ...type.inputLabel, color: colors.textSecondary, marginTop: spacing.sm },
   emptyText: { ...type.secondary, color: colors.textMuted },
   commentRow: { flexDirection: 'row', gap: spacing.sm },
+  replyRow: { marginLeft: spacing.xl, marginTop: spacing.xs },
   commentBody: {
     flex: 1,
     backgroundColor: colors.surfaceMuted,
@@ -169,6 +207,16 @@ const styles = StyleSheet.create({
   commentAuthor: { ...type.bodyEmphasis, fontSize: 13 },
   commentTime: { ...type.secondary, color: colors.textMuted },
   commentText: { ...type.body, color: colors.textPrimary },
+  replyLink: { ...type.secondary, color: colors.primary, fontWeight: '700', marginTop: 2, alignSelf: 'flex-start' },
+  replyingToRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    backgroundColor: colors.surface,
+  },
+  replyingToText: { ...type.secondary, color: colors.textSecondary },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',

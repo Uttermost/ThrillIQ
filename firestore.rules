@@ -202,7 +202,14 @@ service cloud.firestore {
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0
         && request.resource.data.text.size() <= 500
-        && exists(/databases/$(database)/documents/posts/$(request.resource.data.postId));
+        && exists(/databases/$(database)/documents/posts/$(request.resource.data.postId))
+        // A reply must point at a real comment on this same post — one
+        // level deep only (see the PostComment type comment), so this
+        // doesn't itself need to check that the parent isn't a reply.
+        && (!('parentCommentId' in request.resource.data)
+            || request.resource.data.parentCommentId == null
+            || (exists(/databases/$(database)/documents/postComments/$(request.resource.data.parentCommentId))
+                && get(/databases/$(database)/documents/postComments/$(request.resource.data.parentCommentId)).data.postId == request.resource.data.postId));
 
       allow update: if false;
       allow delete: if request.auth != null && resource.data.authorId == request.auth.uid;
