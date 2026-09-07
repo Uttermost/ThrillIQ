@@ -21,12 +21,16 @@ interface PostCardProps {
   // comment thread — tapping "comments" there would just navigate to
   // itself, so it renders as a plain count instead of a link.
   hideCommentLink?: boolean;
+  // Same idea, for the crew detail screen embedding a crew's own posts —
+  // "View crew" would just navigate to the page already showing.
+  hideCrewLink?: boolean;
 }
 
-export function PostCard({ post, onToggleLike, onShared, hideCommentLink }: PostCardProps) {
-  const { myId, authenticated, users, adventures, fetchOtherProfile, myFollowingIds, followUser } = useApp();
+export function PostCard({ post, onToggleLike, onShared, hideCommentLink, hideCrewLink }: PostCardProps) {
+  const { myId, authenticated, users, adventures, crews, fetchOtherProfile, myFollowingIds, followUser } = useApp();
   const author = users[post.authorId];
   const adventure = post.adventureId ? adventures.find((a) => a.id === post.adventureId) : undefined;
+  const crew = post.crewId ? crews.find((c) => c.id === post.crewId) : undefined;
   const [sharing, setSharing] = useState(false);
   const [justShared, setJustShared] = useState(false);
   const [following, setFollowing] = useState(false);
@@ -103,14 +107,27 @@ export function PostCard({ post, onToggleLike, onShared, hideCommentLink }: Post
         </ScrollView>
       )}
 
-      {adventure && (
-        <Pressable style={styles.adventureChip} onPress={openAdventure}>
-          <Ionicons name="compass-outline" size={14} color={colors.primary} />
-          <Text style={styles.adventureChipLabel} numberOfLines={1}>
-            {adventure.title}
-          </Text>
-          <Text style={styles.adventureChipLink}>View adventure</Text>
-        </Pressable>
+      {(adventure || (crew && !hideCrewLink)) && (
+        <View style={styles.tagChipRow}>
+          {adventure && (
+            <Pressable style={styles.adventureChip} onPress={openAdventure}>
+              <Ionicons name="compass-outline" size={14} color={colors.primary} />
+              <Text style={styles.adventureChipLabel} numberOfLines={1}>
+                {adventure.title}
+              </Text>
+              <Text style={styles.adventureChipLink}>View adventure</Text>
+            </Pressable>
+          )}
+          {crew && !hideCrewLink && (
+            <Pressable style={styles.crewChip} onPress={() => router.push(`/crew/${crew.id}`)}>
+              <Ionicons name="people-outline" size={14} color={colors.hosting} />
+              <Text style={styles.crewChipLabel} numberOfLines={1}>
+                {crew.name}
+              </Text>
+              <Text style={styles.crewChipLink}>View crew</Text>
+            </Pressable>
+          )}
+        </View>
       )}
 
       <View style={styles.footer}>
@@ -173,6 +190,19 @@ const styles = StyleSheet.create({
   },
   adventureChipLabel: { ...type.chip, color: colors.primary, flexShrink: 1 },
   adventureChipLink: { ...type.chip, color: colors.primary, fontWeight: '700', textDecorationLine: 'underline' },
+  tagChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  crewChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    maxWidth: '100%',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.accentMuted,
+  },
+  crewChipLabel: { ...type.chip, color: colors.hosting, flexShrink: 1 },
+  crewChipLink: { ...type.chip, color: colors.hosting, fontWeight: '700', textDecorationLine: 'underline' },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',

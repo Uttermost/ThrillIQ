@@ -355,6 +355,18 @@ export const initialPosts: Post[] = [
     shareCount: 0,
     createdAt: inDays(-5),
   },
+  {
+    id: 'p-amina-crew-sunrise',
+    authorId: 'u-amina',
+    text: "This Saturday's Sunrise Hikers meetup is on — same trailhead as last time, 6am sharp. Bring a headlamp.",
+    adventureId: null,
+    crewId: 'c-sunrise-hikers',
+    likedByMe: false,
+    likeCount: 3,
+    commentCount: 0,
+    shareCount: 0,
+    createdAt: inDays(-3),
+  },
 ];
 
 // One comment doc per (postId, author) pair reflected in the commentCount

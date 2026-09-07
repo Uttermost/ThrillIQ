@@ -1,13 +1,18 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PostCard } from '@/components/PostCard';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
+import { PhotoPicker } from '@/components/ui/PhotoPicker';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing, type } from '@/lib/theme';
+import { Post } from '@/lib/types';
+
+const POST_MAX = 500;
 
 function initialsFor(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -19,9 +24,18 @@ function initialsFor(name: string): string {
 
 export default function CrewDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { myId, authenticated, crews, users, fetchOtherProfile, joinCrew, leaveCrew } = useApp();
+  const { myId, me, authenticated, crews, users, posts, fetchOtherProfile, joinCrew, leaveCrew, createPost, toggleLikePost, recordShare } = useApp();
   const crew = crews.find((c) => c.id === id);
   const [busy, setBusy] = useState(false);
+  const [text, setText] = useState('');
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [posting, setPosting] = useState(false);
+  const [postError, setPostError] = useState<string | null>(null);
+
+  const crewPosts = useMemo(
+    () => posts.filter((p) => p.crewId === id).sort((a, b) => b.createdAt - a.createdAt),
+    [posts, id]
+  );
 
   useEffect(() => {
     if (!crew) return;
@@ -57,6 +71,34 @@ export default function CrewDetail() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const handlePost = async () => {
+    if (!text.trim()) return;
+    setPosting(true);
+    setPostError(null);
+    try {
+      await createPost({ text, photos, crewId: crew.id });
+      setText('');
+      setPhotos([]);
+    } catch (e) {
+      setPostError(e instanceof Error ? e.message : 'Something went wrong.');
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  const handleToggleLike = (post: Post) => {
+    if (!authenticated) {
+      router.push('/auth');
+      return;
+    }
+    toggleLikePost(post.id);
+  };
+
+  const handleShared = (post: Post) => {
+    if (!authenticated) return;
+    recordShare(post.id);
   };
 
   return (
@@ -95,6 +137,44 @@ export default function CrewDetail() {
             );
           })}
         </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Posts</Text>
+          {isMember && (
+            <View style={styles.composer}>
+              <View style={styles.composerRow}>
+                <Avatar initials={me.initials} hue={me.avatarHue} size={36} />
+                <TextInput
+                  value={text}
+                  onChangeText={setText}
+                  placeholder={`Share something with ${crew.name}…`}
+                  placeholderTextColor={colors.textMuted}
+                  multiline
+                  maxLength={POST_MAX}
+                  style={styles.composerInput}
+                />
+              </View>
+              <PhotoPicker photos={photos} onChange={setPhotos} max={3} />
+              {postError && <Text style={styles.errorHint}>{postError}</Text>}
+              <Button label="Post" onPress={handlePost} disabled={!text.trim()} loading={posting} />
+            </View>
+          )}
+          {crewPosts.length === 0 ? (
+            <Text style={styles.emptyText}>No posts yet in this crew{isMember ? ' — be the first.' : '.'}</Text>
+          ) : (
+            <View style={{ gap: spacing.md }}>
+              {crewPosts.map((post) => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  onToggleLike={() => handleToggleLike(post)}
+                  onShared={() => handleShared(post)}
+                  hideCrewLink
+                />
+              ))}
+            </View>
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -122,4 +202,16 @@ const styles = StyleSheet.create({
   },
   memberName: { ...type.body, flex: 1 },
   ownerBadge: { ...type.chip, color: colors.hosting },
+  composer: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  composerRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
+  composerInput: { flex: 1, ...type.body, color: colors.textPrimary, minHeight: 36, paddingTop: 8 },
+  errorHint: { ...type.secondary, color: colors.danger },
+  emptyText: { ...type.secondary, color: colors.textMuted },
 });

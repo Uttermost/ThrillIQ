@@ -184,7 +184,7 @@ interface AppContextValue extends AppState {
   joinCrew: (id: string) => Promise<void>;
   leaveCrew: (id: string) => Promise<void>;
   fetchPosts: () => Promise<Post[]>;
-  createPost: (input: { text: string; photos?: string[]; adventureId?: string | null }) => Promise<Post>;
+  createPost: (input: { text: string; photos?: string[]; adventureId?: string | null; crewId?: string | null }) => Promise<Post>;
   toggleLikePost: (id: string) => void;
   fetchCommentsForPost: (postId: string) => Promise<PostComment[]>;
   createComment: (input: { postId: string; text: string }) => Promise<PostComment>;
@@ -837,34 +837,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return postsRef.current;
   }, []);
 
-  const createPost = useCallback(async ({ text, photos, adventureId }: { text: string; photos?: string[]; adventureId?: string | null }) => {
-    if (simulateFailuresRef.current) {
-      await delay(NETWORK_LATENCY_MS);
-      throw new ApiError("Couldn't publish your post. Try again.");
-    }
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      const created: Post = {
-        id: `p-${Date.now()}`,
-        authorId: myIdRef.current,
-        text: text.trim(),
-        photos: photos && photos.length > 0 ? photos : undefined,
-        adventureId: adventureId ?? null,
-        likeCount: 0,
-        likedByMe: false,
-        commentCount: 0,
-        shareCount: 0,
-        createdAt: Date.now(),
-      };
-      setPosts((prev) => [created, ...prev]);
-      return created;
-    }
-    try {
-      return await createPostReal({ authorId: myIdRef.current, text: text.trim(), photos, adventureId });
-    } catch (e) {
-      throw new ApiError(e instanceof Error ? e.message : "Couldn't publish your post. Try again.");
-    }
-  }, []);
+  const createPost = useCallback(
+    async ({
+      text,
+      photos,
+      adventureId,
+      crewId,
+    }: {
+      text: string;
+      photos?: string[];
+      adventureId?: string | null;
+      crewId?: string | null;
+    }) => {
+      if (simulateFailuresRef.current) {
+        await delay(NETWORK_LATENCY_MS);
+        throw new ApiError("Couldn't publish your post. Try again.");
+      }
+      if (!IS_NATIVE) {
+        await delay(NETWORK_LATENCY_MS);
+        const created: Post = {
+          id: `p-${Date.now()}`,
+          authorId: myIdRef.current,
+          text: text.trim(),
+          photos: photos && photos.length > 0 ? photos : undefined,
+          adventureId: adventureId ?? null,
+          crewId: crewId ?? null,
+          likeCount: 0,
+          likedByMe: false,
+          commentCount: 0,
+          shareCount: 0,
+          createdAt: Date.now(),
+        };
+        setPosts((prev) => [created, ...prev]);
+        return created;
+      }
+      try {
+        return await createPostReal({ authorId: myIdRef.current, text: text.trim(), photos, adventureId, crewId });
+      } catch (e) {
+        throw new ApiError(e instanceof Error ? e.message : "Couldn't publish your post. Try again.");
+      }
+    },
+    []
+  );
 
   const toggleLikePost = useCallback((id: string) => {
     if (!IS_NATIVE) {

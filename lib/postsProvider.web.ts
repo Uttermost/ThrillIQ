@@ -13,6 +13,7 @@ export async function createPostReal(_input: {
   text: string;
   photos?: string[];
   adventureId?: string | null;
+  crewId?: string | null;
 }): Promise<Post> {
   throw new Error('Not implemented on web.');
 }

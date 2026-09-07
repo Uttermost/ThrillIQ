@@ -157,7 +157,11 @@ service cloud.firestore {
         && (!('adventureId' in request.resource.data)
             || request.resource.data.adventureId == null
             || get(/databases/$(database)/documents/adventures/$(request.resource.data.adventureId)).data.organizerId == request.auth.uid
-            || get(/databases/$(database)/documents/adventures/$(request.resource.data.adventureId)).data.participantIds.hasAny([request.auth.uid]));
+            || get(/databases/$(database)/documents/adventures/$(request.resource.data.adventureId)).data.participantIds.hasAny([request.auth.uid]))
+        // Same for crewId — only an actual member may tag their crew.
+        && (!('crewId' in request.resource.data)
+            || request.resource.data.crewId == null
+            || get(/databases/$(database)/documents/crews/$(request.resource.data.crewId)).data.memberIds.hasAny([request.auth.uid]));
 
       // Like/unlike: same shape as the adventures like rule above.
       allow update: if request.auth != null

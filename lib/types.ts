@@ -231,9 +231,9 @@ export interface SafetyAcknowledgement {
 }
 
 // The standalone Post model — deliberately minimal for now: text + optional
-// photos + an optional tag back to one adventure, plus comments and shares.
-// No crew tagging yet; see components/PostCard.tsx / app/(tabs)/feed.tsx /
-// app/post/[id].tsx for what's actually wired up.
+// photos + an optional tag to one adventure and/or one crew, plus comments
+// and shares. See components/PostCard.tsx / app/(tabs)/feed.tsx /
+// app/post/[id].tsx / app/crew/[id].tsx for what's actually wired up.
 export interface Post {
   id: string;
   authorId: string;
@@ -242,6 +242,9 @@ export interface Post {
   // no Firebase Storage bucket is deployed for this project.
   photos?: string[];
   adventureId?: string | null;
+  // Independent of adventureId — a post can tag either, both, or neither.
+  // Only a member of the crew may tag it (enforced in firestore.rules).
+  crewId?: string | null;
   likeCount: number;
   likedByMe: boolean;
   // Denormalized from the postComments collection so the count can show on

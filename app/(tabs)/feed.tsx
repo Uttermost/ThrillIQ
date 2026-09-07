@@ -19,12 +19,13 @@ type Status = 'loading' | 'ready' | 'error';
 type FeedTab = 'forYou' | 'following';
 
 export default function Feed() {
-  const { myId, me, authenticated, adventures, posts, fetchPosts, createPost, toggleLikePost, recordShare, myFollowingIds } = useApp();
+  const { myId, me, authenticated, adventures, crews, posts, fetchPosts, createPost, toggleLikePost, recordShare, myFollowingIds } = useApp();
   const [status, setStatus] = useState<Status>('loading');
   const [refreshing, setRefreshing] = useState(false);
   const [text, setText] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
   const [taggedAdventureId, setTaggedAdventureId] = useState<string | null>(null);
+  const [taggedCrewId, setTaggedCrewId] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
   const [tab, setTab] = useState<FeedTab>('forYou');
@@ -54,6 +55,9 @@ export default function Feed() {
     () => adventures.filter((a) => a.organizerId === myId || a.participantIds.includes(myId)),
     [adventures, myId]
   );
+  // Only crews the signed-in user is actually a member of — mirrors the
+  // adventure-tagging restriction above, enforced server-side too.
+  const myCrews = useMemo(() => crews.filter((c) => c.memberIds.includes(myId)), [crews, myId]);
 
   const sorted = useMemo(() => [...posts].sort((a, b) => b.createdAt - a.createdAt), [posts]);
   const visible = useMemo(
@@ -74,10 +78,11 @@ export default function Feed() {
     setPosting(true);
     setPostError(null);
     try {
-      await createPost({ text, photos, adventureId: taggedAdventureId });
+      await createPost({ text, photos, adventureId: taggedAdventureId, crewId: taggedCrewId });
       setText('');
       setPhotos([]);
       setTaggedAdventureId(null);
+      setTaggedCrewId(null);
     } catch (e) {
       setPostError(e instanceof Error ? e.message : 'Something went wrong.');
     } finally {
@@ -158,6 +163,26 @@ export default function Feed() {
                             style={[styles.tagChip, active && styles.tagChipActive]}>
                             <Text style={[styles.tagChipLabel, active && styles.tagChipLabelActive]} numberOfLines={1}>
                               {a.title}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
+                {myCrews.length > 0 && (
+                  <View style={styles.tagSection}>
+                    <Text style={styles.tagLabel}>Tag a crew (optional)</Text>
+                    <View style={styles.tagRow}>
+                      {myCrews.map((c) => {
+                        const active = taggedCrewId === c.id;
+                        return (
+                          <Pressable
+                            key={c.id}
+                            onPress={() => setTaggedCrewId(active ? null : c.id)}
+                            style={[styles.tagChip, active && styles.tagChipActive]}>
+                            <Text style={[styles.tagChipLabel, active && styles.tagChipLabelActive]} numberOfLines={1}>
+                              {c.name}
                             </Text>
                           </Pressable>
                         );

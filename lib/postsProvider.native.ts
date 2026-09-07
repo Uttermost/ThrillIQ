@@ -13,6 +13,7 @@ function fromDoc(doc: FirebaseFirestoreTypes.QueryDocumentSnapshot, myUid: strin
     text: (data.text as string) ?? '',
     photos: (data.photos as string[] | undefined) ?? undefined,
     adventureId: (data.adventureId as string | null | undefined) ?? null,
+    crewId: (data.crewId as string | null | undefined) ?? null,
     likeCount: (data.likeCount as number) ?? 0,
     likedByMe: ((data.likedBy as string[]) ?? []).includes(myUid),
     commentCount: (data.commentCount as number) ?? 0,
@@ -36,6 +37,7 @@ export async function createPostReal(input: {
   text: string;
   photos?: string[];
   adventureId?: string | null;
+  crewId?: string | null;
 }): Promise<Post> {
   const createdAt = Date.now();
   const photos = input.photos && input.photos.length > 0 ? input.photos : undefined;
@@ -46,6 +48,7 @@ export async function createPostReal(input: {
       text: input.text,
       ...(photos ? { photos } : {}),
       adventureId: input.adventureId ?? null,
+      crewId: input.crewId ?? null,
       likedBy: [] as string[],
       likeCount: 0,
       commentCount: 0,
@@ -58,6 +61,7 @@ export async function createPostReal(input: {
     text: input.text,
     photos,
     adventureId: input.adventureId ?? null,
+    crewId: input.crewId ?? null,
     likeCount: 0,
     likedByMe: false,
     commentCount: 0,
