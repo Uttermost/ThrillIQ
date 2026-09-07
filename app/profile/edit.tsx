@@ -33,7 +33,8 @@ const EXPERIENCE_OPTIONS: ExperienceLevel[] = ['Beginner', 'Intermediate', 'Adva
 const TAG_OPTIONS: ProfileTag[] = ['Photography', 'Networking', 'Families', 'Solo adventures', 'Couples'];
 
 export default function EditProfile() {
-  const { me, updateProfile } = useApp();
+  const { me, myId, crews, updateProfile } = useApp();
+  const crewCount = crews.filter((c) => c.memberIds.includes(myId)).length;
 
   const [name, setName] = useState(me.name);
   const [username, setUsername] = useState(me.username ?? '');
@@ -152,7 +153,7 @@ export default function EditProfile() {
         <View style={styles.statsRow}>
           <Stat value={me.completedAdventuresCount ?? 0} label="Completed" />
           <Stat value={me.connectionsCount ?? 0} label="Connections" />
-          <Stat value={me.crewIds?.length ?? 0} label="Crews" />
+          <Stat value={crewCount} label="Crews" />
         </View>
 
         <Button label="Save changes" onPress={handleSave} disabled={!canSave} loading={saving} style={{ marginTop: spacing.md }} />

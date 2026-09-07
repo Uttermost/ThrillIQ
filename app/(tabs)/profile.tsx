@@ -14,7 +14,8 @@ import { Adventure } from '@/lib/types';
 type Tab = 'Upcoming' | 'Liked' | 'Hosting';
 
 export default function Profile() {
-  const { myId, me, adventures, simulateFailures, setSimulateFailures, signOut } = useApp();
+  const { myId, me, adventures, crews, simulateFailures, setSimulateFailures, signOut } = useApp();
+  const myCrewCount = crews.filter((c) => c.memberIds.includes(myId)).length;
   const [tab, setTab] = useState<Tab>('Upcoming');
   const [confirmingLogout, setConfirmingLogout] = useState(false);
 
@@ -74,6 +75,13 @@ export default function Profile() {
           <Stat value={stats.roadTrips} label="Road trips" />
           <Stat value={stats.hosting} label="Hosting" />
         </View>
+
+        <Pressable style={styles.crewsRow} onPress={() => router.push('/crews')}>
+          <Ionicons name="people-outline" size={20} color={colors.textPrimary} />
+          <Text style={styles.crewsRowLabel}>Crews</Text>
+          <Text style={styles.crewsRowCount}>{myCrewCount}</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+        </Pressable>
 
         <View style={styles.tabs}>
           {(['Upcoming', 'Liked', 'Hosting'] as Tab[]).map((t) => (
@@ -153,6 +161,18 @@ const styles = StyleSheet.create({
   stat: { flex: 1, alignItems: 'center' },
   statValue: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
   statLabel: { ...typography.small, marginTop: 2 },
+  crewsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  crewsRowLabel: { ...typography.body, flex: 1 },
+  crewsRowCount: { ...typography.caption, fontWeight: '700', color: colors.textSecondary },
   tabs: { flexDirection: 'row', gap: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.border },
   tabButton: { paddingBottom: spacing.sm },
   tabLabel: { ...typography.caption, fontWeight: '600', color: colors.textMuted },

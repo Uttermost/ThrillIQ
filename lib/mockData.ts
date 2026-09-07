@@ -1,4 +1,4 @@
-import { DEFAULT_PRIVACY, Adventure, Review, SafetyAcknowledgement, Thread, User } from './types';
+import { Crew, DEFAULT_PRIVACY, Adventure, Review, SafetyAcknowledgement, Thread, User } from './types';
 
 export const ME_ID = 'u-vincent';
 
@@ -25,7 +25,6 @@ export const users: Record<string, User> = {
     tags: ['Photography', 'Solo adventures'],
     completedAdventuresCount: 4,
     connectionsCount: 2,
-    crewIds: [],
     privacy: DEFAULT_PRIVACY,
   },
   'u-tom': {
@@ -47,7 +46,6 @@ export const users: Record<string, User> = {
     tags: ['Networking', 'Families'],
     completedAdventuresCount: 18,
     connectionsCount: 34,
-    crewIds: [],
     privacy: DEFAULT_PRIVACY,
   },
   'u-kevin': {
@@ -69,7 +67,6 @@ export const users: Record<string, User> = {
     tags: [],
     completedAdventuresCount: 1,
     connectionsCount: 0,
-    crewIds: [],
     privacy: DEFAULT_PRIVACY,
   },
   'u-amina': {
@@ -91,7 +88,6 @@ export const users: Record<string, User> = {
     tags: ['Solo adventures'],
     completedAdventuresCount: 6,
     connectionsCount: 3,
-    crewIds: [],
     privacy: DEFAULT_PRIVACY,
   },
   'u-brian': {
@@ -113,7 +109,6 @@ export const users: Record<string, User> = {
     tags: ['Couples'],
     completedAdventuresCount: 3,
     connectionsCount: 1,
-    crewIds: [],
     privacy: DEFAULT_PRIVACY,
   },
 };
@@ -312,6 +307,27 @@ export const initialAcknowledgements: SafetyAcknowledgement[] = [
     userId: 'u-brian',
     guidelinesSnapshot: ['Carpool meets at Total station', 'Bring a valid ID'],
     agreedAt: inDays(-1),
+  },
+];
+
+export const initialCrews: Crew[] = [
+  {
+    id: 'c-sunrise-hikers',
+    name: 'Sunrise Hikers Nairobi',
+    description: 'Early risers who chase sunrise views on Nairobi-area trails. Casual, weekly Saturday hikes.',
+    avatarHue: 205,
+    memberIds: [ME_ID, 'u-brian', 'u-amina'],
+    ownerId: ME_ID,
+    createdAt: inDays(-60),
+  },
+  {
+    id: 'c-rift-valley-roadtrippers',
+    name: 'Rift Valley Roadtrippers',
+    description: 'Weekend road trips around the Rift Valley — Naivasha, Nakuru, and beyond.',
+    avatarHue: 28,
+    memberIds: ['u-tom', 'u-brian', 'u-kevin'],
+    ownerId: 'u-tom',
+    createdAt: inDays(-120),
   },
 ];
 

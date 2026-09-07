@@ -56,6 +56,8 @@ export default function RootLayout() {
             <Stack.Screen name="auth/otp" />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="adventure/[id]" />
+            <Stack.Screen name="crews" />
+            <Stack.Screen name="crew/[id]" />
             <Stack.Screen name="chat/[id]" />
             <Stack.Screen name="organizer/[id]" />
             <Stack.Screen name="edit/[id]" />

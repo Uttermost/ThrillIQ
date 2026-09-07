@@ -20,13 +20,15 @@ import {
   verifyPhoneCodeReal,
 } from './authProvider';
 import { fetchAcknowledgementsReal, recordAcknowledgementReal } from './acknowledgementsProvider';
+import { createCrewReal, joinCrewReal, leaveCrewReal, subscribeCrewsReal } from './crewsProvider';
 import { timestampForBucket } from './dateBuckets';
-import { ME_ID, initialAcknowledgements, initialAdventures, initialReviews, initialThreads, users } from './mockData';
+import { ME_ID, initialAcknowledgements, initialAdventures, initialCrews, initialReviews, initialThreads, users } from './mockData';
 import { ensureProfileReal, fetchProfileReal, subscribeProfileReal, updateProfileReal } from './profileProvider';
 import { fetchReviewsForOrganizerReal, hasReviewedReal, submitReviewReal } from './reviewsProvider';
 import {
   Adventure,
   AppNotification,
+  Crew,
   DEFAULT_PRIVACY,
   DeepLink,
   NewAdventureDraft,
@@ -88,7 +90,6 @@ function defaultUser(id: string): User {
     tags: [],
     completedAdventuresCount: 0,
     connectionsCount: 0,
-    crewIds: [],
     privacy: DEFAULT_PRIVACY,
   };
 }
@@ -111,6 +112,7 @@ interface AppState {
   authenticated: boolean;
   onboarded: boolean;
   adventures: Adventure[];
+  crews: Crew[];
   threads: Thread[];
   simulateFailures: boolean;
 }
@@ -147,6 +149,10 @@ interface AppContextValue extends AppState {
   hasReviewed: (adventureId: string) => Promise<boolean>;
   submitReview: (params: { adventureId: string; organizerId: string; rating: Review['rating']; text: string }) => Promise<void>;
   fetchAcknowledgementsForAdventure: (adventureId: string) => Promise<SafetyAcknowledgement[]>;
+  fetchCrews: () => Promise<Crew[]>;
+  createCrew: (input: { name: string; description: string }) => Promise<Crew>;
+  joinCrew: (id: string) => Promise<void>;
+  leaveCrew: (id: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -157,6 +163,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [onboarded, setOnboarded] = useState(false);
   const [myId, setMyId] = useState(ME_ID);
   const [adventures, setAdventures] = useState<Adventure[]>(IS_NATIVE ? [] : initialAdventures);
+  const [crews, setCrews] = useState<Crew[]>(IS_NATIVE ? [] : initialCrews);
+  const crewsRef = useRef(crews);
+  crewsRef.current = crews;
   const [threads, setThreads] = useState<Thread[]>(initialThreads);
   const [notifications, setNotifications] = useState<AppNotification[]>(() =>
     initialThreads
@@ -272,6 +281,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     );
   }, [authenticated, myId]);
+
+  // Real Firestore crews feed — publicly browsable like adventures, so this
+  // also runs on native regardless of sign-in state.
+  const crewsErrorRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!IS_NATIVE) return;
+    return subscribeCrewsReal(
+      (list) => {
+        crewsErrorRef.current = null;
+        setCrews(list);
+      },
+      (e) => {
+        crewsErrorRef.current = e instanceof Error ? e.message : "Couldn't load crews";
+      }
+    );
+  }, []);
 
   // Real Firestore profile for the signed-in user, native only. Keeps
   // usersState[myId] in sync with whatever's actually saved server-side.
@@ -605,6 +630,79 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const fetchCrews = useCallback(async (): Promise<Crew[]> => {
+    await delay(NETWORK_LATENCY_MS);
+    if (simulateFailuresRef.current) {
+      throw new ApiError("Couldn't load crews");
+    }
+    if (IS_NATIVE && crewsErrorRef.current) {
+      throw new ApiError(crewsErrorRef.current);
+    }
+    return crewsRef.current;
+  }, []);
+
+  const createCrew = useCallback(async ({ name, description }: { name: string; description: string }): Promise<Crew> => {
+    if (simulateFailuresRef.current) {
+      await delay(NETWORK_LATENCY_MS);
+      throw new ApiError("Couldn't create your crew. Try again.");
+    }
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      const created: Crew = {
+        id: `c-${Date.now()}`,
+        name: name.trim(),
+        description: description.trim(),
+        avatarHue: Math.abs(name.split('').reduce((h, c) => h * 31 + c.charCodeAt(0), 0)) % 360,
+        memberIds: [myIdRef.current],
+        ownerId: myIdRef.current,
+        createdAt: Date.now(),
+      };
+      setCrews((prev) => [created, ...prev]);
+      return created;
+    }
+    try {
+      return await createCrewReal({ name: name.trim(), description: description.trim(), ownerId: myIdRef.current });
+    } catch (e) {
+      throw new ApiError(e instanceof Error ? e.message : "Couldn't create your crew. Try again.");
+    }
+  }, []);
+
+  const joinCrew = useCallback(async (id: string) => {
+    if (simulateFailuresRef.current) {
+      await delay(NETWORK_LATENCY_MS);
+      throw new ApiError("Couldn't join. Check your connection.");
+    }
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      setCrews((prev) =>
+        prev.map((c) => (c.id === id && !c.memberIds.includes(myIdRef.current) ? { ...c, memberIds: [...c.memberIds, myIdRef.current] } : c))
+      );
+      return;
+    }
+    try {
+      await joinCrewReal(id, myIdRef.current);
+    } catch (e) {
+      throw new ApiError(e instanceof Error ? e.message : "Couldn't join. Check your connection.");
+    }
+  }, []);
+
+  const leaveCrew = useCallback(async (id: string) => {
+    if (simulateFailuresRef.current) {
+      await delay(NETWORK_LATENCY_MS);
+      throw new ApiError("Couldn't leave. Check your connection.");
+    }
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      setCrews((prev) => prev.map((c) => (c.id === id ? { ...c, memberIds: c.memberIds.filter((m) => m !== myIdRef.current) } : c)));
+      return;
+    }
+    try {
+      await leaveCrewReal(id, myIdRef.current);
+    } catch (e) {
+      throw new ApiError(e instanceof Error ? e.message : "Couldn't leave. Check your connection.");
+    }
+  }, []);
+
   const sendMessage = useCallback(async (threadId: string, text: string) => {
     const messageId = `m-${Date.now()}`;
     setThreads((prev) =>
@@ -824,6 +922,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       onboarded,
       myId,
       adventures,
+      crews,
       threads,
       simulateFailures,
       me: usersState[myId] ?? defaultUser(myId),
@@ -856,6 +955,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       hasReviewed,
       submitReview,
       fetchAcknowledgementsForAdventure,
+      fetchCrews,
+      createCrew,
+      joinCrew,
+      leaveCrew,
     }),
     [
       ready,
@@ -863,6 +966,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       onboarded,
       myId,
       adventures,
+      crews,
       threads,
       simulateFailures,
       usersState,
@@ -893,6 +997,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       hasReviewed,
       submitReview,
       fetchAcknowledgementsForAdventure,
+      fetchCrews,
+      createCrew,
+      joinCrew,
+      leaveCrew,
     ]
   );
 

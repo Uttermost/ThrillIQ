@@ -59,6 +59,31 @@ service cloud.firestore {
       allow delete: if request.auth != null && resource.data.organizerId == request.auth.uid;
     }
 
+    match /crews/{crewId} {
+      // Crews are publicly browsable, like adventures.
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.memberIds == [request.auth.uid];
+
+      // Join: add yourself only, nothing else may change.
+      allow update: if request.auth != null
+        && request.resource.data.memberIds == resource.data.memberIds.concat([request.auth.uid])
+        && !resource.data.memberIds.hasAny([request.auth.uid])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds']);
+
+      // Leave: remove yourself only. An owner leaving their own crew (rather
+      // than deleting it) is a known gap — ownership transfer/hand-off isn't
+      // built, so an ownerless-but-still-existing crew is possible today.
+      allow update: if request.auth != null
+        && resource.data.memberIds.hasAny([request.auth.uid])
+        && request.resource.data.memberIds == resource.data.memberIds.removeAll([request.auth.uid])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds']);
+
+      allow delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
+    }
+
     match /reviews/{reviewId} {
       // Reviews are shown on an organizer's public profile — readable by
       // anyone. Doc id is deterministic (`${adventureId}_${reviewerId}`),

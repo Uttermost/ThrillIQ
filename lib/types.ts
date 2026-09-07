@@ -56,7 +56,6 @@ export interface User {
   tags?: ProfileTag[];
   completedAdventuresCount?: number;
   connectionsCount?: number;
-  crewIds?: string[];
   privacy?: PrivacySettings;
 }
 
@@ -137,6 +136,16 @@ export interface AppNotification {
   createdAt: number;
   read: boolean;
   deepLink: DeepLink | null;
+}
+
+export interface Crew {
+  id: string;
+  name: string;
+  description: string;
+  avatarHue: number;
+  memberIds: string[];
+  ownerId: string;
+  createdAt: number;
 }
 
 // A timestamped, versioned record of a participant agreeing to an
