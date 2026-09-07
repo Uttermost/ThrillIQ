@@ -37,9 +37,11 @@ export function PhotoPicker({ photos, onChange, max = 3 }: PhotoPickerProps) {
         selectionLimit: remaining,
       });
       if (result.canceled) return;
-      const dataUris = result.assets
-        .filter((a) => !!a.base64)
-        .map((a) => `data:${a.mimeType ?? 'image/jpeg'};base64,${a.base64}`);
+      // expo-image-picker's own docs guarantee `base64` is always JPEG-encoded
+      // regardless of the source file's format (asset.mimeType reports the
+      // *original* file's type, e.g. image/png, which would mismatch the
+      // actual bytes here) — the data URI's declared type must say JPEG.
+      const dataUris = result.assets.filter((a) => !!a.base64).map((a) => `data:image/jpeg;base64,${a.base64}`);
       onChange([...photos, ...dataUris]);
     } catch {
       setError("Couldn't load photos.");

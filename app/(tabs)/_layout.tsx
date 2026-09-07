@@ -19,8 +19,8 @@ export default function TabsLayout() {
         options={{ title: 'Discover', tabBarIcon: ({ color, size }) => <Ionicons name="compass-outline" size={size} color={color} /> }}
       />
       <Tabs.Screen
-        name="messages"
-        options={{ title: 'Messages', tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble-outline" size={size} color={color} /> }}
+        name="feed"
+        options={{ title: 'Feed', tabBarIcon: ({ color, size }) => <Ionicons name="chatbubbles-outline" size={size} color={color} /> }}
       />
       <Tabs.Screen
         name="create"
@@ -29,6 +29,10 @@ export default function TabsLayout() {
           tabBarLabel: () => null,
           tabBarButton: (props) => <CreateTabButton {...props} />,
         }}
+      />
+      <Tabs.Screen
+        name="messages"
+        options={{ title: 'Messages', tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble-outline" size={size} color={color} /> }}
       />
       <Tabs.Screen
         name="profile"

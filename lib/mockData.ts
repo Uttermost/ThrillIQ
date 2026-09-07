@@ -1,4 +1,4 @@
-import { AuditLogEntry, Connection, Crew, DEFAULT_PRIVACY, Adventure, Report, Review, SafetyAcknowledgement, Thread, User, WaitlistEntry } from './types';
+import { AuditLogEntry, Connection, Crew, DEFAULT_PRIVACY, Adventure, Post, Report, Review, SafetyAcknowledgement, Thread, User, WaitlistEntry } from './types';
 
 function pairId(a: string, b: string): string {
   return [a, b].sort().join('_');
@@ -292,6 +292,45 @@ export const initialReviews: Review[] = [
     rating: 5,
     text: 'Great pace, learned a lot about the forest trails.',
     createdAt: inDays(-40),
+  },
+];
+
+export const initialPosts: Post[] = [
+  {
+    id: 'p-brian-naivasha',
+    authorId: 'u-brian',
+    text: "Counting down to the Naivasha trip — first time seeing the hippos up close, can't wait.",
+    adventureId: 'a-naivasha',
+    likedByMe: true,
+    likeCount: 4,
+    createdAt: inDays(-1),
+  },
+  {
+    id: 'p-tom-amboseli',
+    authorId: 'u-tom',
+    text: 'Packing the camping gear for Amboseli this weekend — bring warm layers, it gets cold once the sun drops.',
+    adventureId: 'a-amboseli',
+    likedByMe: false,
+    likeCount: 9,
+    createdAt: inDays(-2),
+  },
+  {
+    id: 'p-amina-forest',
+    authorId: 'u-amina',
+    text: 'Karura in the evening light is unbeatable this time of year. If you have never done a forest walk, this is the season for it.',
+    adventureId: null,
+    likedByMe: false,
+    likeCount: 6,
+    createdAt: inDays(-4),
+  },
+  {
+    id: 'p-kevin-gear',
+    authorId: 'u-kevin',
+    text: 'Anyone doing the Naivasha trip have a spare pair of trekking poles I could borrow? Mine broke on the last trail.',
+    adventureId: 'a-naivasha',
+    likedByMe: false,
+    likeCount: 1,
+    createdAt: inDays(-5),
   },
 ];
 

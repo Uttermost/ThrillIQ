@@ -31,12 +31,14 @@ import {
   initialAuditLog,
   initialConnections,
   initialCrews,
+  initialPosts,
   initialReports,
   initialReviews,
   initialThreads,
   initialWaitlist,
   users,
 } from './mockData';
+import { createPostReal, subscribePostsReal, toggleLikePostReal } from './postsProvider';
 import { ensureProfileReal, fetchProfileReal, subscribeProfileReal, updateProfileReal } from './profileProvider';
 import { fetchReviewsForAdventureReal, fetchReviewsForOrganizerReal, hasReviewedReal, submitReviewReal } from './reviewsProvider';
 import { fetchWaitlistForUserReal, fetchWaitlistReal, joinWaitlistReal, leaveWaitlistReal } from './waitlistProvider';
@@ -50,6 +52,7 @@ import {
   DeepLink,
   NewAdventureDraft,
   NotificationType,
+  Post,
   Report,
   ReportStatus,
   Review,
@@ -132,6 +135,7 @@ interface AppState {
   onboarded: boolean;
   adventures: Adventure[];
   crews: Crew[];
+  posts: Post[];
   threads: Thread[];
   simulateFailures: boolean;
 }
@@ -173,6 +177,9 @@ interface AppContextValue extends AppState {
   createCrew: (input: { name: string; description: string }) => Promise<Crew>;
   joinCrew: (id: string) => Promise<void>;
   leaveCrew: (id: string) => Promise<void>;
+  fetchPosts: () => Promise<Post[]>;
+  createPost: (input: { text: string; photos?: string[]; adventureId?: string | null }) => Promise<Post>;
+  toggleLikePost: (id: string) => void;
   fetchConnectionsFor: (uid: string) => Promise<Connection[]>;
   sendConnectionRequest: (toUserId: string) => Promise<void>;
   respondToConnectionRequest: (connectionId: string, accept: boolean) => Promise<void>;
@@ -196,6 +203,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [crews, setCrews] = useState<Crew[]>(IS_NATIVE ? [] : initialCrews);
   const crewsRef = useRef(crews);
   crewsRef.current = crews;
+  const [posts, setPosts] = useState<Post[]>(IS_NATIVE ? [] : initialPosts);
+  const postsRef = useRef(posts);
+  postsRef.current = posts;
+  const postsErrorRef = useRef<string | null>(null);
   const [threads, setThreads] = useState<Thread[]>(initialThreads);
   const [notifications, setNotifications] = useState<AppNotification[]>(() =>
     initialThreads
@@ -347,6 +358,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     );
   }, []);
+
+  // Real Firestore posts feed — publicly browsable like adventures/crews.
+  useEffect(() => {
+    if (!IS_NATIVE) return;
+    return subscribePostsReal(
+      myId,
+      (list) => {
+        postsErrorRef.current = null;
+        setPosts(list);
+      },
+      (e) => {
+        postsErrorRef.current = e instanceof Error ? e.message : "Couldn't load the feed";
+      }
+    );
+  }, [myId]);
 
   // Real Firestore profile for the signed-in user, native only. Keeps
   // usersState[myId] in sync with whatever's actually saved server-side.
@@ -752,6 +778,56 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       throw new ApiError(e instanceof Error ? e.message : "Couldn't leave. Check your connection.");
     }
+  }, []);
+
+  const fetchPosts = useCallback(async (): Promise<Post[]> => {
+    await delay(NETWORK_LATENCY_MS);
+    if (simulateFailuresRef.current) {
+      throw new ApiError("Couldn't load the feed");
+    }
+    if (IS_NATIVE && postsErrorRef.current) {
+      throw new ApiError(postsErrorRef.current);
+    }
+    return postsRef.current;
+  }, []);
+
+  const createPost = useCallback(async ({ text, photos, adventureId }: { text: string; photos?: string[]; adventureId?: string | null }) => {
+    if (simulateFailuresRef.current) {
+      await delay(NETWORK_LATENCY_MS);
+      throw new ApiError("Couldn't publish your post. Try again.");
+    }
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      const created: Post = {
+        id: `p-${Date.now()}`,
+        authorId: myIdRef.current,
+        text: text.trim(),
+        photos: photos && photos.length > 0 ? photos : undefined,
+        adventureId: adventureId ?? null,
+        likeCount: 0,
+        likedByMe: false,
+        createdAt: Date.now(),
+      };
+      setPosts((prev) => [created, ...prev]);
+      return created;
+    }
+    try {
+      return await createPostReal({ authorId: myIdRef.current, text: text.trim(), photos, adventureId });
+    } catch (e) {
+      throw new ApiError(e instanceof Error ? e.message : "Couldn't publish your post. Try again.");
+    }
+  }, []);
+
+  const toggleLikePost = useCallback((id: string) => {
+    if (!IS_NATIVE) {
+      setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, likedByMe: !p.likedByMe, likeCount: p.likeCount + (p.likedByMe ? -1 : 1) } : p)));
+      return;
+    }
+    const target = postsRef.current.find((p) => p.id === id);
+    if (!target) return;
+    toggleLikePostReal(id, myIdRef.current, target.likedByMe).catch(() => {
+      // Best-effort, same as adventure likes — a failed like just doesn't flip.
+    });
   }, []);
 
   const fetchConnectionsFor = useCallback(async (uid: string): Promise<Connection[]> => {
@@ -1241,6 +1317,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       myId,
       adventures,
       crews,
+      posts,
       threads,
       simulateFailures,
       me: usersState[myId] ?? defaultUser(myId),
@@ -1278,6 +1355,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createCrew,
       joinCrew,
       leaveCrew,
+      fetchPosts,
+      createPost,
+      toggleLikePost,
       fetchConnectionsFor,
       sendConnectionRequest,
       respondToConnectionRequest,
@@ -1296,6 +1376,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       myId,
       adventures,
       crews,
+      posts,
       threads,
       simulateFailures,
       usersState,
@@ -1331,6 +1412,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createCrew,
       joinCrew,
       leaveCrew,
+      fetchPosts,
+      createPost,
+      toggleLikePost,
       fetchConnectionsFor,
       sendConnectionRequest,
       respondToConnectionRequest,

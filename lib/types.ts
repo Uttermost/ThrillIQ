@@ -220,6 +220,23 @@ export interface SafetyAcknowledgement {
   agreedAt: number;
 }
 
+// The standalone Post model — deliberately minimal for now: text + optional
+// photos + an optional tag back to one adventure. No comments, shares, or
+// crew tagging yet; see components/PostCard.tsx / app/(tabs)/feed.tsx for
+// what's actually wired up.
+export interface Post {
+  id: string;
+  authorId: string;
+  text: string;
+  // Same inline-data-URI approach as Review.photos, for the same reason —
+  // no Firebase Storage bucket is deployed for this project.
+  photos?: string[];
+  adventureId?: string | null;
+  likeCount: number;
+  likedByMe: boolean;
+  createdAt: number;
+}
+
 export interface Review {
   id: string;
   adventureId: string;

@@ -51,16 +51,17 @@ export function PhotoPicker({ photos, onChange, max = 3 }: PhotoPickerProps) {
   const remaining = max - photos.length;
 
   const handleFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []).slice(0, remaining);
+    // Guard against a negative slice bound: -N drops the last N items
+    // instead of returning none, so a stale `remaining` must never go
+    // below zero here even though the UI already hides the add button at 0.
+    const files = Array.from(e.target.files ?? []).slice(0, Math.max(0, remaining));
     e.target.value = '';
     if (files.length === 0) return;
-    try {
-      const dataUris = await Promise.all(files.map(fileToDataUri));
-      onChange([...photos, ...dataUris]);
-    } catch {
-      // Silently drop unreadable files — nothing else in this app surfaces
-      // a toast for this kind of transient client-side failure.
-    }
+    // allSettled, not all: one corrupt/unreadable file in a multi-select
+    // shouldn't silently discard the others that decoded fine.
+    const results = await Promise.allSettled(files.map(fileToDataUri));
+    const dataUris = results.filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled').map((r) => r.value);
+    if (dataUris.length > 0) onChange([...photos, ...dataUris]);
   };
 
   return (

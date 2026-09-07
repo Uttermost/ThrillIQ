@@ -121,6 +121,44 @@ service cloud.firestore {
       allow delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
     }
 
+    match /posts/{postId} {
+      // Publicly browsable, like adventures/crews.
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 500
+        && request.resource.data.likedBy == []
+        && request.resource.data.likeCount == 0
+        // Photos are inline data URIs (no Storage bucket deployed for this
+        // project) — capped at 3, same as reviews.
+        && (!('photos' in request.resource.data)
+            || (request.resource.data.photos is list && request.resource.data.photos.size() <= 3))
+        // A post may only tag an adventure the author actually organizes or
+        // joined — not an arbitrary listing.
+        && (!('adventureId' in request.resource.data)
+            || request.resource.data.adventureId == null
+            || get(/databases/$(database)/documents/adventures/$(request.resource.data.adventureId)).data.organizerId == request.auth.uid
+            || get(/databases/$(database)/documents/adventures/$(request.resource.data.adventureId)).data.participantIds.hasAny([request.auth.uid]));
+
+      // Like/unlike: same shape as the adventures like rule above.
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'likeCount'])
+        && (
+          (request.resource.data.likedBy == resource.data.likedBy.concat([request.auth.uid])
+            && !resource.data.likedBy.hasAny([request.auth.uid])
+            && request.resource.data.likeCount == resource.data.likeCount + 1)
+          ||
+          (request.resource.data.likedBy == resource.data.likedBy.removeAll([request.auth.uid])
+            && resource.data.likedBy.hasAny([request.auth.uid])
+            && request.resource.data.likeCount == resource.data.likeCount - 1)
+        );
+
+      allow delete: if request.auth != null && resource.data.authorId == request.auth.uid;
+    }
+
     match /reviews/{reviewId} {
       // Reviews are shown on an organizer's public profile — readable by
       // anyone. Doc id is deterministic (`${adventureId}_${reviewerId}`),
