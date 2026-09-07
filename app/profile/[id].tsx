@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/ui/Avatar';
@@ -242,6 +242,13 @@ export default function ParticipantProfile() {
                   </View>
                   <StarRating value={r.rating} size={14} />
                   {!!r.text && <Text style={styles.reviewText}>{r.text}</Text>}
+                  {!!r.photos?.length && (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reviewPhotoRow}>
+                      {r.photos.map((uri, i) => (
+                        <Image key={i} source={{ uri }} style={styles.reviewPhoto} />
+                      ))}
+                    </ScrollView>
+                  )}
                 </View>
               );
             })}
@@ -331,6 +338,8 @@ const styles = StyleSheet.create({
   reviewerName: { ...typography.caption, fontWeight: '600', color: colors.textPrimary },
   reviewDate: { ...typography.small },
   reviewText: { ...typography.caption },
+  reviewPhotoRow: { flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xs },
+  reviewPhoto: { width: 56, height: 56, borderRadius: radius.md },
   connectionActions: { marginTop: spacing.sm, alignItems: 'center' },
   respondRow: { flexDirection: 'row', gap: spacing.sm, width: '100%' },
   respondBtn: { flex: 1 },

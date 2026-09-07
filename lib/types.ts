@@ -227,6 +227,11 @@ export interface Review {
   reviewerId: string;
   rating: 1 | 2 | 3 | 4 | 5;
   text: string;
+  // Data URIs (not CDN-backed URLs) — there's no Firebase Storage bucket
+  // deployed for this project, so photos are downscaled client-side and
+  // stored inline. Real participant-taken photos, just not CDN-hosted;
+  // revisit once Storage is deployed and this can move to real URLs.
+  photos?: string[];
   createdAt: number;
 }
 

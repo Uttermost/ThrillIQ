@@ -8,6 +8,10 @@ export async function fetchReviewsForOrganizerReal(_organizerId: string): Promis
   return [];
 }
 
+export async function fetchReviewsForAdventureReal(_adventureId: string): Promise<Review[]> {
+  return [];
+}
+
 export async function hasReviewedReal(_adventureId: string, _reviewerId: string): Promise<boolean> {
   return false;
 }
@@ -18,6 +22,7 @@ export async function submitReviewReal(_review: {
   reviewerId: string;
   rating: Review['rating'];
   text: string;
+  photos?: string[];
 }): Promise<Review> {
   throw new Error('Not implemented on web.');
 }

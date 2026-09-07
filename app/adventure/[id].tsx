@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/ui/Avatar';
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { ConfirmPanel } from '@/components/ui/ConfirmPanel';
 import { InlineError } from '@/components/ui/StateViews';
 import { MountainScene } from '@/components/ui/MountainScene';
+import { PhotoPicker } from '@/components/ui/PhotoPicker';
 import { ReportSheet } from '@/components/ui/ReportSheet';
 import { StarRating } from '@/components/ui/StarRating';
 import { colors, iconSize, radius, spacing, type } from '@/lib/theme';
@@ -30,6 +31,7 @@ export default function AdventureDetail() {
     ensureThreadForAdventure,
     hasReviewed,
     submitReview,
+    fetchReviewsForAdventure,
     fetchWaitlist,
     joinWaitlist,
     leaveWaitlist,
@@ -49,9 +51,11 @@ export default function AdventureDetail() {
   const [alreadyReviewed, setAlreadyReviewed] = useState(false);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
+  const [reviewPhotos, setReviewPhotos] = useState<string[]>([]);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  const [galleryPhotos, setGalleryPhotos] = useState<string[]>([]);
 
   useEffect(() => {
     if (!adventure) return;
@@ -77,6 +81,21 @@ export default function AdventureDetail() {
       cancelled = true;
     };
   }, [canReview, adventureId, hasReviewed]);
+
+  // Real photos only — a review-photo gallery, not a fabricated one. Only
+  // adventures that have actually happened can have reviews with photos, so
+  // this is correctly empty for every upcoming adventure.
+  useEffect(() => {
+    if (!adventureId) return;
+    let cancelled = false;
+    fetchReviewsForAdventure(adventureId).then((list) => {
+      if (cancelled) return;
+      setGalleryPhotos(list.flatMap((r) => r.photos ?? []));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [adventureId, fetchReviewsForAdventure]);
 
   const needsWaitlist = !!adventure && adventure.spotsFilled >= adventure.spotsTotal && !adventure.participantIds.includes(myId);
   useEffect(() => {
@@ -117,7 +136,14 @@ export default function AdventureDetail() {
     setReviewSubmitting(true);
     setReviewError(null);
     try {
-      await submitReview({ adventureId: adventure.id, organizerId: adventure.organizerId, rating: reviewRating as Review['rating'], text: reviewText });
+      await submitReview({
+        adventureId: adventure.id,
+        organizerId: adventure.organizerId,
+        rating: reviewRating as Review['rating'],
+        text: reviewText,
+        photos: reviewPhotos,
+      });
+      setGalleryPhotos((prev) => [...reviewPhotos, ...prev]);
       setReviewSubmitted(true);
     } catch (e) {
       setReviewError(e instanceof Error ? e.message : 'Something went wrong.');
@@ -302,11 +328,22 @@ export default function AdventureDetail() {
                 maxLength={600}
                 style={styles.reviewInput}
               />
+              <PhotoPicker photos={reviewPhotos} onChange={setReviewPhotos} max={3} />
               {reviewError && <InlineError message={reviewError} onRetry={handleSubmitReview} />}
               <Button label="Submit review" onPress={handleSubmitReview} disabled={reviewRating === 0} loading={reviewSubmitting} />
             </Section>
           )}
           {canReview && (alreadyReviewed || reviewSubmitted) && <Text style={styles.reviewThanks}>✓ Thanks for your review.</Text>}
+
+          {galleryPhotos.length > 0 && (
+            <Section title="Photos">
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.galleryRow}>
+                {galleryPhotos.map((uri, i) => (
+                  <Image key={i} source={{ uri }} style={styles.galleryPhoto} />
+                ))}
+              </ScrollView>
+            </Section>
+          )}
 
           {organizer && (
             <Section title="Organizer">
@@ -489,6 +526,8 @@ const styles = StyleSheet.create({
     ...type.body,
   },
   reviewThanks: { ...type.bodyEmphasis, color: colors.success },
+  galleryRow: { flexDirection: 'row', gap: spacing.sm },
+  galleryPhoto: { width: 96, height: 96, borderRadius: radius.md },
   organizerRow: {
     flexDirection: 'row',
     alignItems: 'center',

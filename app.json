@@ -38,6 +38,12 @@
         {
           "locationWhenInUsePermission": "ThrillIQ uses your location to show adventures near you on Discover."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "ThrillIQ uses your photos to let you attach pictures to a review."
+        }
       ]
     ],
     "extra": {

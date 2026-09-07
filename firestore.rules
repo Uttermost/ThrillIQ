@@ -136,6 +136,11 @@ service cloud.firestore {
         && request.resource.data.rating <= 5
         && request.resource.data.text is string
         && request.resource.data.text.size() <= 600
+        // Photos are inline data URIs (no Storage bucket deployed for this
+        // project) — capped at 3, with the 1MiB Firestore document limit
+        // as the real backstop against an oversized payload.
+        && (!('photos' in request.resource.data)
+            || (request.resource.data.photos is list && request.resource.data.photos.size() <= 3))
         && reviewId == request.resource.data.adventureId + '_' + request.auth.uid
         && get(/databases/$(database)/documents/adventures/$(request.resource.data.adventureId)).data.organizerId == request.resource.data.organizerId
         && get(/databases/$(database)/documents/adventures/$(request.resource.data.adventureId)).data.participantIds.hasAny([request.auth.uid])

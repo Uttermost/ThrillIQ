@@ -20,12 +20,20 @@ function fromDoc(doc: FirebaseFirestoreTypes.QueryDocumentSnapshot): Review {
     reviewerId: (data.reviewerId as string) ?? '',
     rating: (data.rating as Review['rating']) ?? 5,
     text: (data.text as string) ?? '',
+    photos: (data.photos as string[] | undefined) ?? undefined,
     createdAt: (data.createdAt as number) ?? Date.now(),
   };
 }
 
 export async function fetchReviewsForOrganizerReal(organizerId: string): Promise<Review[]> {
   const snapshot = await firestore().collection(COLLECTION).where('organizerId', '==', organizerId).orderBy('createdAt', 'desc').get();
+  return snapshot.docs.map(fromDoc);
+}
+
+// No orderBy here (only an equality filter), so no composite index needed —
+// callers sort client-side if they need chronological order.
+export async function fetchReviewsForAdventureReal(adventureId: string): Promise<Review[]> {
+  const snapshot = await firestore().collection(COLLECTION).where('adventureId', '==', adventureId).get();
   return snapshot.docs.map(fromDoc);
 }
 
@@ -40,9 +48,16 @@ export async function submitReviewReal(review: {
   reviewerId: string;
   rating: Review['rating'];
   text: string;
+  photos?: string[];
 }): Promise<Review> {
   const id = reviewId(review.adventureId, review.reviewerId);
   const createdAt = Date.now();
-  await firestore().collection(COLLECTION).doc(id).set({ ...review, createdAt });
+  const { photos, ...rest } = review;
+  // Firestore rejects `undefined` field values — only include photos when
+  // there actually are some, rather than writing an empty/undefined field.
+  await firestore()
+    .collection(COLLECTION)
+    .doc(id)
+    .set({ ...rest, ...(photos && photos.length > 0 ? { photos } : {}), createdAt });
   return { id, ...review, createdAt };
 }
