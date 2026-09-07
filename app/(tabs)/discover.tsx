@@ -175,7 +175,11 @@ export default function Discover() {
         />
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.categoryScroll}
+        contentContainerStyle={styles.categoryRow}>
         {CATEGORY_FILTERS.map((f) => (
           <Pressable key={f} onPress={() => setCategoryFilter(f)} style={[styles.chip, categoryFilter === f && styles.chipActive]}>
             <Text style={[styles.chipLabel, categoryFilter === f && styles.chipLabelActive]}>{f}</Text>
@@ -189,7 +193,11 @@ export default function Discover() {
           <Text style={styles.filterButtonLabel}>Filters{activeCount > 0 ? ` · ${activeCount}` : ''}</Text>
         </Pressable>
         {activeChips.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.activeChipsRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.activeChipsScroll}
+            contentContainerStyle={styles.activeChipsRow}>
             {activeChips.map((chip) => (
               <Pressable key={chip.key} onPress={chip.onRemove} style={styles.activeChip}>
                 <Text style={styles.activeChipLabel}>{chip.label}</Text>
@@ -321,11 +329,17 @@ const styles = StyleSheet.create({
     height: 50,
   },
   searchInput: { flex: 1, ...type.input, color: colors.textPrimary },
+  // Explicit height on the ScrollView itself (not just contentContainerStyle):
+  // on web, an `overflow` value other than visible makes a flex item's
+  // automatic minimum size resolve to 0 instead of its content size, so a
+  // horizontal ScrollView with no fixed height can collapse to a sliver
+  // once its content genuinely needs to scroll (RN Web + CSS flexbox
+  // interaction, not an RN bug) — pin the height to sidestep it.
+  categoryScroll: { height: 44, marginTop: spacing.md, flexGrow: 0, flexShrink: 0 },
   categoryRow: {
     flexDirection: 'row',
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
-    marginTop: spacing.md,
   },
   filterBarRow: {
     flexDirection: 'row',
@@ -346,6 +360,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   filterButtonLabel: { ...type.chip, color: colors.textPrimary },
+  activeChipsScroll: { height: 40, flexGrow: 0, flexShrink: 0 },
   activeChipsRow: { flexDirection: 'row', gap: spacing.sm },
   activeChip: {
     flexDirection: 'row',

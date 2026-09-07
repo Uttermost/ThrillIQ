@@ -180,7 +180,11 @@ export default function AdventureDetail() {
 
           <View style={styles.peopleSection}>
             <Text style={styles.sectionTitle}>Who's going</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.peopleRow}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.peopleScroll}
+              contentContainerStyle={styles.peopleRow}>
               {[adventure.organizerId, ...adventure.participantIds].map((uid) => {
                 const person = users[uid];
                 if (!person) return null;
@@ -316,6 +320,10 @@ const styles = StyleSheet.create({
   organizerName: { ...type.bodyEmphasis },
   organizerMeta: { ...type.secondary, color: colors.textMuted, marginTop: 2 },
   peopleSection: { gap: spacing.sm },
+  // Explicit height on the ScrollView itself, not just contentContainerStyle
+  // — see the matching comment in app/(tabs)/discover.tsx for why a
+  // horizontal ScrollView needs this on web.
+  peopleScroll: { height: 68, flexGrow: 0, flexShrink: 0 },
   peopleRow: { flexDirection: 'row', gap: spacing.md },
   personChip: { alignItems: 'center', width: 56 },
   personName: { ...type.caption, marginTop: spacing.xs },
