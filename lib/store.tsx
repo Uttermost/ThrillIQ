@@ -20,6 +20,7 @@ import {
   verifyPhoneCodeReal,
 } from './authProvider';
 import { fetchAcknowledgementsReal, recordAcknowledgementReal } from './acknowledgementsProvider';
+import { fetchAuditLogReal, fetchOpenReportsReal, recordAuditLogReal, resolveReportReal, submitReportReal } from './adminProvider';
 import { fetchConnectionsForReal, respondToConnectionRequestReal, sendConnectionRequestReal } from './connectionsProvider';
 import { createCrewReal, joinCrewReal, leaveCrewReal, subscribeCrewsReal } from './crewsProvider';
 import { timestampForBucket } from './dateBuckets';
@@ -27,8 +28,10 @@ import {
   ME_ID,
   initialAcknowledgements,
   initialAdventures,
+  initialAuditLog,
   initialConnections,
   initialCrews,
+  initialReports,
   initialReviews,
   initialThreads,
   initialWaitlist,
@@ -40,12 +43,15 @@ import { fetchWaitlistForUserReal, fetchWaitlistReal, joinWaitlistReal, leaveWai
 import {
   Adventure,
   AppNotification,
+  AuditLogEntry,
   Connection,
   Crew,
   DEFAULT_PRIVACY,
   DeepLink,
   NewAdventureDraft,
   NotificationType,
+  Report,
+  ReportStatus,
   Review,
   SafetyAcknowledgement,
   Thread,
@@ -172,6 +178,10 @@ interface AppContextValue extends AppState {
   fetchWaitlist: (adventureId: string) => Promise<WaitlistEntry[]>;
   joinWaitlist: (adventureId: string) => Promise<void>;
   leaveWaitlist: (adventureId: string) => Promise<void>;
+  submitReport: (input: { targetType: Report['targetType']; targetId: string; reason: Report['reason']; details: string }) => Promise<void>;
+  fetchOpenReports: () => Promise<Report[]>;
+  resolveReport: (report: Report, status: ReportStatus) => Promise<void>;
+  fetchAuditLog: () => Promise<AuditLogEntry[]>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -227,6 +237,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // and after joining/leaving a waitlist; drives the waitlist_spot_open
   // notification below without a per-render Firestore query.
   const [myWaitlistedAdventureIds, setMyWaitlistedAdventureIds] = useState<string[]>([]);
+  // Web-mock master lists; native fetches straight from Firestore instead.
+  const [reports, setReports] = useState<Report[]>(initialReports);
+  const reportsRef = useRef(reports);
+  reportsRef.current = reports;
+  const [auditLog, setAuditLog] = useState<AuditLogEntry[]>(initialAuditLog);
+  const auditLogRef = useRef(auditLog);
+  auditLogRef.current = auditLog;
   const [simulateFailures, setSimulateFailures] = useState(false);
   const simulateFailuresRef = useRef(simulateFailures);
   simulateFailuresRef.current = simulateFailures;
@@ -862,6 +879,83 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [refreshMyWaitlist]
   );
 
+  const submitReport = useCallback(
+    async ({ targetType, targetId, reason, details }: { targetType: Report['targetType']; targetId: string; reason: Report['reason']; details: string }) => {
+      if (simulateFailuresRef.current) {
+        await delay(NETWORK_LATENCY_MS);
+        throw new ApiError("Couldn't submit your report. Try again.");
+      }
+      if (!IS_NATIVE) {
+        await delay(NETWORK_LATENCY_MS);
+        const created: Report = {
+          id: `report-${Date.now()}`,
+          targetType,
+          targetId,
+          reporterId: myIdRef.current,
+          reason,
+          details: details.trim(),
+          status: 'open',
+          createdAt: Date.now(),
+        };
+        setReports((prev) => [created, ...prev]);
+        return;
+      }
+      try {
+        await submitReportReal({ targetType, targetId, reporterId: myIdRef.current, reason, details: details.trim() });
+      } catch (e) {
+        throw new ApiError(e instanceof Error ? e.message : "Couldn't submit your report. Try again.");
+      }
+    },
+    []
+  );
+
+  const fetchOpenReports = useCallback(async (): Promise<Report[]> => {
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      return reportsRef.current.filter((r) => r.status === 'open');
+    }
+    try {
+      return await fetchOpenReportsReal();
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const resolveReport = useCallback(async (report: Report, status: ReportStatus) => {
+    if (simulateFailuresRef.current) {
+      await delay(NETWORK_LATENCY_MS);
+      throw new ApiError("Couldn't update the report. Try again.");
+    }
+    const action = status === 'dismissed' ? 'Dismissed report' : 'Resolved report';
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      setReports((prev) => prev.map((r) => (r.id === report.id ? { ...r, status } : r)));
+      setAuditLog((prev) => [
+        { id: `audit-${Date.now()}`, actorId: myIdRef.current, action, targetType: report.targetType, targetId: report.targetId, createdAt: Date.now() },
+        ...prev,
+      ]);
+      return;
+    }
+    try {
+      await resolveReportReal(report.id, status);
+      await recordAuditLogReal({ actorId: myIdRef.current, action, targetType: report.targetType, targetId: report.targetId });
+    } catch (e) {
+      throw new ApiError(e instanceof Error ? e.message : "Couldn't update the report. Try again.");
+    }
+  }, []);
+
+  const fetchAuditLog = useCallback(async (): Promise<AuditLogEntry[]> => {
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      return auditLogRef.current;
+    }
+    try {
+      return await fetchAuditLogReal();
+    } catch {
+      return [];
+    }
+  }, []);
+
   const sendMessage = useCallback(async (threadId: string, text: string) => {
     const messageId = `m-${Date.now()}`;
     setThreads((prev) =>
@@ -1147,6 +1241,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchWaitlist,
       joinWaitlist,
       leaveWaitlist,
+      submitReport,
+      fetchOpenReports,
+      resolveReport,
+      fetchAuditLog,
     }),
     [
       ready,
@@ -1195,6 +1293,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchWaitlist,
       joinWaitlist,
       leaveWaitlist,
+      submitReport,
+      fetchOpenReports,
+      resolveReport,
+      fetchAuditLog,
     ]
   );
 

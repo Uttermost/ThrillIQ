@@ -63,6 +63,34 @@ export interface User {
   emergencyContactName?: string;
   emergencyContactPhone?: string;
   privacy?: PrivacySettings;
+  // Never client-settable — see firestore.rules, which blocks a user from
+  // changing this on their own doc. Only ever set out-of-band (seeded here,
+  // or by a human directly in the Firebase console in a real deployment).
+  isAdmin?: boolean;
+}
+
+export type ReportTargetType = 'adventure' | 'user' | 'review';
+export type ReportReason = 'Spam' | 'Inappropriate content' | 'Safety concern' | 'Other';
+export type ReportStatus = 'open' | 'resolved' | 'dismissed';
+
+export interface Report {
+  id: string;
+  targetType: ReportTargetType;
+  targetId: string;
+  reporterId: string;
+  reason: ReportReason;
+  details: string;
+  status: ReportStatus;
+  createdAt: number;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  actorId: string;
+  action: string;
+  targetType: ReportTargetType;
+  targetId: string;
+  createdAt: number;
 }
 
 export interface Adventure {

@@ -160,18 +160,56 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /reports/{reportId} {
+      // Anyone signed in can file one. Reading the queue or changing status
+      // is admin-only — "admin" is just the reporting user's own isAdmin
+      // field, which the /users rule below makes client-unwritable.
+      allow create: if request.auth != null
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.status == 'open';
+
+      allow read, update: if request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+
+      allow delete: if false;
+    }
+
+    match /auditLog/{entryId} {
+      // A record of moderation actions — admin-only, and nobody may alter
+      // history once written.
+      allow read: if request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+
+      allow create: if request.auth != null
+        && request.resource.data.actorId == request.auth.uid
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+
+      allow update, delete: if false;
+    }
+
     match /users/{uid} {
-      // "Everyone" is enforceable now. "Connections" and "Participants" tiers
-      // are NOT — there's no Connections collection yet (Phase 2) to check
-      // "is this requester actually a connection" against. Fails closed: a
-      // profile set to those tiers is readable only by its own owner until
-      // Phase 2 lands and this rule can be tightened to actually check it,
-      // rather than pretending to enforce a tier it can't yet verify.
+      // "Everyone" and "Connections" are both enforceable now that the
+      // connections collection exists. "Participants" (shared an adventure)
+      // still isn't — checking it would mean scanning every adventure for
+      // one that has both uids, which rules can't do. Fails closed: a
+      // profile set to "Participants" is readable only by its own owner
+      // until that tier can be checked directly.
       allow get: if resource.data.privacy.profileVisibility == 'Everyone'
-        || (request.auth != null && request.auth.uid == uid);
+        || (request.auth != null && request.auth.uid == uid)
+        || (request.auth != null
+            && resource.data.privacy.profileVisibility == 'Connections'
+            && get(/databases/$(database)/documents/connections/$(
+                 request.auth.uid < uid ? request.auth.uid + '_' + uid : uid + '_' + request.auth.uid
+               )).data.status == 'accepted');
 
       allow create: if request.auth != null && request.auth.uid == uid;
-      allow update: if request.auth != null && request.auth.uid == uid;
+
+      // A user may update their own doc, but never grant themselves admin —
+      // isAdmin only ever changes out-of-band (seeded, or set by a human
+      // directly in the Firebase console in a real deployment).
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.isAdmin == resource.data.isAdmin;
+
       allow delete: if false;
 
       // No `list` on this collection: every real lookup already knows the

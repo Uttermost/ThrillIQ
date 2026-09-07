@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { ConfirmPanel } from '@/components/ui/ConfirmPanel';
 import { InlineError } from '@/components/ui/StateViews';
 import { MountainScene } from '@/components/ui/MountainScene';
+import { ReportSheet } from '@/components/ui/ReportSheet';
 import { StarRating } from '@/components/ui/StarRating';
 import { colors, iconSize, radius, spacing, type } from '@/lib/theme';
 import { useApp } from '@/lib/store';
@@ -44,6 +45,7 @@ export default function AdventureDetail() {
   const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null);
   const [waitlistBusy, setWaitlistBusy] = useState(false);
   const [waitlistError, setWaitlistError] = useState<string | null>(null);
+  const [reportVisible, setReportVisible] = useState(false);
   const [alreadyReviewed, setAlreadyReviewed] = useState(false);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
@@ -342,8 +344,14 @@ export default function AdventureDetail() {
           </View>
 
           <Button label="Message organizer" onPress={handleMessageOrganizer} variant="secondary" style={{ marginTop: spacing.md }} />
+
+          <Pressable onPress={() => setReportVisible(true)} style={{ alignSelf: 'center', marginTop: spacing.sm }}>
+            <Text style={styles.reportLink}>Report this adventure</Text>
+          </Pressable>
         </View>
       </ScrollView>
+
+      <ReportSheet visible={reportVisible} onClose={() => setReportVisible(false)} targetType="adventure" targetId={adventure.id} />
 
       <View style={styles.bottomBar}>
         {isFull && !isJoined ? (
@@ -469,6 +477,7 @@ const styles = StyleSheet.create({
   safetyTitle: { fontWeight: '700', color: colors.textSecondary, fontSize: 14 },
   safetyText: { ...type.secondary, color: colors.textSecondary },
   safetyLink: { ...type.secondary, color: colors.primary, fontWeight: '600' },
+  reportLink: { ...type.secondary, color: colors.textMuted },
   reviewInput: {
     backgroundColor: colors.surface,
     borderWidth: 1,

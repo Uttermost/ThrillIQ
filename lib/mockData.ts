@@ -1,4 +1,4 @@
-import { Connection, Crew, DEFAULT_PRIVACY, Adventure, Review, SafetyAcknowledgement, Thread, User, WaitlistEntry } from './types';
+import { AuditLogEntry, Connection, Crew, DEFAULT_PRIVACY, Adventure, Report, Review, SafetyAcknowledgement, Thread, User, WaitlistEntry } from './types';
 
 function pairId(a: string, b: string): string {
   return [a, b].sort().join('_');
@@ -29,6 +29,7 @@ export const users: Record<string, User> = {
     tags: ['Photography', 'Solo adventures'],
     completedAdventuresCount: 4,
     privacy: DEFAULT_PRIVACY,
+    isAdmin: true,
   },
   'u-tom': {
     id: 'u-tom',
@@ -360,6 +361,40 @@ export const initialConnections: Connection[] = [
 // a-amboseli is the one seed adventure at capacity (8/8) — a natural seed
 // case for the waitlist.
 export const initialWaitlist: WaitlistEntry[] = [{ id: 'a-amboseli_u-kevin', adventureId: 'a-amboseli', userId: 'u-kevin', createdAt: inDays(-2) }];
+
+export const initialReports: Report[] = [
+  {
+    id: 'report-1',
+    targetType: 'adventure',
+    targetId: 'a-amboseli',
+    reporterId: 'u-kevin',
+    reason: 'Other',
+    details: "Price seems to have changed since I first saw the listing — wasn't sure if that's allowed.",
+    status: 'open',
+    createdAt: inDays(-3),
+  },
+  {
+    id: 'report-2',
+    targetType: 'user',
+    targetId: 'u-brian',
+    reporterId: 'u-amina',
+    reason: 'Spam',
+    details: 'Kept messaging about an unrelated side business.',
+    status: 'dismissed',
+    createdAt: inDays(-20),
+  },
+];
+
+export const initialAuditLog: AuditLogEntry[] = [
+  {
+    id: 'audit-1',
+    actorId: ME_ID,
+    action: 'Dismissed report',
+    targetType: 'user',
+    targetId: 'u-brian',
+    createdAt: inDays(-19),
+  },
+];
 
 export const initialThreads: Thread[] = [
   {

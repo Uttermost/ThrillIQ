@@ -101,6 +101,14 @@ export default function Profile() {
           <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
         </Pressable>
 
+        {me.isAdmin && (
+          <Pressable style={styles.crewsRow} onPress={() => router.push('/admin')}>
+            <Ionicons name="shield-checkmark-outline" size={20} color={colors.textPrimary} />
+            <Text style={styles.crewsRowLabel}>Admin</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
+        )}
+
         <View style={styles.tabs}>
           {(['Upcoming', 'Liked', 'Hosting'] as Tab[]).map((t) => (
             <Pressable key={t} onPress={() => setTab(t)} style={styles.tabButton}>

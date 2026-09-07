@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { ReportSheet } from '@/components/ui/ReportSheet';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { StarRating } from '@/components/ui/StarRating';
@@ -33,6 +34,7 @@ export default function ParticipantProfile() {
   const [reviews, setReviews] = useState<Review[] | null>(null);
   const [connections, setConnections] = useState<Connection[] | null>(null);
   const [connectionBusy, setConnectionBusy] = useState(false);
+  const [reportVisible, setReportVisible] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -263,7 +265,15 @@ export default function ParticipantProfile() {
         )}
 
         {!isSelf && <Button label="Message" onPress={handleMessage} style={{ marginTop: spacing.md }} />}
+
+        {!isSelf && (
+          <Pressable onPress={() => setReportVisible(true)} style={{ alignSelf: 'center', marginTop: spacing.sm }}>
+            <Text style={styles.reportLink}>Report this person</Text>
+          </Pressable>
+        )}
       </ScrollView>
+
+      <ReportSheet visible={reportVisible} onClose={() => setReportVisible(false)} targetType="user" targetId={id} />
     </SafeAreaView>
   );
 }
@@ -324,4 +334,5 @@ const styles = StyleSheet.create({
   connectionActions: { marginTop: spacing.sm, alignItems: 'center' },
   respondRow: { flexDirection: 'row', gap: spacing.sm, width: '100%' },
   respondBtn: { flex: 1 },
+  reportLink: { ...typography.small, color: colors.textMuted },
 });
