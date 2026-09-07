@@ -201,7 +201,7 @@ export default function AdventureDetail() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.heroWrap}>
-          <MountainScene height={220} rounded={false} />
+          <MountainScene height={220} rounded={false} category={adventure.category} />
           <Pressable onPress={() => router.back()} style={styles.heroBtn} hitSlop={8} accessibilityLabel="Go back">
             <Ionicons name="arrow-back" size={iconSize.standard} color={colors.textPrimary} />
           </Pressable>
@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxChecked: { backgroundColor: colors.textPrimary, borderColor: colors.textPrimary },
+  checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
   agreeLabel: { ...type.secondary, flex: 1 },
   disclaimer: { ...type.caption, textAlign: 'center', color: colors.textMuted },
   goingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

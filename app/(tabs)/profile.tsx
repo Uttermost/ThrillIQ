@@ -202,8 +202,8 @@ const styles = StyleSheet.create({
   tabs: { flexDirection: 'row', gap: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.border },
   tabButton: { paddingBottom: spacing.sm },
   tabLabel: { ...typography.caption, fontWeight: '600', color: colors.textMuted },
-  tabLabelActive: { color: colors.textPrimary },
-  tabIndicator: { height: 2, backgroundColor: colors.textPrimary, marginTop: spacing.xs, borderRadius: 1 },
+  tabLabelActive: { color: colors.primary },
+  tabIndicator: { height: 2, backgroundColor: colors.primary, marginTop: spacing.xs, borderRadius: 1 },
   list: { gap: spacing.sm },
   item: {
     backgroundColor: colors.surface,

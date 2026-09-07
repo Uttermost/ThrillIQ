@@ -51,7 +51,7 @@ function priceMatchesBand(priceKsh: number, band: DiscoverFilters['price']): boo
 }
 
 export default function Discover() {
-  const { myId, authenticated, adventures, notifications, fetchAdventures, toggleLike } = useApp();
+  const { myId, me, authenticated, adventures, notifications, fetchAdventures, toggleLike } = useApp();
   const hasUnreadNotifications = notifications.some((n) => !n.read);
   const [status, setStatus] = useState<Status>('loading');
   const [search, setSearch] = useState('');
@@ -144,6 +144,32 @@ export default function Discover() {
     return list;
   }, [adventures, search, categoryFilter, filters, myCoords]);
 
+  // A real, if simple, match: score each open adventure against the
+  // signed-in user's own stored preferences (category/difficulty/pace/
+  // social level) rather than showing a fabricated "% match". Only surfaces
+  // when someone has actually set preferences and something genuinely
+  // matches on 2+ of those — no preferences, no section, not a placeholder
+  // shown to everyone regardless of data.
+  const findMyPeopleMatches = useMemo(() => {
+    const hasPreferences =
+      (me.adventureCategories?.length ?? 0) > 0 || !!me.preferredDifficulty || !!me.preferredPace || !!me.preferredSocialLevel;
+    if (!hasPreferences) return [];
+    return adventures
+      .filter((a) => a.organizerId !== myId && !a.participantIds.includes(myId) && a.spotsFilled < a.spotsTotal)
+      .map((a) => {
+        let score = 0;
+        if (me.adventureCategories?.includes(a.category)) score += 1;
+        if (me.preferredDifficulty && me.preferredDifficulty === a.difficulty) score += 1;
+        if (me.preferredPace && me.preferredPace === a.pace) score += 1;
+        if (me.preferredSocialLevel && me.preferredSocialLevel === a.socialLevel) score += 1;
+        return { adventure: a, score };
+      })
+      .filter((m) => m.score >= 2)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map((m) => m.adventure);
+  }, [adventures, myId, me.adventureCategories, me.preferredDifficulty, me.preferredPace, me.preferredSocialLevel]);
+
   useEffect(() => {
     if (!selectedId && filtered.length > 0) setSelectedId(filtered[0].id);
   }, [filtered, selectedId]);
@@ -194,7 +220,7 @@ export default function Discover() {
       <View style={styles.header}>
         <View>
           <Text style={styles.heading}>Find your next adventure</Text>
-          <Text style={styles.subheading}>Explore experiences and people worth meeting.</Text>
+          <Text style={styles.subheading}>Discover experiences. Meet people. Find your crew.</Text>
         </View>
         <View style={styles.headerActions}>
           <Pressable onPress={() => router.push('/notifications')} hitSlop={8} style={styles.bellButton} accessibilityLabel="Notifications">
@@ -232,6 +258,24 @@ export default function Discover() {
           </Pressable>
         ))}
       </ScrollView>
+
+      {findMyPeopleMatches.length > 0 && (
+        <View style={styles.findMyPeopleSection}>
+          <Text style={styles.findMyPeopleTitle}>✨ Find My People</Text>
+          <Text style={styles.findMyPeopleSubtitle}>Adventures matched to your interests, pace and vibe.</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.findMyPeopleScroll}
+            contentContainerStyle={styles.findMyPeopleRow}>
+            {findMyPeopleMatches.map((a) => (
+              <View key={a.id} style={styles.findMyPeopleCard}>
+                <AdventureCard adventure={a} onPress={() => openAdventure(a)} onToggleLike={() => handleToggleLike(a.id)} />
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       <View style={styles.filterBarRow}>
         <Pressable onPress={() => setSheetOpen(true)} style={styles.filterButton} accessibilityLabel="Filters">
@@ -390,6 +434,14 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
+  findMyPeopleSection: { marginTop: spacing.lg, gap: 2 },
+  findMyPeopleTitle: { ...type.sectionHeading, paddingHorizontal: spacing.lg },
+  findMyPeopleSubtitle: { ...type.secondary, color: colors.textSecondary, paddingHorizontal: spacing.lg, marginBottom: spacing.sm },
+  // Same fixed-height fix as categoryScroll above — this ScrollView holds
+  // full AdventureCards, so it needs real room, not just enough for a chip.
+  findMyPeopleScroll: { height: 360, flexGrow: 0, flexShrink: 0 },
+  findMyPeopleRow: { flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.lg },
+  findMyPeopleCard: { width: 260 },
   filterBarRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -427,7 +479,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: colors.surfaceMuted,
   },
-  chipActive: { backgroundColor: colors.textPrimary },
+  chipActive: { backgroundColor: colors.primary },
   chipLabel: { ...typography.caption, fontWeight: '600' },
   chipLabelActive: { color: '#fff' },
   list: { padding: spacing.lg },

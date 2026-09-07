@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  chipActive: { backgroundColor: colors.textPrimary, borderColor: colors.textPrimary },
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipLabel: { ...typography.caption, fontWeight: '600' },
   chipLabelActive: { color: '#fff' },
 });

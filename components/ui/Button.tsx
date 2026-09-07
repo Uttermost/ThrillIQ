@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
 });
 
 const variantStyles: Record<Variant, ViewStyle> = {
-  primary: { backgroundColor: colors.textPrimary },
+  primary: { backgroundColor: colors.primary },
   secondary: { backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border },
   danger: { backgroundColor: colors.danger },
   ghost: { backgroundColor: 'transparent' },
