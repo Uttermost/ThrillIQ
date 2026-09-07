@@ -122,6 +122,8 @@ export const initialAdventures: Adventure[] = [
   {
     id: 'a-ngong',
     title: 'Ngong Hills sunrise hike',
+    description:
+      'We climb the seven hills before dawn to catch sunrise over the Rift Valley. Steady moderate pace with a couple of short breaks — the view at the top is worth the early start.',
     category: 'Hiking',
     difficulty: 'Moderate',
     socialLevel: 'Social',
@@ -148,6 +150,8 @@ export const initialAdventures: Adventure[] = [
   {
     id: 'a-naivasha',
     title: 'Naivasha road trip',
+    description:
+      "A relaxed day out to Lake Naivasha — boat ride past the hippos, lunch by the water, and a walk around Crescent Island if there's time. Easy pace, good for a first road trip with the group.",
     category: 'Road trip',
     difficulty: 'Moderate',
     socialLevel: 'Very Social',
@@ -174,6 +178,8 @@ export const initialAdventures: Adventure[] = [
   {
     id: 'a-karura',
     title: 'Karura Forest evening walk',
+    description:
+      'An easy loop through Karura Forest as the light goes golden — flat trails, a stop at the waterfall, and good company. Great if you want to try a group hike without committing to a big one.',
     category: 'Hiking',
     difficulty: 'Easy',
     socialLevel: 'Social',
@@ -200,6 +206,8 @@ export const initialAdventures: Adventure[] = [
   {
     id: 'a-amboseli',
     title: 'Amboseli weekend safari',
+    description:
+      "A two-day trip to Amboseli for elephants against the backdrop of Kilimanjaro. We travel down together, camp overnight, and do two game drives. This one's physically easier than it sounds — the challenge is the early starts and the road, not the walking.",
     category: 'Road trip',
     difficulty: 'Challenging',
     socialLevel: 'Social',

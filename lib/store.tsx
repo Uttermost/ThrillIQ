@@ -489,6 +489,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const created: Adventure = {
         id: `a-${Date.now()}`,
         title: draft.title.trim(),
+        description: draft.description.trim(),
         category: draft.category,
         difficulty: draft.difficulty,
         socialLevel: draft.socialLevel,

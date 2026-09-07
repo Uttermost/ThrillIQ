@@ -33,8 +33,11 @@ const WHEN_BUCKETS: WhenBucket[] = ['This week', 'This month', 'Later'];
 const TITLE_MIN = 5;
 const TITLE_MAX = 100;
 
+const DESCRIPTION_MAX = 600;
+
 const EMPTY_DRAFT: NewAdventureDraft = {
   title: '',
+  description: '',
   schedule: '',
   priceKsh: '',
   spots: '',
@@ -64,7 +67,8 @@ export default function Create() {
   );
 
   const titleTooShort = draft.title.trim().length > 0 && draft.title.trim().length < TITLE_MIN;
-  const canPublish = draft.title.trim().length >= TITLE_MIN && draft.schedule.trim().length > 0;
+  const canPublish =
+    draft.title.trim().length >= TITLE_MIN && draft.description.trim().length > 0 && draft.schedule.trim().length > 0;
 
   const handlePublish = async () => {
     if (!canPublish) return;
@@ -108,6 +112,17 @@ export default function Create() {
           hint="Choose a name participants will immediately understand."
           error={titleTooShort ? `At least ${TITLE_MIN} characters.` : undefined}
           maxLength={TITLE_MAX}
+        />
+        <FormField
+          label="Description"
+          required
+          value={draft.description}
+          onChangeText={(description) => setDraft((d) => ({ ...d, description }))}
+          placeholder="What will you do, and what should people expect?"
+          hint="Tell participants what they will experience and what they should expect."
+          maxLength={DESCRIPTION_MAX}
+          multiline
+          numberOfLines={4}
         />
         <FormField
           label="Date and meeting time"

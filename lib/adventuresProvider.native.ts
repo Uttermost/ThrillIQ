@@ -10,6 +10,7 @@ function fromDoc(doc: FirebaseFirestoreTypes.QueryDocumentSnapshot, myUid: strin
   return {
     id: doc.id,
     title: (data.title as string) ?? '',
+    description: (data.description as string) ?? '',
     category: (data.category as Adventure['category']) ?? 'Other',
     difficulty: (data.difficulty as Adventure['difficulty']) ?? 'Moderate',
     socialLevel: (data.socialLevel as Adventure['socialLevel']) ?? 'Social',
@@ -93,6 +94,7 @@ export async function createAdventureReal(draft: NewAdventureDraft, organizerId:
   const spots = Math.max(1, parseInt(draft.spots, 10) || 1);
   const base = {
     title: draft.title.trim(),
+    description: draft.description.trim(),
     category: draft.category,
     difficulty: draft.difficulty,
     socialLevel: draft.socialLevel,

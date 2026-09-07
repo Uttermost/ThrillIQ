@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, ViewStyle } from 'react-native';
 
 import { colors, radius, spacing } from '@/lib/theme';
 
-type Tone = 'hosting' | 'success' | 'neutral' | 'accent';
+type Tone = 'hosting' | 'success' | 'neutral' | 'accent' | 'danger';
 
 export function Badge({ label, tone = 'neutral', style }: { label: string; tone?: Tone; style?: ViewStyle }) {
   const palette = tones[tone];
@@ -19,6 +19,7 @@ const tones: Record<Tone, { bg: string; text: string }> = {
   success: { bg: colors.successBg, text: colors.success },
   neutral: { bg: colors.surfaceMuted, text: colors.textSecondary },
   accent: { bg: colors.accentMuted, text: colors.accent },
+  danger: { bg: colors.dangerBg, text: colors.danger },
 };
 
 const styles = StyleSheet.create({

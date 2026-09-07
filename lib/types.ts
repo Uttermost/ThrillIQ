@@ -63,6 +63,7 @@ export interface User {
 export interface Adventure {
   id: string;
   title: string;
+  description: string;
   category: Category;
   difficulty: Difficulty;
   socialLevel: SocialLevel;
@@ -129,6 +130,7 @@ export interface AppNotification {
 
 export interface NewAdventureDraft {
   title: string;
+  description: string;
   schedule: string;
   priceKsh: string;
   spots: string;
