@@ -7,6 +7,7 @@ import {
   Follow,
   Post,
   PostComment,
+  PostSave,
   Report,
   Repost,
   Review,
@@ -385,6 +386,12 @@ export const initialReposts: Repost[] = [
     createdAt: inDays(-1),
   },
 ];
+
+// Private to the saving user — unlike reposts above, never shown to anyone
+// else. Vincent (ME_ID) saving Tom's post is the only seed here since it's
+// the only one that's actually visible/testable from the signed-in demo
+// account's own "Saved posts" list.
+export const initialPostSaves: PostSave[] = [{ id: `${ME_ID}_p-tom-amboseli`, userId: ME_ID, postId: 'p-tom-amboseli', createdAt: inDays(-1) }];
 
 // One comment doc per (postId, author) pair reflected in the commentCount
 // values above — kept in sync by hand here since mock data has no batch

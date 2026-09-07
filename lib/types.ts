@@ -288,6 +288,16 @@ export interface Repost {
   createdAt: number;
 }
 
+// Private to the saving user — unlike Repost, this never appears as its own
+// Feed item or is visible to anyone else; it's just a personal reading
+// list. Same idempotent-by-deterministic-id shape as Repost/Follow.
+export interface PostSave {
+  id: string; // `${userId}_${postId}`
+  userId: string;
+  postId: string;
+  createdAt: number;
+}
+
 export interface PostComment {
   id: string;
   postId: string;

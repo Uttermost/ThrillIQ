@@ -101,6 +101,12 @@ export default function Profile() {
           <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
         </Pressable>
 
+        <Pressable style={styles.crewsRow} onPress={() => router.push('/saved')}>
+          <Ionicons name="bookmark-outline" size={20} color={colors.textPrimary} />
+          <Text style={styles.crewsRowLabel}>Saved posts</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+        </Pressable>
+
         {me.isAdmin && (
           <Pressable style={styles.crewsRow} onPress={() => router.push('/admin')}>
             <Ionicons name="shield-checkmark-outline" size={20} color={colors.textPrimary} />

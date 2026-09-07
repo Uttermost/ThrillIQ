@@ -12,7 +12,7 @@ import { colors } from '@/lib/theme';
 // and anything else that only makes sense for a signed-in identity
 // (Messages, Chat, the organizer dashboard, editing an adventure,
 // Notifications) require auth.
-const AUTH_REQUIRED_PREFIXES = ['/create', '/messages', '/chat', '/organizer', '/edit', '/notifications', '/connections', '/admin'];
+const AUTH_REQUIRED_PREFIXES = ['/create', '/messages', '/chat', '/organizer', '/edit', '/notifications', '/connections', '/admin', '/saved'];
 
 function requiresAuth(pathname: string): boolean {
   if (pathname === '/profile' || pathname === '/profile/edit' || pathname === '/profile/privacy') return true;

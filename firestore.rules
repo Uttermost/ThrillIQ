@@ -278,6 +278,22 @@ service cloud.firestore {
       allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
 
+    match /postSaves/{saveId} {
+      // Private — unlike reposts, a save is never shown to anyone but the
+      // user who made it, so read is restricted to the saving user, not
+      // public like every other Feed collection above.
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && saveId == request.resource.data.userId + '_' + request.resource.data.postId
+        && exists(/databases/$(database)/documents/posts/$(request.resource.data.postId));
+
+      allow update: if false;
+
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
     match /reviews/{reviewId} {
       // Reviews are shown on an organizer's public profile — readable by
       // anyone. Doc id is deterministic (`${adventureId}_${reviewerId}`),

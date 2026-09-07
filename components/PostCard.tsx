@@ -29,7 +29,20 @@ interface PostCardProps {
 }
 
 export function PostCard({ post, onToggleLike, onShared, hideCommentLink, hideCrewLink }: PostCardProps) {
-  const { myId, authenticated, users, adventures, crews, fetchOtherProfile, myFollowingIds, followUser, deletePost } = useApp();
+  const {
+    myId,
+    authenticated,
+    users,
+    adventures,
+    crews,
+    fetchOtherProfile,
+    myFollowingIds,
+    followUser,
+    deletePost,
+    mySavedPostIds,
+    savePost,
+    unsavePost,
+  } = useApp();
   const author = users[post.authorId];
   const adventure = post.adventureId ? adventures.find((a) => a.id === post.adventureId) : undefined;
   const crew = post.crewId ? crews.find((c) => c.id === post.crewId) : undefined;
@@ -40,7 +53,9 @@ export function PostCard({ post, onToggleLike, onShared, hideCommentLink, hideCr
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const isFollowing = myFollowingIds.has(post.authorId);
+  const isSaved = mySavedPostIds.has(post.id);
 
   useEffect(() => {
     if (!users[post.authorId]) fetchOtherProfile(post.authorId);
@@ -75,6 +90,22 @@ export function PostCard({ post, onToggleLike, onShared, hideCommentLink, hideCr
     onShared();
     setJustShared(true);
     setTimeout(() => setJustShared(false), 1500);
+  };
+
+  const handleToggleSave = async () => {
+    if (!authenticated) {
+      router.push('/auth');
+      return;
+    }
+    setSaving(true);
+    try {
+      if (isSaved) await unsavePost(post.id);
+      else await savePost(post.id);
+    } catch {
+      // Best-effort, same as follow/like — the icon just doesn't flip.
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -181,6 +212,15 @@ export function PostCard({ post, onToggleLike, onShared, hideCommentLink, hideCr
           <Ionicons name="share-outline" size={iconSize.inline} color={colors.textSecondary} />
           <Text style={styles.actionCount}>{justShared ? 'Shared' : post.shareCount}</Text>
         </Pressable>
+
+        <Pressable
+          style={styles.saveBtn}
+          onPress={handleToggleSave}
+          disabled={saving}
+          hitSlop={8}
+          accessibilityLabel={isSaved ? 'Unsave post' : 'Save post'}>
+          <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={iconSize.inline} color={isSaved ? colors.primary : colors.textSecondary} />
+        </Pressable>
       </View>
 
       {confirmingDelete && (
@@ -258,4 +298,5 @@ const styles = StyleSheet.create({
   },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   actionCount: { ...type.secondary, color: colors.textSecondary },
+  saveBtn: { marginLeft: 'auto' },
 });

@@ -35,6 +35,7 @@ import {
   initialFollows,
   initialPostComments,
   initialPosts,
+  initialPostSaves,
   initialReports,
   initialReposts,
   initialReviews,
@@ -43,6 +44,7 @@ import {
   users,
 } from './mockData';
 import { createPostCommentReal, deletePostCommentReal, fetchCommentsForPostReal, toggleLikeCommentReal } from './postCommentsProvider';
+import { fetchMySavesReal, savePostReal, unsavePostReal } from './postSavesProvider';
 import { createPostReal, deletePostReal, incrementShareCountReal, subscribePostsReal, toggleLikePostReal } from './postsProvider';
 import { createRepostReal, removeRepostReal, subscribeRepostsReal, toggleLikeRepostReal } from './repostsProvider';
 import { ensureProfileReal, fetchProfileReal, subscribeProfileReal, updateProfileReal } from './profileProvider';
@@ -61,6 +63,7 @@ import {
   NotificationType,
   Post,
   PostComment,
+  PostSave,
   Report,
   ReportStatus,
   Repost,
@@ -146,6 +149,10 @@ interface AppState {
   crews: Crew[];
   posts: Post[];
   reposts: Repost[];
+  // Own saves only (see the comment on the postSaves state below) — still
+  // exposed raw, unlike follows, so app/saved.tsx can sort by save time
+  // rather than just knowing which post ids are saved.
+  postSaves: PostSave[];
   threads: Thread[];
   simulateFailures: boolean;
 }
@@ -199,6 +206,11 @@ interface AppContextValue extends AppState {
   createRepost: (input: { postId: string; comment?: string }) => Promise<void>;
   removeRepost: (postId: string) => Promise<void>;
   toggleLikeRepost: (id: string) => void;
+  // Same "always available" shape as myFollowingIds below — a small,
+  // own-account-scoped set, never a full collection.
+  mySavedPostIds: Set<string>;
+  savePost: (postId: string) => Promise<void>;
+  unsavePost: (postId: string) => Promise<void>;
   // Who the signed-in user follows — always available without a fetch (a
   // small, own-account-scoped set), unlike per-profile follower/following
   // counts below which are fetched on demand per screen.
@@ -242,6 +254,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [reposts, setReposts] = useState<Repost[]>(IS_NATIVE ? [] : initialReposts);
   const repostsRef = useRef(reposts);
   repostsRef.current = reposts;
+  // Own saves only, like follows below — never a full collection, and
+  // private besides (firestore.rules denies reading anyone else's saves).
+  const [postSaves, setPostSaves] = useState<PostSave[]>(IS_NATIVE ? [] : initialPostSaves);
+  const postSavesRef = useRef(postSaves);
+  postSavesRef.current = postSaves;
+  const mySavedPostIds = useMemo(() => new Set(postSaves.filter((s) => s.userId === myId).map((s) => s.postId)), [postSaves, myId]);
   // On web this holds the whole mock follow graph (initialFollows), same as
   // crews/adventures. On native it holds only the signed-in user's own
   // following edges (populated below) — never the full collection, which
@@ -414,6 +432,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       })
       .catch(() => {
         // Best-effort: myFollowingIds just stays empty/stale on failure.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authenticated, myId]);
+
+  // Same one-shot pattern as follows above — just the signed-in user's own
+  // saves, not a live subscription of a collection nobody else can read.
+  useEffect(() => {
+    if (!IS_NATIVE || !authenticated) return;
+    let cancelled = false;
+    fetchMySavesReal(myId)
+      .then((list) => {
+        if (!cancelled) setPostSaves(list);
+      })
+      .catch(() => {
+        // Best-effort: mySavedPostIds just stays empty/stale on failure.
       });
     return () => {
       cancelled = true;
@@ -1153,6 +1188,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Private — never appears anywhere but the saving user's own "Saved
+  // posts" list (app/saved.tsx). Idempotent by deterministic id, same
+  // shape as follow/repost.
+  const savePost = useCallback(async (postId: string) => {
+    if (simulateFailuresRef.current) {
+      await delay(NETWORK_LATENCY_MS);
+      throw new ApiError("Couldn't save that post. Try again.");
+    }
+    const id = `${myIdRef.current}_${postId}`;
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      if (postSavesRef.current.some((s) => s.id === id)) return;
+      setPostSaves((prev) => [...prev, { id, userId: myIdRef.current, postId, createdAt: Date.now() }]);
+      return;
+    }
+    try {
+      const created = await savePostReal(myIdRef.current, postId);
+      setPostSaves((prev) => (prev.some((s) => s.id === created.id) ? prev : [...prev, created]));
+    } catch (e) {
+      throw new ApiError(e instanceof Error ? e.message : "Couldn't save that post. Try again.");
+    }
+  }, []);
+
+  const unsavePost = useCallback(async (postId: string) => {
+    const id = `${myIdRef.current}_${postId}`;
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      setPostSaves((prev) => prev.filter((s) => s.id !== id));
+      return;
+    }
+    try {
+      await unsavePostReal(myIdRef.current, postId);
+      setPostSaves((prev) => prev.filter((s) => s.id !== id));
+    } catch (e) {
+      throw new ApiError(e instanceof Error ? e.message : "Couldn't unsave that post. Try again.");
+    }
+  }, []);
+
   const fetchConnectionsFor = useCallback(async (uid: string): Promise<Connection[]> => {
     if (!IS_NATIVE) {
       await delay(NETWORK_LATENCY_MS);
@@ -1777,6 +1850,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       crews,
       posts,
       reposts,
+      postSaves,
       threads,
       simulateFailures,
       me: usersState[myId] ?? defaultUser(myId),
@@ -1826,6 +1900,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createRepost,
       removeRepost,
       toggleLikeRepost,
+      mySavedPostIds,
+      savePost,
+      unsavePost,
       myFollowingIds,
       fetchFollowersFor,
       fetchFollowingFor,
@@ -1851,6 +1928,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       crews,
       posts,
       reposts,
+      postSaves,
       threads,
       simulateFailures,
       usersState,
@@ -1898,6 +1976,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createRepost,
       removeRepost,
       toggleLikeRepost,
+      mySavedPostIds,
+      savePost,
+      unsavePost,
       myFollowingIds,
       fetchFollowersFor,
       fetchFollowingFor,
