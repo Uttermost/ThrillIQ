@@ -19,6 +19,7 @@ export default function AdventureDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const {
     myId,
+    me,
     authenticated,
     adventures,
     users,
@@ -260,6 +261,24 @@ export default function AdventureDetail() {
             <Text style={styles.body}>{adventure.location}</Text>
           </Section>
 
+          {isJoined && (
+            <View style={styles.safetyBox}>
+              <View style={styles.guidelinesHeader}>
+                <Ionicons name="medkit-outline" size={16} color={colors.textSecondary} />
+                <Text style={styles.safetyTitle}>Safety</Text>
+              </View>
+              {me.emergencyContactName && me.emergencyContactPhone ? (
+                <Text style={styles.safetyText}>
+                  Your emergency contact: {me.emergencyContactName} · {me.emergencyContactPhone}
+                </Text>
+              ) : (
+                <Pressable onPress={() => router.push('/profile/edit')}>
+                  <Text style={styles.safetyLink}>Add an emergency contact to your profile →</Text>
+                </Pressable>
+              )}
+            </View>
+          )}
+
           <View style={styles.guidelines}>
             <View style={styles.guidelinesHeader}>
               <Ionicons name="warning-outline" size={16} color={colors.hosting} />
@@ -441,6 +460,15 @@ const styles = StyleSheet.create({
   guidelinesHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   guidelinesTitle: { fontWeight: '700', color: colors.hosting, fontSize: 14 },
   guidelinesText: { color: colors.hosting, fontSize: 13 },
+  safetyBox: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  safetyTitle: { fontWeight: '700', color: colors.textSecondary, fontSize: 14 },
+  safetyText: { ...type.secondary, color: colors.textSecondary },
+  safetyLink: { ...type.secondary, color: colors.primary, fontWeight: '600' },
   reviewInput: {
     backgroundColor: colors.surface,
     borderWidth: 1,

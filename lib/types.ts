@@ -55,6 +55,13 @@ export interface User {
   experienceLevel?: ExperienceLevel | null;
   tags?: ProfileTag[];
   completedAdventuresCount?: number;
+  // Private to the account holder — never shown on anyone else's view of
+  // this profile. Surfaced back to the user themselves as a safety
+  // reminder on adventures they've joined. Deliberately just stored
+  // contact info, not an "SOS" feature — no backend exists to actually
+  // alert this contact, so nothing here should imply that it would.
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
   privacy?: PrivacySettings;
 }
 

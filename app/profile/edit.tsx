@@ -59,6 +59,8 @@ export default function EditProfile() {
   const [intensity, setIntensity] = useState<Intensity[]>(me.preferredIntensity ? [me.preferredIntensity] : []);
   const [experience, setExperience] = useState<ExperienceLevel[]>(me.experienceLevel ? [me.experienceLevel] : []);
   const [tags, setTags] = useState<ProfileTag[]>(me.tags ?? []);
+  const [emergencyContactName, setEmergencyContactName] = useState(me.emergencyContactName ?? '');
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState(me.emergencyContactPhone ?? '');
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -101,6 +103,8 @@ export default function EditProfile() {
         preferredIntensity: intensity[0] ?? null,
         experienceLevel: experience[0] ?? null,
         tags,
+        emergencyContactName: emergencyContactName.trim(),
+        emergencyContactPhone: emergencyContactPhone.trim(),
       });
       setSaved(true);
     } catch (e) {
@@ -161,6 +165,29 @@ export default function EditProfile() {
         <ChipGroup label="Experience level" options={EXPERIENCE_OPTIONS} selected={experience} onChange={setExperience} multi={false} />
         <ChipGroup label="Also interested in" options={TAG_OPTIONS} selected={tags} onChange={setTags} />
 
+        <View style={styles.safetySection}>
+          <Text style={styles.safetyTitle}>Emergency contact</Text>
+          <Text style={styles.safetyHint}>
+            Private to you — shown only on your own view of adventures you've joined, as a reminder. Never shared with organizers or
+            other participants automatically.
+          </Text>
+          <TextInput
+            value={emergencyContactName}
+            onChangeText={setEmergencyContactName}
+            placeholder="Contact name"
+            placeholderTextColor={colors.textMuted}
+            style={styles.input}
+          />
+          <TextInput
+            value={emergencyContactPhone}
+            onChangeText={setEmergencyContactPhone}
+            placeholder="Contact phone"
+            placeholderTextColor={colors.textMuted}
+            keyboardType="phone-pad"
+            style={styles.input}
+          />
+        </View>
+
         <View style={styles.statsRow}>
           <Stat value={me.completedAdventuresCount ?? 0} label="Completed" />
           <Stat value={connectionCount} label="Connections" />
@@ -207,6 +234,9 @@ const styles = StyleSheet.create({
   },
   multiline: { minHeight: 80, textAlignVertical: 'top' },
   hint: { ...typography.small, marginTop: -spacing.sm },
+  safetySection: { gap: spacing.sm, padding: spacing.lg, backgroundColor: colors.surfaceMuted, borderRadius: radius.lg },
+  safetyTitle: { ...typography.subheading, fontSize: 15 },
+  safetyHint: { ...typography.small },
   statsRow: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
