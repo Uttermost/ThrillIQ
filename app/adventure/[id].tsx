@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -24,6 +24,7 @@ export default function AdventureDetail() {
     me,
     authenticated,
     adventures,
+    posts,
     users,
     fetchOtherProfile,
     joinAdventure,
@@ -55,7 +56,7 @@ export default function AdventureDetail() {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
-  const [galleryPhotos, setGalleryPhotos] = useState<string[]>([]);
+  const [reviewPhotoItems, setReviewPhotoItems] = useState<{ uri: string; createdAt: number }[]>([]);
 
   useEffect(() => {
     if (!adventure) return;
@@ -90,12 +91,29 @@ export default function AdventureDetail() {
     let cancelled = false;
     fetchReviewsForAdventure(adventureId).then((list) => {
       if (cancelled) return;
-      setGalleryPhotos(list.flatMap((r) => r.photos ?? []));
+      setReviewPhotoItems(list.flatMap((r) => (r.photos ?? []).map((uri) => ({ uri, createdAt: r.createdAt }))));
     });
     return () => {
       cancelled = true;
     };
   }, [adventureId, fetchReviewsForAdventure]);
+
+  // Posts tagged to this adventure (Feed's "Tag an adventure") are the
+  // other real source of photos here — `posts` is already loaded
+  // client-side, no separate fetch needed. Tappable through to the post
+  // itself, unlike review photos which have no standalone detail screen.
+  const postPhotoItems = useMemo(
+    () =>
+      posts
+        .filter((p) => p.adventureId === adventureId)
+        .flatMap((p) => (p.photos ?? []).map((uri) => ({ uri, createdAt: p.createdAt, postId: p.id }))),
+    [posts, adventureId]
+  );
+
+  const galleryPhotos = useMemo<{ uri: string; createdAt: number; postId?: string }[]>(
+    () => [...reviewPhotoItems, ...postPhotoItems].sort((a, b) => b.createdAt - a.createdAt),
+    [reviewPhotoItems, postPhotoItems]
+  );
 
   const needsWaitlist = !!adventure && adventure.spotsFilled >= adventure.spotsTotal && !adventure.participantIds.includes(myId);
   useEffect(() => {
@@ -143,7 +161,7 @@ export default function AdventureDetail() {
         text: reviewText,
         photos: reviewPhotos,
       });
-      setGalleryPhotos((prev) => [...reviewPhotos, ...prev]);
+      setReviewPhotoItems((prev) => [...reviewPhotos.map((uri) => ({ uri, createdAt: Date.now() })), ...prev]);
       setReviewSubmitted(true);
     } catch (e) {
       setReviewError(e instanceof Error ? e.message : 'Something went wrong.');
@@ -338,9 +356,15 @@ export default function AdventureDetail() {
           {galleryPhotos.length > 0 && (
             <Section title="Photos">
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.galleryRow}>
-                {galleryPhotos.map((uri, i) => (
-                  <Image key={i} source={{ uri }} style={styles.galleryPhoto} />
-                ))}
+                {galleryPhotos.map((item, i) =>
+                  item.postId ? (
+                    <Pressable key={i} onPress={() => router.push(`/post/${item.postId}`)}>
+                      <Image source={{ uri: item.uri }} style={styles.galleryPhoto} />
+                    </Pressable>
+                  ) : (
+                    <Image key={i} source={{ uri: item.uri }} style={styles.galleryPhoto} />
+                  )
+                )}
               </ScrollView>
             </Section>
           )}
