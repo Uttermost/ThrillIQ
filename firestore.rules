@@ -83,6 +83,21 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /acknowledgements/{ackId} {
+      // No more sensitive than the adventure's own public participantIds —
+      // who joined is already visible there. This just adds a timestamped
+      // record of guidelines agreement for that same, already-public fact.
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && ackId == request.resource.data.adventureId + '_' + request.auth.uid
+        && get(/databases/$(database)/documents/adventures/$(request.resource.data.adventureId)).data.participantIds.hasAny([request.auth.uid]);
+
+      allow update: if false;
+      allow delete: if false;
+    }
+
     match /users/{uid} {
       // "Everyone" is enforceable now. "Connections" and "Participants" tiers
       // are NOT — there's no Connections collection yet (Phase 2) to check

@@ -1,4 +1,4 @@
-import { DEFAULT_PRIVACY, Adventure, Review, Thread, User } from './types';
+import { DEFAULT_PRIVACY, Adventure, Review, SafetyAcknowledgement, Thread, User } from './types';
 
 export const ME_ID = 'u-vincent';
 
@@ -293,6 +293,25 @@ export const initialReviews: Review[] = [
     rating: 5,
     text: 'Great pace, learned a lot about the forest trails.',
     createdAt: inDays(-40),
+  },
+];
+
+// One per existing (adventureId, participant) pair in initialAdventures —
+// every seeded participant already "agreed" when they joined. New joins
+// during a session record their own via store.tsx's joinAdventure.
+export const initialAcknowledgements: SafetyAcknowledgement[] = [
+  { adventureId: 'a-ngong', userId: 'u-brian', guidelinesSnapshot: ['No alcohol', 'Bring 2L water'], agreedAt: inDays(-2) },
+  {
+    adventureId: 'a-naivasha',
+    userId: 'u-kevin',
+    guidelinesSnapshot: ['Carpool meets at Total station', 'Bring a valid ID'],
+    agreedAt: inDays(-1),
+  },
+  {
+    adventureId: 'a-naivasha',
+    userId: 'u-brian',
+    guidelinesSnapshot: ['Carpool meets at Total station', 'Bring a valid ID'],
+    agreedAt: inDays(-1),
   },
 ];
 

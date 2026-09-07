@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -8,17 +8,31 @@ import { Button } from '@/components/ui/Button';
 import { ConfirmPanel } from '@/components/ui/ConfirmPanel';
 import { InlineError } from '@/components/ui/StateViews';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { formatRelativeTime } from '@/lib/relativeTime';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing, typography } from '@/lib/theme';
+import { SafetyAcknowledgement } from '@/lib/types';
 
 export default function OrganizerDashboard() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { adventures, users, cancelAdventure } = useApp();
+  const { adventures, users, cancelAdventure, fetchAcknowledgementsForAdventure } = useApp();
   const adventure = adventures.find((a) => a.id === id);
 
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [acknowledgements, setAcknowledgements] = useState<SafetyAcknowledgement[]>([]);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    fetchAcknowledgementsForAdventure(id).then((list) => {
+      if (!cancelled) setAcknowledgements(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, fetchAcknowledgementsForAdventure]);
 
   if (!adventure) {
     return (
@@ -59,12 +73,18 @@ export default function OrganizerDashboard() {
           {adventure.participantIds.length === 0 ? (
             <Text style={styles.noParticipants}>No one has joined yet.</Text>
           ) : (
-            adventure.participantIds.map((pid) => (
-              <Pressable key={pid} style={styles.participantRow} onPress={() => router.push(`/profile/${pid}`)}>
-                <Text style={styles.participantName}>{users[pid]?.name ?? pid}</Text>
-                <Badge label="Joined" tone="success" />
-              </Pressable>
-            ))
+            adventure.participantIds.map((pid) => {
+              const ack = acknowledgements.find((a) => a.userId === pid);
+              return (
+                <Pressable key={pid} style={styles.participantRow} onPress={() => router.push(`/profile/${pid}`)}>
+                  <View>
+                    <Text style={styles.participantName}>{users[pid]?.name ?? pid}</Text>
+                    {ack && <Text style={styles.participantAck}>Agreed to guidelines · {formatRelativeTime(ack.agreedAt)}</Text>}
+                  </View>
+                  <Badge label="Joined" tone="success" />
+                </Pressable>
+              );
+            })
           )}
         </View>
 
@@ -118,4 +138,5 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   participantName: { ...typography.body },
+  participantAck: { ...typography.small, marginTop: 2 },
 });

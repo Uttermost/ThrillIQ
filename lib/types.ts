@@ -133,6 +133,16 @@ export interface AppNotification {
   deepLink: DeepLink | null;
 }
 
+// A timestamped, versioned record of a participant agreeing to an
+// adventure's guidelines at join time — an auditable safety trail, not
+// just the in-the-moment checkbox state on the join screen.
+export interface SafetyAcknowledgement {
+  adventureId: string;
+  userId: string;
+  guidelinesSnapshot: string[];
+  agreedAt: number;
+}
+
 export interface Review {
   id: string;
   adventureId: string;

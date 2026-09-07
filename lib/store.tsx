@@ -19,11 +19,23 @@ import {
   subscribeMyId,
   verifyPhoneCodeReal,
 } from './authProvider';
+import { fetchAcknowledgementsReal, recordAcknowledgementReal } from './acknowledgementsProvider';
 import { timestampForBucket } from './dateBuckets';
-import { ME_ID, initialAdventures, initialReviews, initialThreads, users } from './mockData';
+import { ME_ID, initialAcknowledgements, initialAdventures, initialReviews, initialThreads, users } from './mockData';
 import { ensureProfileReal, fetchProfileReal, subscribeProfileReal, updateProfileReal } from './profileProvider';
 import { fetchReviewsForOrganizerReal, hasReviewedReal, submitReviewReal } from './reviewsProvider';
-import { Adventure, AppNotification, DEFAULT_PRIVACY, DeepLink, NewAdventureDraft, NotificationType, Review, Thread, User } from './types';
+import {
+  Adventure,
+  AppNotification,
+  DEFAULT_PRIVACY,
+  DeepLink,
+  NewAdventureDraft,
+  NotificationType,
+  Review,
+  SafetyAcknowledgement,
+  Thread,
+  User,
+} from './types';
 
 let notificationSeq = 0;
 function makeNotification(type: NotificationType, title: string, body: string, deepLink: DeepLink | null): AppNotification {
@@ -134,6 +146,7 @@ interface AppContextValue extends AppState {
   fetchReviewsForOrganizer: (organizerId: string) => Promise<Review[]>;
   hasReviewed: (adventureId: string) => Promise<boolean>;
   submitReview: (params: { adventureId: string; organizerId: string; rating: Review['rating']; text: string }) => Promise<void>;
+  fetchAcknowledgementsForAdventure: (adventureId: string) => Promise<SafetyAcknowledgement[]>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -168,6 +181,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const reviewsRef = useRef(reviews);
   reviewsRef.current = reviews;
   const [reviewsByOrganizer, setReviewsByOrganizer] = useState<Record<string, Review[]>>({});
+  // Web-mock master list, mirroring the reviews list above; native fetches
+  // and writes straight through to Firestore instead.
+  const [acknowledgements, setAcknowledgements] = useState<SafetyAcknowledgement[]>(initialAcknowledgements);
+  const acknowledgementsRef = useRef(acknowledgements);
+  acknowledgementsRef.current = acknowledgements;
   const [simulateFailures, setSimulateFailures] = useState(false);
   const simulateFailuresRef = useRef(simulateFailures);
   simulateFailuresRef.current = simulateFailures;
@@ -437,13 +455,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           a.id === id ? { ...a, spotsFilled: a.spotsFilled + 1, participantIds: [...a.participantIds, myIdRef.current] } : a
         )
       );
+      setAcknowledgements((prev) => [
+        ...prev,
+        { adventureId: id, userId: myIdRef.current, guidelinesSnapshot: target.guidelines, agreedAt: Date.now() },
+      ]);
       return;
     }
+    const guidelinesSnapshot = adventuresRef.current.find((a) => a.id === id)?.guidelines ?? [];
     try {
       await joinAdventureReal(id, myIdRef.current);
     } catch (e) {
       throw new ApiError(e instanceof Error ? e.message : "Couldn't join. Check your connection.");
     }
+    recordAcknowledgementReal({ adventureId: id, userId: myIdRef.current, guidelinesSnapshot, agreedAt: Date.now() }).catch(() => {
+      // Best-effort: the join itself already succeeded; a failed audit-trail
+      // write isn't worth blocking or retrying on its own.
+    });
   }, []);
 
   const leaveAdventure = useCallback(async (id: string) => {
@@ -703,6 +730,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const fetchAcknowledgementsForAdventure = useCallback(async (adventureId: string): Promise<SafetyAcknowledgement[]> => {
+    if (!IS_NATIVE) return acknowledgementsRef.current.filter((a) => a.adventureId === adventureId);
+    try {
+      return await fetchAcknowledgementsReal(adventureId);
+    } catch {
+      return [];
+    }
+  }, []);
+
   const markNotificationRead = useCallback((id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
   }, []);
@@ -757,6 +793,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchReviewsForOrganizer,
       hasReviewed,
       submitReview,
+      fetchAcknowledgementsForAdventure,
     }),
     [
       ready,
@@ -793,6 +830,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchReviewsForOrganizer,
       hasReviewed,
       submitReview,
+      fetchAcknowledgementsForAdventure,
     ]
   );
 
