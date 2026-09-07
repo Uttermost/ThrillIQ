@@ -10,14 +10,25 @@ import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { InlineError } from '@/components/ui/StateViews';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing, typography } from '@/lib/theme';
-import { ActivityType, Difficulty, ExperienceLevel, Intensity, Pace, ProfileTag, SocialLevel } from '@/lib/types';
+import { Category, Difficulty, ExperienceLevel, Intensity, Pace, ProfileTag, SocialLevel } from '@/lib/types';
 
 const INTEREST_OPTIONS = ['Hiking', 'Road trips', 'Photography', 'Cycling', 'Nature', 'Camping', 'Wildlife', 'Running'] as const;
-const CATEGORY_OPTIONS: ActivityType[] = ['Hike', 'Road trip'];
-const DIFFICULTY_OPTIONS: Difficulty[] = ['Beginner', 'Moderate', 'Challenging'];
+const CATEGORY_OPTIONS: Category[] = [
+  'Hiking',
+  'Road trip',
+  'Camping',
+  'Cycling',
+  'Wellness',
+  'Water',
+  'Photography',
+  'Networking',
+  'Social',
+  'Other',
+];
+const DIFFICULTY_OPTIONS: Difficulty[] = ['Easy', 'Moderate', 'Challenging', 'Extreme'];
 const SOCIAL_OPTIONS: SocialLevel[] = ['Quiet', 'Social', 'Very Social'];
 const PACE_OPTIONS: Pace[] = ['Relaxed', 'Moderate', 'Fast'];
-const INTENSITY_OPTIONS: Intensity[] = ['Low', 'Medium', 'High'];
+const INTENSITY_OPTIONS: Intensity[] = ['Easy', 'Moderate', 'Challenging', 'Extreme'];
 const EXPERIENCE_OPTIONS: ExperienceLevel[] = ['Beginner', 'Intermediate', 'Advanced'];
 const TAG_OPTIONS: ProfileTag[] = ['Photography', 'Networking', 'Families', 'Solo adventures', 'Couples'];
 
@@ -29,7 +40,7 @@ export default function EditProfile() {
   const [bio, setBio] = useState(me.bio ?? '');
   const [location, setLocation] = useState(me.location ?? '');
   const [interests, setInterests] = useState<string[]>(me.interests ?? []);
-  const [categories, setCategories] = useState<ActivityType[]>(me.adventureCategories ?? []);
+  const [categories, setCategories] = useState<Category[]>(me.adventureCategories ?? []);
   const [difficulty, setDifficulty] = useState<Difficulty[]>(me.preferredDifficulty ? [me.preferredDifficulty] : []);
   const [social, setSocial] = useState<SocialLevel[]>(me.preferredSocialLevel ? [me.preferredSocialLevel] : []);
   const [pace, setPace] = useState<Pace[]>(me.preferredPace ? [me.preferredPace] : []);

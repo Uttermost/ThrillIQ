@@ -1,9 +1,15 @@
-export type ActivityType = 'Hike' | 'Road trip';
-export type Difficulty = 'Beginner' | 'Moderate' | 'Challenging';
+// Adventure category — the full taxonomy from the UI/UX spec (§14-15).
+// Supersedes the old two-value ActivityType.
+export type Category = 'Hiking' | 'Road trip' | 'Camping' | 'Cycling' | 'Wellness' | 'Water' | 'Photography' | 'Networking' | 'Social' | 'Other';
+export type Difficulty = 'Easy' | 'Moderate' | 'Challenging' | 'Extreme';
 export type WhenBucket = 'This week' | 'This month' | 'Later';
 export type SocialLevel = 'Quiet' | 'Social' | 'Very Social';
 export type Pace = 'Relaxed' | 'Moderate' | 'Fast';
-export type Intensity = 'Low' | 'Medium' | 'High';
+export type Intensity = 'Easy' | 'Moderate' | 'Challenging' | 'Extreme';
+export type Transport = 'Own transport' | 'Organizer transport' | 'Carpool available';
+export type Audience = 'Solo friendly' | 'Couples' | 'Families' | 'Beginners' | 'Experienced' | 'Networking';
+export type PriceBand = 'Free' | 'Under 1,000' | '1,000–3,000' | '3,000–5,000' | '5,000+';
+export type Region = 'Nairobi' | 'Kiambu' | 'Kajiado' | 'Nakuru' | 'Naivasha' | 'Machakos';
 export type ExperienceLevel = 'Beginner' | 'Intermediate' | 'Advanced';
 export type ProfileTag = 'Photography' | 'Networking' | 'Families' | 'Solo adventures' | 'Couples';
 export type ProfileVisibility = 'Everyone' | 'Connections' | 'Participants';
@@ -41,7 +47,7 @@ export interface User {
   username?: string;
   bio?: string;
   interests?: string[];
-  adventureCategories?: ActivityType[];
+  adventureCategories?: Category[];
   preferredDifficulty?: Difficulty | null;
   preferredSocialLevel?: SocialLevel | null;
   preferredPace?: Pace | null;
@@ -57,8 +63,13 @@ export interface User {
 export interface Adventure {
   id: string;
   title: string;
-  type: ActivityType;
+  category: Category;
   difficulty: Difficulty;
+  socialLevel: SocialLevel;
+  pace: Pace;
+  intensity: Intensity;
+  transport: Transport;
+  audience: Audience[];
   dateLabel: string;
   meetingTime: string;
   // Approximate, filterable date — organizers pick a "This week / This
@@ -66,6 +77,11 @@ export interface Adventure {
   // stays their own free-text description for display.
   dateTimestamp: number;
   location: string;
+  // Real coordinates for "near me"/distance filtering — optional because no
+  // location picker exists yet to populate them; nothing reads these until
+  // one does, so a missing value here isn't a bug to chase.
+  latitude: number | null;
+  longitude: number | null;
   priceKsh: number;
   spotsTotal: number;
   spotsFilled: number;
@@ -116,8 +132,13 @@ export interface NewAdventureDraft {
   schedule: string;
   priceKsh: string;
   spots: string;
-  type: ActivityType;
+  category: Category;
   difficulty: Difficulty;
+  socialLevel: SocialLevel;
+  pace: Pace;
+  intensity: Intensity;
+  transport: Transport;
+  audience: Audience[];
   when: WhenBucket;
   noAlcohol: boolean;
   petsOk: boolean;

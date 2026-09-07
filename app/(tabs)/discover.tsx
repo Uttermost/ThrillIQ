@@ -1,33 +1,59 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AdventureCard } from '@/components/AdventureCard';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState, ErrorState } from '@/components/ui/StateViews';
+import { countActiveFilters, DEFAULT_FILTERS, DiscoverFilters, FilterSheet } from '@/components/ui/FilterSheet';
 import { bucketForTimestamp } from '@/lib/dateBuckets';
 import { useApp } from '@/lib/store';
-import { colors, radius, spacing, typography } from '@/lib/theme';
-import { Adventure, Difficulty, WhenBucket } from '@/lib/types';
+import { colors, radius, spacing, type, typography } from '@/lib/theme';
+import { Adventure, Category } from '@/lib/types';
 
-type TypeFilter = 'All' | 'Hike' | 'Road trip';
-type DifficultyFilter = 'Any' | Difficulty;
-type WhenFilter = 'Any time' | WhenBucket;
-const TYPE_FILTERS: TypeFilter[] = ['All', 'Hike', 'Road trip'];
-const DIFFICULTY_FILTERS: DifficultyFilter[] = ['Any', 'Beginner', 'Moderate', 'Challenging'];
-const WHEN_FILTERS: WhenFilter[] = ['Any time', 'This week', 'This month', 'Later'];
+type CategoryFilter = 'All' | Category;
+const CATEGORY_FILTERS: CategoryFilter[] = [
+  'All',
+  'Hiking',
+  'Road trip',
+  'Camping',
+  'Cycling',
+  'Wellness',
+  'Water',
+  'Photography',
+  'Networking',
+  'Social',
+  'Other',
+];
 type Status = 'loading' | 'ready' | 'error';
+
+function priceMatchesBand(priceKsh: number, band: DiscoverFilters['price']): boolean {
+  switch (band) {
+    case 'Any':
+      return true;
+    case 'Free':
+      return priceKsh === 0;
+    case 'Under 1,000':
+      return priceKsh > 0 && priceKsh < 1000;
+    case '1,000–3,000':
+      return priceKsh >= 1000 && priceKsh <= 3000;
+    case '3,000–5,000':
+      return priceKsh > 3000 && priceKsh <= 5000;
+    case '5,000+':
+      return priceKsh > 5000;
+  }
+}
 
 export default function Discover() {
   const { myId, authenticated, adventures, notifications, fetchAdventures, toggleLike } = useApp();
   const hasUnreadNotifications = notifications.some((n) => !n.read);
   const [status, setStatus] = useState<Status>('loading');
   const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>('All');
-  const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>('Any');
-  const [whenFilter, setWhenFilter] = useState<WhenFilter>('Any time');
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('All');
+  const [filters, setFilters] = useState<DiscoverFilters>(DEFAULT_FILTERS);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [view, setView] = useState<'list' | 'map'>('list');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -47,18 +73,59 @@ export default function Discover() {
     const now = Date.now();
     return adventures.filter((a) => {
       const matchesSearch = !q || a.title.toLowerCase().includes(q) || a.location.toLowerCase().includes(q);
-      const matchesType = typeFilter === 'All' || a.type === typeFilter;
-      const matchesDifficulty = difficultyFilter === 'Any' || a.difficulty === difficultyFilter;
-      const matchesWhen = whenFilter === 'Any time' || bucketForTimestamp(a.dateTimestamp, now) === whenFilter;
-      return matchesSearch && matchesType && matchesDifficulty && matchesWhen;
+      const matchesCategory = categoryFilter === 'All' || a.category === categoryFilter;
+      const matchesRegion = filters.region === 'Any' || a.location.toLowerCase().includes(filters.region.toLowerCase());
+      const matchesDifficulty = filters.difficulty === 'Any' || a.difficulty === filters.difficulty;
+      const matchesSocial = filters.socialLevel === 'Any' || a.socialLevel === filters.socialLevel;
+      const matchesPace = filters.pace === 'Any' || a.pace === filters.pace;
+      const matchesIntensity = filters.intensity === 'Any' || a.intensity === filters.intensity;
+      const matchesTransport = filters.transport === 'Any' || a.transport === filters.transport;
+      const matchesAudience = filters.audience.length === 0 || filters.audience.some((aud) => a.audience.includes(aud));
+      const matchesWhen = filters.when === 'Any time' || bucketForTimestamp(a.dateTimestamp, now) === filters.when;
+      const matchesPrice = priceMatchesBand(a.priceKsh, filters.price);
+      return (
+        matchesSearch &&
+        matchesCategory &&
+        matchesRegion &&
+        matchesDifficulty &&
+        matchesSocial &&
+        matchesPace &&
+        matchesIntensity &&
+        matchesTransport &&
+        matchesAudience &&
+        matchesWhen &&
+        matchesPrice
+      );
     });
-  }, [adventures, search, typeFilter, difficultyFilter, whenFilter]);
+  }, [adventures, search, categoryFilter, filters]);
 
   useEffect(() => {
     if (!selectedId && filtered.length > 0) setSelectedId(filtered[0].id);
   }, [filtered, selectedId]);
 
   const selected = filtered.find((a) => a.id === selectedId) ?? filtered[0];
+  const activeCount = countActiveFilters(filters);
+
+  const activeChips = useMemo(() => {
+    const chips: { key: string; label: string; onRemove: () => void }[] = [];
+    if (filters.when !== 'Any time') chips.push({ key: 'when', label: filters.when, onRemove: () => setFilters((f) => ({ ...f, when: 'Any time' })) });
+    if (filters.difficulty !== 'Any')
+      chips.push({ key: 'difficulty', label: filters.difficulty, onRemove: () => setFilters((f) => ({ ...f, difficulty: 'Any' })) });
+    if (filters.region !== 'Any')
+      chips.push({ key: 'region', label: `Near ${filters.region}`, onRemove: () => setFilters((f) => ({ ...f, region: 'Any' })) });
+    if (filters.socialLevel !== 'Any')
+      chips.push({ key: 'social', label: filters.socialLevel, onRemove: () => setFilters((f) => ({ ...f, socialLevel: 'Any' })) });
+    if (filters.pace !== 'Any') chips.push({ key: 'pace', label: filters.pace, onRemove: () => setFilters((f) => ({ ...f, pace: 'Any' })) });
+    if (filters.intensity !== 'Any')
+      chips.push({ key: 'intensity', label: filters.intensity, onRemove: () => setFilters((f) => ({ ...f, intensity: 'Any' })) });
+    if (filters.transport !== 'Any')
+      chips.push({ key: 'transport', label: filters.transport, onRemove: () => setFilters((f) => ({ ...f, transport: 'Any' })) });
+    if (filters.price !== 'Any') chips.push({ key: 'price', label: filters.price, onRemove: () => setFilters((f) => ({ ...f, price: 'Any' })) });
+    filters.audience.forEach((aud) =>
+      chips.push({ key: `aud-${aud}`, label: aud, onRemove: () => setFilters((f) => ({ ...f, audience: f.audience.filter((x) => x !== aud) })) })
+    );
+    return chips;
+  }, [filters]);
 
   const openAdventure = (a: Adventure) => {
     if (a.organizerId === myId) {
@@ -79,7 +146,10 @@ export default function Discover() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.heading}>Discover</Text>
+        <View>
+          <Text style={styles.heading}>Find your next adventure</Text>
+          <Text style={styles.subheading}>Explore experiences and people worth meeting.</Text>
+        </View>
         <View style={styles.headerActions}>
           <Pressable onPress={() => router.push('/notifications')} hitSlop={8} style={styles.bellButton} accessibilityLabel="Notifications">
             <Ionicons name="notifications-outline" size={22} color={colors.textPrimary} />
@@ -99,35 +169,35 @@ export default function Discover() {
         <TextInput
           value={search}
           onChangeText={setSearch}
-          placeholder="Search adventures or location"
+          placeholder="Search adventures, places or experiences"
           placeholderTextColor={colors.textMuted}
           style={styles.searchInput}
         />
       </View>
 
-      <View style={styles.filters}>
-        {TYPE_FILTERS.map((f) => (
-          <Pressable key={f} onPress={() => setTypeFilter(f)} style={[styles.chip, typeFilter === f && styles.chipActive]}>
-            <Text style={[styles.chipLabel, typeFilter === f && styles.chipLabelActive]}>{f}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
+        {CATEGORY_FILTERS.map((f) => (
+          <Pressable key={f} onPress={() => setCategoryFilter(f)} style={[styles.chip, categoryFilter === f && styles.chipActive]}>
+            <Text style={[styles.chipLabel, categoryFilter === f && styles.chipLabelActive]}>{f}</Text>
           </Pressable>
         ))}
-      </View>
-      <View style={styles.filters}>
-        {DIFFICULTY_FILTERS.map((f) => (
-          <Pressable
-            key={f}
-            onPress={() => setDifficultyFilter(f)}
-            style={[styles.chip, difficultyFilter === f && styles.chipActive]}>
-            <Text style={[styles.chipLabel, difficultyFilter === f && styles.chipLabelActive]}>{f}</Text>
-          </Pressable>
-        ))}
-      </View>
-      <View style={styles.filters}>
-        {WHEN_FILTERS.map((f) => (
-          <Pressable key={f} onPress={() => setWhenFilter(f)} style={[styles.chip, whenFilter === f && styles.chipActive]}>
-            <Text style={[styles.chipLabel, whenFilter === f && styles.chipLabelActive]}>{f}</Text>
-          </Pressable>
-        ))}
+      </ScrollView>
+
+      <View style={styles.filterBarRow}>
+        <Pressable onPress={() => setSheetOpen(true)} style={styles.filterButton} accessibilityLabel="Filters">
+          <Ionicons name="options-outline" size={16} color={colors.textPrimary} />
+          <Text style={styles.filterButtonLabel}>Filters{activeCount > 0 ? ` · ${activeCount}` : ''}</Text>
+        </Pressable>
+        {activeChips.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.activeChipsRow}>
+            {activeChips.map((chip) => (
+              <Pressable key={chip.key} onPress={chip.onRemove} style={styles.activeChip}>
+                <Text style={styles.activeChipLabel}>{chip.label}</Text>
+                <Ionicons name="close" size={13} color={colors.primary} />
+              </Pressable>
+            ))}
+          </ScrollView>
+        )}
       </View>
 
       {status === 'loading' && (
@@ -146,7 +216,7 @@ export default function Discover() {
       )}
 
       {status === 'ready' && view === 'list' && filtered.length === 0 && adventures.length > 0 && (
-        <EmptyState icon="search-outline" title="No matches" message="Try a different search or filter." />
+        <EmptyState icon="search-outline" title="No adventures found" message="Try another search or adjust your filters." />
       )}
 
       {status === 'ready' && view === 'list' && filtered.length > 0 && (
@@ -188,11 +258,19 @@ export default function Discover() {
           )}
           {filtered.length === 0 && (
             <View style={styles.mapEmpty}>
-              <EmptyState icon="search-outline" title="No matches" message="Try a different search or filter." />
+              <EmptyState icon="search-outline" title="No adventures found" message="Try another search or adjust your filters." />
             </View>
           )}
         </View>
       )}
+
+      <FilterSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        filters={filters}
+        onChange={setFilters}
+        resultCount={filtered.length}
+      />
     </SafeAreaView>
   );
 }
@@ -201,13 +279,15 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
+    gap: spacing.md,
   },
-  heading: { ...typography.title },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  heading: { ...type.screenHeading },
+  subheading: { ...type.secondary, color: colors.textSecondary, marginTop: spacing.xs, maxWidth: 240 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingTop: spacing.xs },
   bellButton: { position: 'relative' },
   bellDot: {
     position: 'absolute',
@@ -237,17 +317,46 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
-    height: 46,
+    marginTop: spacing.lg,
+    height: 50,
   },
-  searchInput: { flex: 1, fontSize: 15, color: colors.textPrimary },
-  filters: {
+  searchInput: { flex: 1, ...type.input, color: colors.textPrimary },
+  categoryRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
     marginTop: spacing.md,
   },
+  filterBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  filterButtonLabel: { ...type.chip, color: colors.textPrimary },
+  activeChipsRow: { flexDirection: 'row', gap: spacing.sm },
+  activeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primarySurface,
+  },
+  activeChipLabel: { ...type.chip, color: colors.primary },
   chip: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,

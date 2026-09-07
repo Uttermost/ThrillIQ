@@ -9,9 +9,26 @@ import { FormField } from '@/components/ui/FormField';
 import { InlineError } from '@/components/ui/StateViews';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing, typography } from '@/lib/theme';
-import { ActivityType, Difficulty, NewAdventureDraft, WhenBucket } from '@/lib/types';
+import { Audience, Category, Difficulty, Intensity, NewAdventureDraft, Pace, SocialLevel, Transport, WhenBucket } from '@/lib/types';
 
-const DIFFICULTIES: Difficulty[] = ['Beginner', 'Moderate', 'Challenging'];
+const CATEGORIES: Category[] = [
+  'Hiking',
+  'Road trip',
+  'Camping',
+  'Cycling',
+  'Wellness',
+  'Water',
+  'Photography',
+  'Networking',
+  'Social',
+  'Other',
+];
+const DIFFICULTIES: Difficulty[] = ['Easy', 'Moderate', 'Challenging', 'Extreme'];
+const SOCIAL_LEVELS: SocialLevel[] = ['Quiet', 'Social', 'Very Social'];
+const PACES: Pace[] = ['Relaxed', 'Moderate', 'Fast'];
+const INTENSITIES: Intensity[] = ['Easy', 'Moderate', 'Challenging', 'Extreme'];
+const TRANSPORTS: Transport[] = ['Own transport', 'Organizer transport', 'Carpool available'];
+const AUDIENCES: Audience[] = ['Solo friendly', 'Couples', 'Families', 'Beginners', 'Experienced', 'Networking'];
 const WHEN_BUCKETS: WhenBucket[] = ['This week', 'This month', 'Later'];
 const TITLE_MIN = 5;
 const TITLE_MAX = 100;
@@ -21,8 +38,13 @@ const EMPTY_DRAFT: NewAdventureDraft = {
   schedule: '',
   priceKsh: '',
   spots: '',
-  type: 'Hike',
+  category: 'Hiking',
   difficulty: 'Moderate',
+  socialLevel: 'Social',
+  pace: 'Moderate',
+  intensity: 'Moderate',
+  transport: 'Own transport',
+  audience: [],
   when: 'This week',
   noAlcohol: false,
   petsOk: false,
@@ -60,13 +82,17 @@ export default function Create() {
     }
   };
 
-  const toggleType = (type: ActivityType) => setDraft((d) => ({ ...d, type }));
-  const setDifficulty = (values: Difficulty[]) => {
-    if (values.length > 0) setDraft((d) => ({ ...d, difficulty: values[values.length - 1] }));
+  const single = <T extends string>(key: keyof NewAdventureDraft) => (values: T[]) => {
+    if (values.length > 0) setDraft((d) => ({ ...d, [key]: values[values.length - 1] }));
   };
-  const setWhen = (values: WhenBucket[]) => {
-    if (values.length > 0) setDraft((d) => ({ ...d, when: values[values.length - 1] }));
-  };
+  const setCategory = single<Category>('category');
+  const setDifficulty = single<Difficulty>('difficulty');
+  const setSocialLevel = single<SocialLevel>('socialLevel');
+  const setPace = single<Pace>('pace');
+  const setIntensity = single<Intensity>('intensity');
+  const setTransport = single<Transport>('transport');
+  const setWhen = single<WhenBucket>('when');
+  const setAudience = (values: Audience[]) => setDraft((d) => ({ ...d, audience: values }));
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -92,15 +118,22 @@ export default function Create() {
           hint="Exactly when and where participants should show up."
         />
 
-        <View style={styles.row}>
-          {(['Hike', 'Road trip'] as ActivityType[]).map((type) => (
-            <Pressable key={type} onPress={() => toggleType(type)} style={[styles.typeChip, draft.type === type && styles.typeChipActive]}>
-              <Text style={[styles.typeChipLabel, draft.type === type && styles.typeChipLabelActive]}>{type}</Text>
-            </Pressable>
-          ))}
-        </View>
+        <ChipGroup label="Category" options={CATEGORIES} selected={[draft.category]} onChange={setCategory} multi={false} />
 
         <ChipGroup label="Difficulty" options={DIFFICULTIES} selected={[draft.difficulty]} onChange={setDifficulty} multi={false} />
+        <Text style={styles.hint}>The level that best represents the physical or technical challenge.</Text>
+
+        <ChipGroup label="Social level" options={SOCIAL_LEVELS} selected={[draft.socialLevel]} onChange={setSocialLevel} multi={false} />
+        <Text style={styles.hint}>How much interaction should participants expect?</Text>
+
+        <ChipGroup label="Pace" options={PACES} selected={[draft.pace]} onChange={setPace} multi={false} />
+
+        <ChipGroup label="Intensity" options={INTENSITIES} selected={[draft.intensity]} onChange={setIntensity} multi={false} />
+
+        <ChipGroup label="Transport" options={TRANSPORTS} selected={[draft.transport]} onChange={setTransport} multi={false} />
+
+        <ChipGroup label="Who it's for" options={AUDIENCES} selected={draft.audience} onChange={setAudience} multi />
+        <Text style={styles.hint}>Select all that reasonably apply — helps the right people find it.</Text>
 
         <ChipGroup label="When" options={WHEN_BUCKETS} selected={[draft.when]} onChange={setWhen} multi={false} />
         <Text style={styles.hint}>An approximate window — so people can filter Discover by it. Put the exact date above.</Text>
@@ -123,6 +156,7 @@ export default function Create() {
             style={[styles.input, styles.flex]}
           />
         </View>
+        <Text style={styles.hint}>Price shown for information only. Participants pay the organizer directly.</Text>
 
         <View style={styles.row}>
           <Pressable
@@ -162,15 +196,6 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: 'row', gap: spacing.sm },
   flex: { flex: 1, minWidth: 0 },
-  typeChip: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceMuted,
-  },
-  typeChipActive: { backgroundColor: colors.textPrimary },
-  typeChipLabel: { ...typography.caption, fontWeight: '600' },
-  typeChipLabelActive: { color: '#fff' },
   toggleChip: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,

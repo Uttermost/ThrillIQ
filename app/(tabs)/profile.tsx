@@ -29,9 +29,11 @@ export default function Profile() {
 
   const stats = useMemo(
     () => ({
-      hikes: adventures.filter((a) => a.type === 'Hike' && (a.participantIds.includes(myId) || a.organizerId === myId)).length,
-      roadTrips: adventures.filter((a) => a.type === 'Road trip' && (a.participantIds.includes(myId) || a.organizerId === myId))
+      hikes: adventures.filter((a) => a.category === 'Hiking' && (a.participantIds.includes(myId) || a.organizerId === myId))
         .length,
+      roadTrips: adventures.filter(
+        (a) => a.category === 'Road trip' && (a.participantIds.includes(myId) || a.organizerId === myId)
+      ).length,
       hosting: hosting.length,
     }),
     [adventures, hosting.length, myId]
