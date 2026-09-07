@@ -1,7 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
 
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, controlHeight, radius, spacing, type } from '@/lib/theme';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
 
@@ -22,6 +22,7 @@ export function Button({ label, onPress, variant = 'primary', disabled, loading,
       disabled={isDisabled}
       style={({ pressed }) => [
         styles.base,
+        variant === 'secondary' || variant === 'ghost' ? styles.secondaryHeight : styles.primaryHeight,
         variantStyles[variant],
         isDisabled && styles.disabled,
         pressed && !isDisabled && styles.pressed,
@@ -39,16 +40,14 @@ export function Button({ label, onPress, variant = 'primary', disabled, loading,
 const styles = StyleSheet.create({
   base: {
     borderRadius: radius.md,
-    paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
   },
-  label: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
+  primaryHeight: { minHeight: controlHeight.button },
+  secondaryHeight: { minHeight: controlHeight.buttonSecondary },
+  label: { ...type.button },
   disabled: {
     opacity: 0.5,
   },

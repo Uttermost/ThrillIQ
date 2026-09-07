@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/Button';
 import { ChipGroup } from '@/components/ui/ChipGroup';
+import { FormField } from '@/components/ui/FormField';
 import { InlineError } from '@/components/ui/StateViews';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing, typography } from '@/lib/theme';
@@ -12,6 +13,8 @@ import { ActivityType, Difficulty, NewAdventureDraft, WhenBucket } from '@/lib/t
 
 const DIFFICULTIES: Difficulty[] = ['Beginner', 'Moderate', 'Challenging'];
 const WHEN_BUCKETS: WhenBucket[] = ['This week', 'This month', 'Later'];
+const TITLE_MIN = 5;
+const TITLE_MAX = 100;
 
 const EMPTY_DRAFT: NewAdventureDraft = {
   title: '',
@@ -38,7 +41,8 @@ export default function Create() {
     }, [])
   );
 
-  const canPublish = draft.title.trim().length > 0 && draft.schedule.trim().length > 0;
+  const titleTooShort = draft.title.trim().length > 0 && draft.title.trim().length < TITLE_MIN;
+  const canPublish = draft.title.trim().length >= TITLE_MIN && draft.schedule.trim().length > 0;
 
   const handlePublish = async () => {
     if (!canPublish) return;
@@ -69,19 +73,23 @@ export default function Create() {
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.heading}>New adventure</Text>
 
-        <TextInput
+        <FormField
+          label="Adventure title"
+          required
           value={draft.title}
           onChangeText={(title) => setDraft((d) => ({ ...d, title }))}
-          placeholder="Title, e.g. Ngong Hills hike"
-          placeholderTextColor={colors.textMuted}
-          style={styles.input}
+          placeholder="e.g. Ngong Hills Sunrise Hike"
+          hint="Choose a name participants will immediately understand."
+          error={titleTooShort ? `At least ${TITLE_MIN} characters.` : undefined}
+          maxLength={TITLE_MAX}
         />
-        <TextInput
+        <FormField
+          label="Date and meeting time"
+          required
           value={draft.schedule}
           onChangeText={(schedule) => setDraft((d) => ({ ...d, schedule }))}
-          placeholder="Date and meeting time"
-          placeholderTextColor={colors.textMuted}
-          style={styles.input}
+          placeholder="e.g. Sat, Sep 12 · 6:00am"
+          hint="Exactly when and where participants should show up."
         />
 
         <View style={styles.row}>
