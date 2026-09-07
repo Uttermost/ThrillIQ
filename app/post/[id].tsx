@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PostCard } from '@/components/PostCard';
 import { Avatar } from '@/components/ui/Avatar';
+import { ConfirmPanel } from '@/components/ui/ConfirmPanel';
 import { ReportSheet } from '@/components/ui/ReportSheet';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { ErrorState } from '@/components/ui/StateViews';
@@ -20,8 +21,20 @@ type Status = 'loading' | 'ready' | 'error';
 
 export default function PostDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { myId, me, users, authenticated, posts, toggleLikePost, toggleLikeComment, recordShare, fetchCommentsForPost, createComment, fetchOtherProfile } =
-    useApp();
+  const {
+    myId,
+    me,
+    users,
+    authenticated,
+    posts,
+    toggleLikePost,
+    toggleLikeComment,
+    deleteComment,
+    recordShare,
+    fetchCommentsForPost,
+    createComment,
+    fetchOtherProfile,
+  } = useApp();
   const post = posts.find((p) => p.id === id);
 
   const [status, setStatus] = useState<Status>('loading');
@@ -30,6 +43,9 @@ export default function PostDetail() {
   const [posting, setPosting] = useState(false);
   const [replyingTo, setReplyingTo] = useState<{ id: string; authorName: string } | null>(null);
   const [reportingCommentId, setReportingCommentId] = useState<string | null>(null);
+  const [confirmingDeleteCommentId, setConfirmingDeleteCommentId] = useState<string | null>(null);
+  const [deletingComment, setDeletingComment] = useState(false);
+  const [deleteCommentError, setDeleteCommentError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -105,6 +121,25 @@ export default function PostDetail() {
     toggleLikeComment(comment.id, wasLiked);
   };
 
+  // No cascade to any replies of this comment — same "orphan degrades to
+  // invisible" approach as the admin queue's comment delete: displayList
+  // only visits a reply through its still-present top-level parent, so a
+  // reply left behind here simply stops rendering on the next build.
+  const handleDeleteComment = async (comment: PostComment) => {
+    setDeletingComment(true);
+    setDeleteCommentError(null);
+    try {
+      await deleteComment(post.id, comment.id);
+      setComments((prev) => prev.filter((c) => c.id !== comment.id));
+      if (replyingTo?.id === comment.id) setReplyingTo(null);
+      setConfirmingDeleteCommentId(null);
+    } catch (e) {
+      setDeleteCommentError(e instanceof Error ? e.message : 'Something went wrong.');
+    } finally {
+      setDeletingComment(false);
+    }
+  };
+
   const handleSend = async () => {
     const text = draft.trim();
     if (!text || posting) return;
@@ -153,33 +188,52 @@ export default function PostDetail() {
                     <Text style={styles.commentTime}>{formatRelativeTime(item.createdAt)}</Text>
                   </View>
                   <Text style={styles.commentText}>{item.text}</Text>
-                  <View style={styles.commentFooter}>
-                    <Pressable
-                      style={styles.commentLikeBtn}
-                      onPress={() => handleToggleLikeComment(item)}
-                      hitSlop={8}
-                      accessibilityLabel={item.likedByMe ? 'Unlike comment' : 'Like comment'}>
-                      <Ionicons
-                        name={item.likedByMe ? 'heart' : 'heart-outline'}
-                        size={14}
-                        color={item.likedByMe ? colors.accent : colors.textSecondary}
-                      />
-                      {item.likeCount > 0 && <Text style={styles.commentLikeCount}>{item.likeCount}</Text>}
-                    </Pressable>
-                    {!item.isReply && authenticated && (
-                      <Pressable onPress={() => setReplyingTo({ id: item.id, authorName: author?.name ?? 'Someone' })} hitSlop={8}>
-                        <Text style={styles.replyLink}>Reply</Text>
-                      </Pressable>
-                    )}
-                    {item.authorId !== myId && (
+                  {confirmingDeleteCommentId === item.id ? (
+                    <ConfirmPanel
+                      message={deleteCommentError ?? "This can't be undone."}
+                      confirmLabel="Delete comment"
+                      cancelLabel="Keep it"
+                      loading={deletingComment}
+                      onConfirm={() => handleDeleteComment(item)}
+                      onCancel={() => {
+                        setConfirmingDeleteCommentId(null);
+                        setDeleteCommentError(null);
+                      }}
+                    />
+                  ) : (
+                    <View style={styles.commentFooter}>
                       <Pressable
-                        onPress={() => (authenticated ? setReportingCommentId(item.id) : router.push('/auth'))}
+                        style={styles.commentLikeBtn}
+                        onPress={() => handleToggleLikeComment(item)}
                         hitSlop={8}
-                        accessibilityLabel="Report comment">
-                        <Text style={styles.reportLink}>Report</Text>
+                        accessibilityLabel={item.likedByMe ? 'Unlike comment' : 'Like comment'}>
+                        <Ionicons
+                          name={item.likedByMe ? 'heart' : 'heart-outline'}
+                          size={14}
+                          color={item.likedByMe ? colors.accent : colors.textSecondary}
+                        />
+                        {item.likeCount > 0 && <Text style={styles.commentLikeCount}>{item.likeCount}</Text>}
                       </Pressable>
-                    )}
-                  </View>
+                      {!item.isReply && authenticated && (
+                        <Pressable onPress={() => setReplyingTo({ id: item.id, authorName: author?.name ?? 'Someone' })} hitSlop={8}>
+                          <Text style={styles.replyLink}>Reply</Text>
+                        </Pressable>
+                      )}
+                      {item.authorId !== myId && (
+                        <Pressable
+                          onPress={() => (authenticated ? setReportingCommentId(item.id) : router.push('/auth'))}
+                          hitSlop={8}
+                          accessibilityLabel="Report comment">
+                          <Text style={styles.mutedLink}>Report</Text>
+                        </Pressable>
+                      )}
+                      {item.authorId === myId && (
+                        <Pressable onPress={() => setConfirmingDeleteCommentId(item.id)} hitSlop={8} accessibilityLabel="Delete comment">
+                          <Text style={styles.mutedLink}>Delete</Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  )}
                 </View>
               </View>
             );
@@ -257,7 +311,7 @@ const styles = StyleSheet.create({
   commentLikeBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   commentLikeCount: { ...type.secondary, color: colors.textSecondary },
   replyLink: { ...type.secondary, color: colors.primary, fontWeight: '700' },
-  reportLink: { ...type.secondary, color: colors.textMuted },
+  mutedLink: { ...type.secondary, color: colors.textMuted },
   replyingToRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
