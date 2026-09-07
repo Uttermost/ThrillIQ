@@ -270,6 +270,10 @@ export interface Post {
   // opening the share sheet, so this stays an honest count.
   shareCount: number;
   createdAt: number;
+  // Set only once the author edits text/photos after publishing — shown as
+  // an "Edited" marker so readers aren't misled about what they're seeing.
+  // Editing never touches adventureId/crewId or any of the counts above.
+  editedAt?: number;
 }
 
 // A repost is its own feed item — distinct from Post.shareCount (a plain

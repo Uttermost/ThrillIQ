@@ -19,6 +19,7 @@ function fromDoc(doc: FirebaseFirestoreTypes.QueryDocumentSnapshot, myUid: strin
     commentCount: (data.commentCount as number) ?? 0,
     shareCount: (data.shareCount as number) ?? 0,
     createdAt: (data.createdAt as number) ?? Date.now(),
+    editedAt: (data.editedAt as number | undefined) ?? undefined,
   };
 }
 
@@ -101,4 +102,21 @@ export async function incrementShareCountReal(postId: string): Promise<void> {
 // renders nothing for a missing post).
 export async function deletePostReal(postId: string): Promise<void> {
   await firestore().collection(COLLECTION).doc(postId).delete();
+}
+
+// Only text/photos are editable — see the firestore.rules update rule this
+// pairs with, which allows exactly these two fields plus editedAt. Removing
+// every photo needs FieldValue.delete() rather than an empty array: `update`
+// leaves an existing field alone unless told otherwise, so an empty array
+// wouldn't actually clear it (and `undefined` would be rejected outright).
+export async function updatePostReal(postId: string, input: { text: string; photos?: string[] }): Promise<void> {
+  const photos = input.photos && input.photos.length > 0 ? input.photos : undefined;
+  await firestore()
+    .collection(COLLECTION)
+    .doc(postId)
+    .update({
+      text: input.text,
+      photos: photos ?? firestore.FieldValue.delete(),
+      editedAt: Date.now(),
+    });
 }

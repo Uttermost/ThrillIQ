@@ -199,6 +199,21 @@ service cloud.firestore {
         && request.resource.data.commentCount == resource.data.commentCount - 1
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
 
+      // Editing text/photos: author-only (not admin — this isn't a
+      // moderation action). editedAt must move strictly forward so a client
+      // can't backdate or clear it; every other field is untouched, so
+      // likes/comments/shares/tags all survive an edit as-is.
+      allow update: if request.auth != null
+        && resource.data.authorId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'photos', 'editedAt'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 500
+        && (!('photos' in request.resource.data)
+            || (request.resource.data.photos is list && request.resource.data.photos.size() <= 3))
+        && request.resource.data.editedAt is number
+        && request.resource.data.editedAt > (resource.data.editedAt is number ? resource.data.editedAt : 0);
+
       // Author can delete their own post; admin can delete anyone's — the
       // moderation queue (app/admin.tsx) deletes reported posts this way.
       allow delete: if request.auth != null

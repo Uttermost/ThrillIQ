@@ -45,7 +45,7 @@ import {
 } from './mockData';
 import { createPostCommentReal, deletePostCommentReal, fetchCommentsForPostReal, toggleLikeCommentReal } from './postCommentsProvider';
 import { fetchMySavesReal, savePostReal, unsavePostReal } from './postSavesProvider';
-import { createPostReal, deletePostReal, incrementShareCountReal, subscribePostsReal, toggleLikePostReal } from './postsProvider';
+import { createPostReal, deletePostReal, incrementShareCountReal, subscribePostsReal, toggleLikePostReal, updatePostReal } from './postsProvider';
 import { createRepostReal, removeRepostReal, subscribeRepostsReal, toggleLikeRepostReal } from './repostsProvider';
 import { ensureProfileReal, fetchProfileReal, subscribeProfileReal, updateProfileReal } from './profileProvider';
 import { fetchReviewsForAdventureReal, fetchReviewsForOrganizerReal, hasReviewedReal, submitReviewReal } from './reviewsProvider';
@@ -198,6 +198,7 @@ interface AppContextValue extends AppState {
   createPost: (input: { text: string; photos?: string[]; adventureId?: string | null; crewId?: string | null }) => Promise<Post>;
   toggleLikePost: (id: string) => void;
   deletePost: (id: string) => Promise<void>;
+  updatePost: (id: string, input: { text: string; photos?: string[] }) => Promise<void>;
   fetchCommentsForPost: (postId: string) => Promise<PostComment[]>;
   createComment: (input: { postId: string; text: string; parentCommentId?: string | null }) => Promise<PostComment>;
   toggleLikeComment: (commentId: string, currentlyLiked: boolean) => void;
@@ -973,6 +974,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await deletePostReal(id);
     } catch (e) {
       throw new ApiError(e instanceof Error ? e.message : "Couldn't delete your post. Try again.");
+    }
+  }, []);
+
+  // Only text/photos are editable — see the matching firestore.rules update
+  // rule. Likes/comments/shares/tags all survive untouched; editedAt marks
+  // that it happened so PostCard can show an "Edited" note.
+  const updatePost = useCallback(async (id: string, { text, photos }: { text: string; photos?: string[] }): Promise<void> => {
+    if (simulateFailuresRef.current) {
+      await delay(NETWORK_LATENCY_MS);
+      throw new ApiError("Couldn't save your changes. Try again.");
+    }
+    const editedAt = Date.now();
+    const cleanPhotos = photos && photos.length > 0 ? photos : undefined;
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, text: text.trim(), photos: cleanPhotos, editedAt } : p)));
+      return;
+    }
+    try {
+      await updatePostReal(id, { text: text.trim(), photos: cleanPhotos });
+    } catch (e) {
+      throw new ApiError(e instanceof Error ? e.message : "Couldn't save your changes. Try again.");
     }
   }, []);
 
@@ -1892,6 +1915,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createPost,
       toggleLikePost,
       deletePost,
+      updatePost,
       fetchCommentsForPost,
       createComment,
       toggleLikeComment,
@@ -1968,6 +1992,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createPost,
       toggleLikePost,
       deletePost,
+      updatePost,
       fetchCommentsForPost,
       createComment,
       toggleLikeComment,

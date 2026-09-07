@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { EditPostSheet } from '@/components/EditPostSheet';
 import { SharePostSheet } from '@/components/SharePostSheet';
 import { Avatar } from '@/components/ui/Avatar';
 import { Card } from '@/components/ui/Card';
@@ -48,6 +49,7 @@ export function PostCard({ post, onToggleLike, onShared, hideCommentLink, hideCr
   const crew = post.crewId ? crews.find((c) => c.id === post.crewId) : undefined;
   const [shareSheetVisible, setShareSheetVisible] = useState(false);
   const [reportSheetVisible, setReportSheetVisible] = useState(false);
+  const [editSheetVisible, setEditSheetVisible] = useState(false);
   const [justShared, setJustShared] = useState(false);
   const [following, setFollowing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -130,7 +132,10 @@ export function PostCard({ post, onToggleLike, onShared, hideCommentLink, hideCr
           <Avatar initials={author?.initials ?? '?'} hue={author?.avatarHue ?? 200} size={40} />
           <View style={styles.authorText}>
             <Text style={styles.authorName}>{author?.name ?? 'Someone'}</Text>
-            <Text style={styles.timestamp}>{formatRelativeTime(post.createdAt)}</Text>
+            <Text style={styles.timestamp}>
+              {formatRelativeTime(post.createdAt)}
+              {!!post.editedAt && ' · Edited'}
+            </Text>
           </View>
         </Pressable>
         {post.authorId !== myId && (
@@ -149,9 +154,14 @@ export function PostCard({ post, onToggleLike, onShared, hideCommentLink, hideCr
           </View>
         )}
         {post.authorId === myId && (
-          <Pressable onPress={() => setConfirmingDelete(true)} hitSlop={8} accessibilityLabel="Delete post">
-            <Ionicons name="trash-outline" size={18} color={colors.textMuted} />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable onPress={() => setEditSheetVisible(true)} hitSlop={8} accessibilityLabel="Edit post">
+              <Ionicons name="pencil-outline" size={18} color={colors.textMuted} />
+            </Pressable>
+            <Pressable onPress={() => setConfirmingDelete(true)} hitSlop={8} accessibilityLabel="Delete post">
+              <Ionicons name="trash-outline" size={18} color={colors.textMuted} />
+            </Pressable>
+          </View>
         )}
       </View>
 
@@ -239,6 +249,7 @@ export function PostCard({ post, onToggleLike, onShared, hideCommentLink, hideCr
 
       <SharePostSheet visible={shareSheetVisible} onClose={() => setShareSheetVisible(false)} post={post} onShared={handleShared} />
       <ReportSheet visible={reportSheetVisible} onClose={() => setReportSheetVisible(false)} targetType="post" targetId={post.id} />
+      <EditPostSheet visible={editSheetVisible} onClose={() => setEditSheetVisible(false)} post={post} />
     </Card>
   );
 }
