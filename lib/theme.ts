@@ -66,6 +66,12 @@ export const radius = {
   pill: 999,
 } as const;
 
+// Responsive layout (section 60). Phones render edge-to-edge below this
+// width; wider viewports (tablets, desktop web) get the content centered
+// at this max width with a neutral gutter on each side, rather than
+// stretching cards and forms across the full window.
+export const CONTENT_MAX_WIDTH = 480;
+
 // Minimum interactive sizing (section 7).
 export const touchTarget = {
   min: 44,

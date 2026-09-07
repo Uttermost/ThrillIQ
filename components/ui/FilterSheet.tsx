@@ -1,9 +1,9 @@
 import React from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
 import { ChipGroup } from '@/components/ui/ChipGroup';
-import { colors, radius, spacing, type } from '@/lib/theme';
+import { colors, CONTENT_MAX_WIDTH, radius, spacing, type } from '@/lib/theme';
 import { Audience, Difficulty, Intensity, Pace, PriceBand, Region, SocialLevel, Transport, WhenBucket } from '@/lib/types';
 
 export interface DiscoverFilters {
@@ -66,6 +66,8 @@ interface FilterSheetProps {
 // Discover filter. Category stays as its own always-visible carousel on the
 // main screen; everything here is the "more filters" set.
 export function FilterSheet({ visible, onClose, filters, onChange, resultCount }: FilterSheetProps) {
+  const { width } = useWindowDimensions();
+  const isWide = width > CONTENT_MAX_WIDTH;
   const single = <K extends keyof DiscoverFilters>(key: K) => (values: DiscoverFilters[K][]) => {
     onChange({ ...filters, [key]: values.length > 0 ? values[values.length - 1] : DEFAULT_FILTERS[key] });
   };
@@ -73,7 +75,7 @@ export function FilterSheet({ visible, onClose, filters, onChange, resultCount }
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose} />
-      <View style={styles.sheet}>
+      <View style={[styles.sheet, isWide && styles.sheetCentered]}>
         <View style={styles.handle} />
         <View style={styles.headerRow}>
           <Text style={styles.title}>Filters</Text>
@@ -170,6 +172,17 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
     paddingTop: spacing.sm,
+  },
+  // On tablet/desktop-width viewports the Modal itself still spans the
+  // full window (RN's Modal isn't scoped by ResponsiveViewport), so the
+  // sheet re-applies the same max-width constraint and centers itself
+  // instead of stretching edge to edge.
+  sheetCentered: {
+    left: undefined,
+    right: undefined,
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: CONTENT_MAX_WIDTH,
   },
   handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: spacing.md },
   headerRow: {
