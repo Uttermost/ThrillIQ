@@ -89,3 +89,16 @@ export async function incrementShareCountReal(postId: string): Promise<void> {
     .doc(postId)
     .update({ shareCount: firestore.FieldValue.increment(1) });
 }
+
+// Only deletes the post document itself — firestore.rules restricts this
+// to the post's own author, matching the same authorId check. Doesn't
+// cascade to postComments/reposts referencing it: there's no Cloud
+// Functions deployment in this project to do that server-side, and a
+// comment/repost delete rule is author-of-that-doc-only, so a post's
+// author can't force-delete someone else's comment on it anyway. Both
+// screens that render a possibly-orphaned reference already degrade
+// gracefully (post/[id].tsx shows "no longer available"; RepostCard
+// renders nothing for a missing post).
+export async function deletePostReal(postId: string): Promise<void> {
+  await firestore().collection(COLLECTION).doc(postId).delete();
+}

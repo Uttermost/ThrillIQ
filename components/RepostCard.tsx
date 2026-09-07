@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/ui/Avatar';
@@ -21,9 +21,10 @@ interface RepostCardProps {
 // actions stay on the original post's own detail screen — duplicating them
 // here would just create two competing engagement surfaces for one post.
 export function RepostCard({ repost, post, onToggleLike }: RepostCardProps) {
-  const { users, fetchOtherProfile } = useApp();
+  const { myId, users, fetchOtherProfile, removeRepost } = useApp();
   const reposter = users[repost.userId];
   const originalAuthor = post ? users[post.authorId] : undefined;
+  const [removing, setRemoving] = useState(false);
 
   useEffect(() => {
     if (!users[repost.userId]) fetchOtherProfile(repost.userId);
@@ -33,13 +34,32 @@ export function RepostCard({ repost, post, onToggleLike }: RepostCardProps) {
 
   if (!post) return null;
 
+  // No confirmation step, matching the "Remove repost" toggle already in
+  // SharePostSheet — unlike deleting a post itself, this is non-destructive
+  // (the original post is untouched, and reposting again is one tap away).
+  const handleRemove = async () => {
+    setRemoving(true);
+    try {
+      await removeRepost(repost.postId);
+    } finally {
+      setRemoving(false);
+    }
+  };
+
   return (
     <Card style={styles.card}>
-      <Pressable style={styles.repostedByRow} onPress={() => router.push(`/profile/${repost.userId}`)}>
-        <Ionicons name="repeat-outline" size={14} color={colors.textMuted} />
-        <Text style={styles.repostedByLabel}>{reposter?.name ?? 'Someone'} reposted</Text>
+      <View style={styles.repostedByRow}>
+        <Pressable style={styles.repostedByLink} onPress={() => router.push(`/profile/${repost.userId}`)}>
+          <Ionicons name="repeat-outline" size={14} color={colors.textMuted} />
+          <Text style={styles.repostedByLabel}>{reposter?.name ?? 'Someone'} reposted</Text>
+        </Pressable>
         <Text style={styles.timestamp}>{formatRelativeTime(repost.createdAt)}</Text>
-      </Pressable>
+        {repost.userId === myId && (
+          <Pressable onPress={handleRemove} disabled={removing} hitSlop={8} accessibilityLabel="Delete repost">
+            <Ionicons name="trash-outline" size={16} color={colors.textMuted} />
+          </Pressable>
+        )}
+      </View>
 
       {!!repost.comment && <Text style={styles.comment}>{repost.comment}</Text>}
 
@@ -70,8 +90,9 @@ export function RepostCard({ repost, post, onToggleLike }: RepostCardProps) {
 
 const styles = StyleSheet.create({
   card: { gap: spacing.sm },
-  repostedByRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  repostedByLabel: { ...type.secondary, color: colors.textMuted, fontWeight: '700', flex: 1 },
+  repostedByRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  repostedByLink: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  repostedByLabel: { ...type.secondary, color: colors.textMuted, fontWeight: '700', flexShrink: 1 },
   timestamp: { ...type.secondary, color: colors.textMuted },
   comment: { ...type.body, color: colors.textPrimary },
   originalPreview: {

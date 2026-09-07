@@ -21,3 +21,5 @@ export async function createPostReal(_input: {
 export async function toggleLikePostReal(_postId: string, _myUid: string, _currentlyLiked: boolean): Promise<void> {}
 
 export async function incrementShareCountReal(_postId: string): Promise<void> {}
+
+export async function deletePostReal(_postId: string): Promise<void> {}

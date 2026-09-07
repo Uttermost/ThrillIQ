@@ -43,7 +43,7 @@ import {
   users,
 } from './mockData';
 import { createPostCommentReal, fetchCommentsForPostReal, toggleLikeCommentReal } from './postCommentsProvider';
-import { createPostReal, incrementShareCountReal, subscribePostsReal, toggleLikePostReal } from './postsProvider';
+import { createPostReal, deletePostReal, incrementShareCountReal, subscribePostsReal, toggleLikePostReal } from './postsProvider';
 import { createRepostReal, removeRepostReal, subscribeRepostsReal, toggleLikeRepostReal } from './repostsProvider';
 import { ensureProfileReal, fetchProfileReal, subscribeProfileReal, updateProfileReal } from './profileProvider';
 import { fetchReviewsForAdventureReal, fetchReviewsForOrganizerReal, hasReviewedReal, submitReviewReal } from './reviewsProvider';
@@ -190,6 +190,7 @@ interface AppContextValue extends AppState {
   fetchPosts: () => Promise<Post[]>;
   createPost: (input: { text: string; photos?: string[]; adventureId?: string | null; crewId?: string | null }) => Promise<Post>;
   toggleLikePost: (id: string) => void;
+  deletePost: (id: string) => Promise<void>;
   fetchCommentsForPost: (postId: string) => Promise<PostComment[]>;
   createComment: (input: { postId: string; text: string; parentCommentId?: string | null }) => Promise<PostComment>;
   toggleLikeComment: (commentId: string, currentlyLiked: boolean) => void;
@@ -917,6 +918,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     toggleLikePostReal(id, myIdRef.current, target.likedByMe).catch(() => {
       // Best-effort, same as adventure likes — a failed like just doesn't flip.
     });
+  }, []);
+
+  // Deliberately doesn't cascade to postComments/reposts referencing this
+  // post, matching postsProvider.native.ts's deletePostReal — both screens
+  // that could show an orphaned reference already degrade gracefully.
+  const deletePost = useCallback(async (id: string): Promise<void> => {
+    if (simulateFailuresRef.current) {
+      await delay(NETWORK_LATENCY_MS);
+      throw new ApiError("Couldn't delete your post. Try again.");
+    }
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      setPosts((prev) => prev.filter((p) => p.id !== id));
+      return;
+    }
+    try {
+      await deletePostReal(id);
+    } catch (e) {
+      throw new ApiError(e instanceof Error ? e.message : "Couldn't delete your post. Try again.");
+    }
   }, []);
 
   const fetchCommentsForPost = useCallback(async (postId: string): Promise<PostComment[]> => {
@@ -1773,6 +1794,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchPosts,
       createPost,
       toggleLikePost,
+      deletePost,
       fetchCommentsForPost,
       createComment,
       toggleLikeComment,
@@ -1843,6 +1865,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchPosts,
       createPost,
       toggleLikePost,
+      deletePost,
       fetchCommentsForPost,
       createComment,
       toggleLikeComment,

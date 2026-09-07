@@ -6,6 +6,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SharePostSheet } from '@/components/SharePostSheet';
 import { Avatar } from '@/components/ui/Avatar';
 import { Card } from '@/components/ui/Card';
+import { ConfirmPanel } from '@/components/ui/ConfirmPanel';
 import { ReportSheet } from '@/components/ui/ReportSheet';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { useApp } from '@/lib/store';
@@ -28,7 +29,7 @@ interface PostCardProps {
 }
 
 export function PostCard({ post, onToggleLike, onShared, hideCommentLink, hideCrewLink }: PostCardProps) {
-  const { myId, authenticated, users, adventures, crews, fetchOtherProfile, myFollowingIds, followUser } = useApp();
+  const { myId, authenticated, users, adventures, crews, fetchOtherProfile, myFollowingIds, followUser, deletePost } = useApp();
   const author = users[post.authorId];
   const adventure = post.adventureId ? adventures.find((a) => a.id === post.adventureId) : undefined;
   const crew = post.crewId ? crews.find((c) => c.id === post.crewId) : undefined;
@@ -36,6 +37,9 @@ export function PostCard({ post, onToggleLike, onShared, hideCommentLink, hideCr
   const [reportSheetVisible, setReportSheetVisible] = useState(false);
   const [justShared, setJustShared] = useState(false);
   const [following, setFollowing] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const isFollowing = myFollowingIds.has(post.authorId);
 
   useEffect(() => {
@@ -73,6 +77,21 @@ export function PostCard({ post, onToggleLike, onShared, hideCommentLink, hideCr
     setTimeout(() => setJustShared(false), 1500);
   };
 
+  const handleDelete = async () => {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deletePost(post.id);
+      // No local dismissal needed — deletePost updates the shared `posts`
+      // state (live subscription on native, direct filter on web), so this
+      // card just stops being rendered by whichever list produced it.
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : 'Something went wrong.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <Card style={styles.card}>
       <View style={styles.headerRow}>
@@ -97,6 +116,11 @@ export function PostCard({ post, onToggleLike, onShared, hideCommentLink, hideCr
               <Ionicons name="flag-outline" size={18} color={colors.textMuted} />
             </Pressable>
           </View>
+        )}
+        {post.authorId === myId && (
+          <Pressable onPress={() => setConfirmingDelete(true)} hitSlop={8} accessibilityLabel="Delete post">
+            <Ionicons name="trash-outline" size={18} color={colors.textMuted} />
+          </Pressable>
         )}
       </View>
 
@@ -158,6 +182,20 @@ export function PostCard({ post, onToggleLike, onShared, hideCommentLink, hideCr
           <Text style={styles.actionCount}>{justShared ? 'Shared' : post.shareCount}</Text>
         </Pressable>
       </View>
+
+      {confirmingDelete && (
+        <ConfirmPanel
+          message={deleteError ?? "This can't be undone."}
+          confirmLabel="Delete post"
+          cancelLabel="Keep it"
+          loading={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => {
+            setConfirmingDelete(false);
+            setDeleteError(null);
+          }}
+        />
+      )}
 
       <SharePostSheet visible={shareSheetVisible} onClose={() => setShareSheetVisible(false)} post={post} onShared={handleShared} />
       <ReportSheet visible={reportSheetVisible} onClose={() => setReportSheetVisible(false)} targetType="post" targetId={post.id} />
