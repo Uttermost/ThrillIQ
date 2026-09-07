@@ -10,6 +10,7 @@ import { ReportSheet } from '@/components/ui/ReportSheet';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { StarRating } from '@/components/ui/StarRating';
+import { EmptyState } from '@/components/ui/StateViews';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing, typography } from '@/lib/theme';
@@ -22,6 +23,7 @@ export default function ParticipantProfile() {
     authenticated,
     adventures,
     crews,
+    posts,
     users,
     fetchOtherProfile,
     fetchReviewsForOrganizer,
@@ -43,6 +45,7 @@ export default function ParticipantProfile() {
   const [followerCount, setFollowerCount] = useState<number | null>(null);
   const [followingCount, setFollowingCount] = useState<number | null>(null);
   const [followBusy, setFollowBusy] = useState(false);
+  const [activeTab, setActiveTab] = useState<'about' | 'photos'>('about');
 
   useEffect(() => {
     let cancelled = false;
@@ -116,6 +119,19 @@ export default function ParticipantProfile() {
       return ids.includes(id) && ids.includes(myId);
     });
   }, [adventures, id, myId]);
+
+  // Real photos this person has actually posted — `posts` is already loaded
+  // client-side, no separate fetch needed. Deliberately just post photos,
+  // not review photos they attached reviewing someone else — those are
+  // about the organizer being reviewed, not this person's own gallery.
+  const profilePhotos = useMemo(
+    () =>
+      posts
+        .filter((p) => p.authorId === id)
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .flatMap((p) => (p.photos ?? []).map((uri, i) => ({ uri, postId: p.id, key: `${p.id}-${i}` }))),
+    [posts, id]
+  );
 
   if (!profile) {
     return (
@@ -259,58 +275,88 @@ export default function ParticipantProfile() {
           <Stat value={followingCount ?? 0} label="Following" />
         </View>
 
-        {privacy.showCrews && memberCrews.length > 0 && (
-          <View style={styles.chipRow}>
-            {memberCrews.map((c) => (
-              <Pressable key={c.id} onPress={() => router.push(`/crew/${c.id}`)}>
-                <Badge label={c.name} tone="neutral" />
-              </Pressable>
-            ))}
-          </View>
-        )}
+        <View style={styles.tabRow}>
+          <Pressable onPress={() => setActiveTab('about')} style={[styles.tabBtn, activeTab === 'about' && styles.tabBtnActive]}>
+            <Text style={[styles.tabLabel, activeTab === 'about' && styles.tabLabelActive]}>About</Text>
+          </Pressable>
+          <Pressable onPress={() => setActiveTab('photos')} style={[styles.tabBtn, activeTab === 'photos' && styles.tabBtnActive]}>
+            <Text style={[styles.tabLabel, activeTab === 'photos' && styles.tabLabelActive]}>Photos & Videos</Text>
+          </Pressable>
+        </View>
 
-        {!isSelf && sharedAdventures.length > 0 && (
-          <View style={styles.sharedBox}>
-            <Text style={styles.sharedText}>
-              You've been on {sharedAdventures.length} adventure{sharedAdventures.length > 1 ? 's' : ''} together — met at{' '}
-              {sharedAdventures[0].title}.
-            </Text>
-          </View>
-        )}
+        {activeTab === 'about' && (
+          <>
+            {privacy.showCrews && memberCrews.length > 0 && (
+              <View style={styles.chipRow}>
+                {memberCrews.map((c) => (
+                  <Pressable key={c.id} onPress={() => router.push(`/crew/${c.id}`)}>
+                    <Badge label={c.name} tone="neutral" />
+                  </Pressable>
+                ))}
+              </View>
+            )}
 
-        {reviews && reviews.length > 0 && (
-          <View style={styles.reviewsSection}>
-            <View style={styles.reviewsHeader}>
-              <Text style={styles.reviewsTitle}>Reviews</Text>
-              <View style={styles.reviewsSummary}>
-                <StarRating value={averageRating ?? 0} size={16} />
-                <Text style={styles.reviewsCount}>
-                  {averageRating?.toFixed(1)} · {reviews.length} review{reviews.length === 1 ? '' : 's'}
+            {!isSelf && sharedAdventures.length > 0 && (
+              <View style={styles.sharedBox}>
+                <Text style={styles.sharedText}>
+                  You've been on {sharedAdventures.length} adventure{sharedAdventures.length > 1 ? 's' : ''} together — met at{' '}
+                  {sharedAdventures[0].title}.
                 </Text>
               </View>
-            </View>
-            {reviews.map((r) => {
-              const reviewer = users[r.reviewerId];
-              return (
-                <View key={r.id} style={styles.reviewCard}>
-                  <View style={styles.reviewCardHeader}>
-                    <Text style={styles.reviewerName}>{reviewer?.name ?? 'Someone'}</Text>
-                    <Text style={styles.reviewDate}>{formatRelativeTime(r.createdAt)}</Text>
+            )}
+
+            {reviews && reviews.length > 0 && (
+              <View style={styles.reviewsSection}>
+                <View style={styles.reviewsHeader}>
+                  <Text style={styles.reviewsTitle}>Reviews</Text>
+                  <View style={styles.reviewsSummary}>
+                    <StarRating value={averageRating ?? 0} size={16} />
+                    <Text style={styles.reviewsCount}>
+                      {averageRating?.toFixed(1)} · {reviews.length} review{reviews.length === 1 ? '' : 's'}
+                    </Text>
                   </View>
-                  <StarRating value={r.rating} size={14} />
-                  {!!r.text && <Text style={styles.reviewText}>{r.text}</Text>}
-                  {!!r.photos?.length && (
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reviewPhotoRow}>
-                      {r.photos.map((uri, i) => (
-                        <Image key={i} source={{ uri }} style={styles.reviewPhoto} />
-                      ))}
-                    </ScrollView>
-                  )}
                 </View>
-              );
-            })}
-          </View>
+                {reviews.map((r) => {
+                  const reviewer = users[r.reviewerId];
+                  return (
+                    <View key={r.id} style={styles.reviewCard}>
+                      <View style={styles.reviewCardHeader}>
+                        <Text style={styles.reviewerName}>{reviewer?.name ?? 'Someone'}</Text>
+                        <Text style={styles.reviewDate}>{formatRelativeTime(r.createdAt)}</Text>
+                      </View>
+                      <StarRating value={r.rating} size={14} />
+                      {!!r.text && <Text style={styles.reviewText}>{r.text}</Text>}
+                      {!!r.photos?.length && (
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reviewPhotoRow}>
+                          {r.photos.map((uri, i) => (
+                            <Image key={i} source={{ uri }} style={styles.reviewPhoto} />
+                          ))}
+                        </ScrollView>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </>
         )}
+
+        {activeTab === 'photos' &&
+          (profilePhotos.length === 0 ? (
+            <EmptyState
+              icon="images-outline"
+              title="No photos yet"
+              message={isSelf ? "Photos you add to a post will show up here." : `${profile.name.split(' ')[0]} hasn't posted any photos yet.`}
+            />
+          ) : (
+            <View style={styles.photoGrid}>
+              {profilePhotos.map((item) => (
+                <Pressable key={item.key} style={styles.photoGridItem} onPress={() => router.push(`/post/${item.postId}`)}>
+                  <Image source={{ uri: item.uri }} style={styles.photoGridImage} />
+                </Pressable>
+              ))}
+            </View>
+          ))}
 
         {!isSelf && privacy.whoCanConnect !== 'Nobody' && connections && (
           <View style={styles.connectionActions}>
@@ -398,6 +444,14 @@ const styles = StyleSheet.create({
   reviewText: { ...typography.caption },
   reviewPhotoRow: { flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xs },
   reviewPhoto: { width: 56, height: 56, borderRadius: radius.md },
+  tabRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  tabBtn: { flex: 1, alignItems: 'center', paddingVertical: spacing.sm, borderRadius: radius.pill, backgroundColor: colors.surfaceMuted },
+  tabBtnActive: { backgroundColor: colors.primary },
+  tabLabel: { ...typography.caption, fontWeight: '700', color: colors.textSecondary },
+  tabLabelActive: { color: '#fff' },
+  photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  photoGridItem: { width: '32%', aspectRatio: 1 },
+  photoGridImage: { width: '100%', height: '100%', borderRadius: radius.sm },
   connectionActions: { marginTop: spacing.sm, alignItems: 'center' },
   respondRow: { flexDirection: 'row', gap: spacing.sm, width: '100%' },
   respondBtn: { flex: 1 },
