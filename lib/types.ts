@@ -116,7 +116,13 @@ export interface Thread {
   messages: ChatMessage[];
 }
 
-export type NotificationType = 'adventure_cancelled' | 'adventure_updated' | 'participant_joined' | 'new_message';
+export type NotificationType =
+  | 'adventure_cancelled'
+  | 'adventure_updated'
+  | 'participant_joined'
+  | 'new_message'
+  | 'adventure_reminder'
+  | 'review_prompt';
 
 export interface DeepLink {
   screen: 'adventure' | 'organizer' | 'chat';

@@ -196,6 +196,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const myIdRef = useRef(myId);
   myIdRef.current = myId;
   const adventuresErrorRef = useRef<string | null>(null);
+  const notificationsRef = useRef(notifications);
+  notificationsRef.current = notifications;
   const usersStateRef = useRef(usersState);
   usersStateRef.current = usersState;
 
@@ -729,6 +731,66 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     },
     []
   );
+
+  // Derived notifications — computed client-side from state every client
+  // already has, rather than requiring another real user's live action (the
+  // web mock has no such second actor to react to; native's adventures diff
+  // above only fires for the other, genuinely multi-user event types).
+  // Deterministic ids (`n-reminder-<id>`, `n-review-<id>`) make each one a
+  // one-time event per adventure instead of re-firing on every state change.
+  useEffect(() => {
+    const now = Date.now();
+    const dayMs = 24 * 60 * 60 * 1000;
+
+    adventures
+      .filter((a) => a.participantIds.includes(myId) && a.dateTimestamp > now && a.dateTimestamp - now < dayMs)
+      .forEach((a) => {
+        const nid = `n-reminder-${a.id}`;
+        if (notificationsRef.current.some((n) => n.id === nid)) return;
+        setNotifications((prev) =>
+          prev.some((n) => n.id === nid)
+            ? prev
+            : [
+                {
+                  id: nid,
+                  type: 'adventure_reminder',
+                  title: `${a.title} is coming up`,
+                  body: `Starts ${a.dateLabel}${a.meetingTime ? ` · ${a.meetingTime}` : ''}.`,
+                  createdAt: now,
+                  read: false,
+                  deepLink: { screen: 'adventure', id: a.id },
+                },
+                ...prev,
+              ]
+        );
+      });
+
+    adventures
+      .filter((a) => a.participantIds.includes(myId) && a.organizerId !== myId && a.dateTimestamp < now)
+      .forEach((a) => {
+        const nid = `n-review-${a.id}`;
+        if (notificationsRef.current.some((n) => n.id === nid)) return;
+        hasReviewed(a.id).then((already) => {
+          if (already) return;
+          setNotifications((prev) =>
+            prev.some((n) => n.id === nid)
+              ? prev
+              : [
+                  {
+                    id: nid,
+                    type: 'review_prompt',
+                    title: `How was ${a.title}?`,
+                    body: 'Leave a quick review for the organizer.',
+                    createdAt: now,
+                    read: false,
+                    deepLink: { screen: 'adventure', id: a.id },
+                  },
+                  ...prev,
+                ]
+          );
+        });
+      });
+  }, [adventures, myId, hasReviewed]);
 
   const fetchAcknowledgementsForAdventure = useCallback(async (adventureId: string): Promise<SafetyAcknowledgement[]> => {
     if (!IS_NATIVE) return acknowledgementsRef.current.filter((a) => a.adventureId === adventureId);

@@ -15,6 +15,8 @@ const ICONS: Record<NotificationType, keyof typeof Ionicons.glyphMap> = {
   adventure_updated: 'create-outline',
   participant_joined: 'people-outline',
   new_message: 'chatbubble-outline',
+  adventure_reminder: 'time-outline',
+  review_prompt: 'star-outline',
 };
 
 function timeAgo(ts: number): string {
