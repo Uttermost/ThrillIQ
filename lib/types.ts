@@ -163,10 +163,14 @@ export type NotificationType =
   | 'new_message'
   | 'adventure_reminder'
   | 'review_prompt'
-  | 'waitlist_spot_open';
+  | 'waitlist_spot_open'
+  | 'post_liked'
+  | 'post_commented'
+  | 'new_follower'
+  | 'crew_post';
 
 export interface DeepLink {
-  screen: 'adventure' | 'organizer' | 'chat';
+  screen: 'adventure' | 'organizer' | 'chat' | 'post' | 'profile' | 'crew';
   id: string;
 }
 

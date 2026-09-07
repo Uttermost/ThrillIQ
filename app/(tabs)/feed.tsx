@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -108,7 +109,12 @@ export default function Feed() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <Text style={styles.heading}>Feed</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.heading}>Feed</Text>
+        <Pressable onPress={() => router.push('/search')} hitSlop={8} accessibilityLabel="Search">
+          <Ionicons name="search-outline" size={22} color={colors.textPrimary} />
+        </Pressable>
+      </View>
 
       <View style={styles.tabRow}>
         <Pressable onPress={() => handleTabChange('forYou')} style={[styles.tabBtn, tab === 'forYou' && styles.tabBtnActive]}>
@@ -223,7 +229,15 @@ export default function Feed() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  heading: { ...type.screenHeading, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.md },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+  },
+  heading: { ...type.screenHeading },
   tabRow: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg, marginBottom: spacing.md },
   tabBtn: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: radius.pill, backgroundColor: colors.surfaceMuted },
   tabBtnActive: { backgroundColor: colors.primary },

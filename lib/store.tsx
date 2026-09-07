@@ -1451,6 +1451,104 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       });
   }, [adventures, myId, hasReviewed, myWaitlistedAdventureIds]);
 
+  // Same "derived, one-time, from already-loaded state" pattern as above —
+  // posts and crews are already loaded client-side (live on native, seeded
+  // on web), so these need no separate live-diff machinery. Deliberately
+  // coarse: post_liked/post_commented fire once per post (its first like,
+  // its first comment), not once per like/comment — a full per-event feed
+  // would need a real diff of someone else's live action, which the web
+  // mock has no second actor to generate anyway.
+  useEffect(() => {
+    const now = Date.now();
+
+    posts
+      .filter((p) => p.authorId === myId && p.likeCount >= 1)
+      .forEach((p) => {
+        const nid = `n-postlike-${p.id}`;
+        if (notificationsRef.current.some((n) => n.id === nid)) return;
+        setNotifications((prev) =>
+          prev.some((n) => n.id === nid)
+            ? prev
+            : [
+                { id: nid, type: 'post_liked', title: 'Someone liked your post', body: p.text, createdAt: now, read: false, deepLink: { screen: 'post', id: p.id } },
+                ...prev,
+              ]
+        );
+      });
+
+    posts
+      .filter((p) => p.authorId === myId && p.commentCount >= 1)
+      .forEach((p) => {
+        const nid = `n-postcomment-${p.id}`;
+        if (notificationsRef.current.some((n) => n.id === nid)) return;
+        setNotifications((prev) =>
+          prev.some((n) => n.id === nid)
+            ? prev
+            : [
+                { id: nid, type: 'post_commented', title: 'New comment on your post', body: p.text, createdAt: now, read: false, deepLink: { screen: 'post', id: p.id } },
+                ...prev,
+              ]
+        );
+      });
+
+    posts
+      .filter((p) => p.crewId && p.authorId !== myId && crews.some((c) => c.id === p.crewId && c.memberIds.includes(myId)))
+      .forEach((p) => {
+        const nid = `n-crewpost-${p.id}`;
+        if (notificationsRef.current.some((n) => n.id === nid)) return;
+        const crew = crews.find((c) => c.id === p.crewId);
+        setNotifications((prev) =>
+          prev.some((n) => n.id === nid)
+            ? prev
+            : [
+                {
+                  id: nid,
+                  type: 'crew_post',
+                  title: `New post in ${crew?.name ?? 'your crew'}`,
+                  body: p.text,
+                  createdAt: now,
+                  read: false,
+                  deepLink: { screen: 'crew', id: p.crewId as string },
+                },
+                ...prev,
+              ]
+        );
+      });
+  }, [posts, crews, myId]);
+
+  // Who follows me — a one-shot check per sign-in (fetchFollowersFor is a
+  // single query, not a live subscription), same simplification as above:
+  // a new follow mid-session isn't picked up until the next sign-in/reload.
+  useEffect(() => {
+    let cancelled = false;
+    fetchFollowersFor(myId).then((list) => {
+      if (cancelled) return;
+      list.forEach((f) => {
+        const nid = `n-follower-${f.id}`;
+        if (notificationsRef.current.some((n) => n.id === nid)) return;
+        setNotifications((prev) =>
+          prev.some((n) => n.id === nid)
+            ? prev
+            : [
+                {
+                  id: nid,
+                  type: 'new_follower',
+                  title: 'New follower',
+                  body: 'Someone started following you.',
+                  createdAt: f.createdAt,
+                  read: false,
+                  deepLink: { screen: 'profile', id: f.followerId },
+                },
+                ...prev,
+              ]
+        );
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [myId, fetchFollowersFor]);
+
   const fetchAcknowledgementsForAdventure = useCallback(async (adventureId: string): Promise<SafetyAcknowledgement[]> => {
     if (!IS_NATIVE) return acknowledgementsRef.current.filter((a) => a.adventureId === adventureId);
     try {

@@ -18,6 +18,10 @@ const ICONS: Record<NotificationType, keyof typeof Ionicons.glyphMap> = {
   adventure_reminder: 'time-outline',
   review_prompt: 'star-outline',
   waitlist_spot_open: 'flash-outline',
+  post_liked: 'heart-outline',
+  post_commented: 'chatbubble-ellipses-outline',
+  new_follower: 'person-add-outline',
+  crew_post: 'people-circle-outline',
 };
 
 function timeAgo(ts: number): string {
@@ -37,6 +41,9 @@ export default function Notifications() {
     if (n.deepLink.screen === 'adventure') router.push(`/adventure/${n.deepLink.id}`);
     else if (n.deepLink.screen === 'organizer') router.push(`/organizer/${n.deepLink.id}`);
     else if (n.deepLink.screen === 'chat') router.push(`/chat/${n.deepLink.id}`);
+    else if (n.deepLink.screen === 'post') router.push(`/post/${n.deepLink.id}`);
+    else if (n.deepLink.screen === 'profile') router.push(`/profile/${n.deepLink.id}`);
+    else if (n.deepLink.screen === 'crew') router.push(`/crew/${n.deepLink.id}`);
   };
 
   const hasUnread = notifications.some((n) => !n.read);
