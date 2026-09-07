@@ -1,4 +1,4 @@
-import { DEFAULT_PRIVACY, Adventure, Thread, User } from './types';
+import { DEFAULT_PRIVACY, Adventure, Review, Thread, User } from './types';
 
 export const ME_ID = 'u-vincent';
 
@@ -250,6 +250,49 @@ export const initialAdventures: Adventure[] = [
     likedByMe: false,
     likeCount: 21,
     coordinate: { x: 0.75, y: 0.7 },
+  },
+];
+
+// Reviews reference past, already-completed occurrences of each organizer's
+// adventures (consistent with their completedAdventuresCount above) rather
+// than the four upcoming listings in initialAdventures — none of those have
+// happened yet, so nothing in the current listing is reviewable.
+export const initialReviews: Review[] = [
+  {
+    id: 'a-past-1_u-kevin',
+    adventureId: 'a-past-1',
+    organizerId: 'u-tom',
+    reviewerId: 'u-kevin',
+    rating: 5,
+    text: 'Tom is a fantastic organizer — the Rift Valley trip was unforgettable.',
+    createdAt: inDays(-10),
+  },
+  {
+    id: 'a-past-2_u-brian',
+    adventureId: 'a-past-2',
+    organizerId: 'u-tom',
+    reviewerId: 'u-brian',
+    rating: 4,
+    text: 'Well organized, though we started a bit later than planned.',
+    createdAt: inDays(-25),
+  },
+  {
+    id: `a-past-3_${ME_ID}`,
+    adventureId: 'a-past-3',
+    organizerId: 'u-amina',
+    reviewerId: ME_ID,
+    rating: 5,
+    text: 'Amina runs a calm, welcoming hike — great for anyone new to it.',
+    createdAt: inDays(-6),
+  },
+  {
+    id: 'a-past-4_u-kevin',
+    adventureId: 'a-past-4',
+    organizerId: 'u-amina',
+    reviewerId: 'u-kevin',
+    rating: 5,
+    text: 'Great pace, learned a lot about the forest trails.',
+    createdAt: inDays(-40),
   },
 ];
 

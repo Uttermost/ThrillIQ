@@ -8,14 +8,17 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { StarRating } from '@/components/ui/StarRating';
+import { formatRelativeTime } from '@/lib/relativeTime';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing, typography } from '@/lib/theme';
-import { DEFAULT_PRIVACY, User } from '@/lib/types';
+import { DEFAULT_PRIVACY, Review, User } from '@/lib/types';
 
 export default function ParticipantProfile() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { myId, authenticated, adventures, fetchOtherProfile, ensureThreadForAdventure } = useApp();
+  const { myId, authenticated, adventures, users, fetchOtherProfile, fetchReviewsForOrganizer, ensureThreadForAdventure } = useApp();
   const [profile, setProfile] = useState<User | null>(null);
+  const [reviews, setReviews] = useState<Review[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -27,6 +30,29 @@ export default function ParticipantProfile() {
       cancelled = true;
     };
   }, [id, fetchOtherProfile]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setReviews(null);
+    fetchReviewsForOrganizer(id).then((list) => {
+      if (!cancelled) setReviews(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, fetchReviewsForOrganizer]);
+
+  useEffect(() => {
+    reviews?.forEach((r) => {
+      if (!users[r.reviewerId]) fetchOtherProfile(r.reviewerId);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reviews]);
+
+  const averageRating = useMemo(() => {
+    if (!reviews || reviews.length === 0) return null;
+    return reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
+  }, [reviews]);
 
   // Computable today without a Connections system: adventures where both
   // people appear, either as organizer or participant.
@@ -111,6 +137,33 @@ export default function ParticipantProfile() {
           </View>
         )}
 
+        {reviews && reviews.length > 0 && (
+          <View style={styles.reviewsSection}>
+            <View style={styles.reviewsHeader}>
+              <Text style={styles.reviewsTitle}>Reviews</Text>
+              <View style={styles.reviewsSummary}>
+                <StarRating value={averageRating ?? 0} size={16} />
+                <Text style={styles.reviewsCount}>
+                  {averageRating?.toFixed(1)} · {reviews.length} review{reviews.length === 1 ? '' : 's'}
+                </Text>
+              </View>
+            </View>
+            {reviews.map((r) => {
+              const reviewer = users[r.reviewerId];
+              return (
+                <View key={r.id} style={styles.reviewCard}>
+                  <View style={styles.reviewCardHeader}>
+                    <Text style={styles.reviewerName}>{reviewer?.name ?? 'Someone'}</Text>
+                    <Text style={styles.reviewDate}>{formatRelativeTime(r.createdAt)}</Text>
+                  </View>
+                  <StarRating value={r.rating} size={14} />
+                  {!!r.text && <Text style={styles.reviewText}>{r.text}</Text>}
+                </View>
+              );
+            })}
+          </View>
+        )}
+
         {!isSelf && <Button label="Message" onPress={handleMessage} style={{ marginTop: spacing.md }} />}
       </ScrollView>
     </SafeAreaView>
@@ -153,4 +206,21 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   sharedText: { color: colors.hosting, fontSize: 13 },
+  reviewsSection: { gap: spacing.sm, marginTop: spacing.sm },
+  reviewsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  reviewsTitle: { ...typography.subheading },
+  reviewsSummary: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  reviewsCount: { ...typography.small },
+  reviewCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  reviewCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  reviewerName: { ...typography.caption, fontWeight: '600', color: colors.textPrimary },
+  reviewDate: { ...typography.small },
+  reviewText: { ...typography.caption },
 });

@@ -133,6 +133,16 @@ export interface AppNotification {
   deepLink: DeepLink | null;
 }
 
+export interface Review {
+  id: string;
+  adventureId: string;
+  organizerId: string;
+  reviewerId: string;
+  rating: 1 | 2 | 3 | 4 | 5;
+  text: string;
+  createdAt: number;
+}
+
 export interface NewAdventureDraft {
   title: string;
   description: string;

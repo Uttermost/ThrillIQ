@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/ui/Avatar';
@@ -10,13 +10,25 @@ import { Button } from '@/components/ui/Button';
 import { ConfirmPanel } from '@/components/ui/ConfirmPanel';
 import { InlineError } from '@/components/ui/StateViews';
 import { MountainScene } from '@/components/ui/MountainScene';
+import { StarRating } from '@/components/ui/StarRating';
 import { colors, iconSize, radius, spacing, type } from '@/lib/theme';
 import { useApp } from '@/lib/store';
+import { Review } from '@/lib/types';
 
 export default function AdventureDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { myId, authenticated, adventures, users, fetchOtherProfile, joinAdventure, leaveAdventure, ensureThreadForAdventure } =
-    useApp();
+  const {
+    myId,
+    authenticated,
+    adventures,
+    users,
+    fetchOtherProfile,
+    joinAdventure,
+    leaveAdventure,
+    ensureThreadForAdventure,
+    hasReviewed,
+    submitReview,
+  } = useApp();
   const adventure = adventures.find((a) => a.id === id);
 
   const [agreed, setAgreed] = useState(false);
@@ -25,6 +37,12 @@ export default function AdventureDetail() {
   const [joinError, setJoinError] = useState<string | null>(null);
   const [leaveError, setLeaveError] = useState<string | null>(null);
   const [confirmingLeave, setConfirmingLeave] = useState(false);
+  const [alreadyReviewed, setAlreadyReviewed] = useState(false);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewText, setReviewText] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
 
   useEffect(() => {
     if (!adventure) return;
@@ -33,6 +51,23 @@ export default function AdventureDetail() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adventure?.organizerId, adventure?.participantIds.join(',')]);
+
+  // None of the current seed adventures have happened yet (mockData.ts's
+  // four listings are all future-dated) — this is correctly unreachable
+  // until a real adventure's date passes, not a bug.
+  const canReview = !!adventure && adventure.participantIds.includes(myId) && adventure.organizerId !== myId && adventure.dateTimestamp < Date.now();
+
+  const adventureId = adventure?.id;
+  useEffect(() => {
+    if (!canReview || !adventureId) return;
+    let cancelled = false;
+    hasReviewed(adventureId).then((v) => {
+      if (!cancelled) setAlreadyReviewed(v);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [canReview, adventureId, hasReviewed]);
 
   if (!adventure) {
     return (
@@ -50,6 +85,20 @@ export default function AdventureDetail() {
   const isJoined = adventure.participantIds.includes(myId);
   const isFull = adventure.spotsFilled >= adventure.spotsTotal;
   const organizer = users[adventure.organizerId];
+
+  const handleSubmitReview = async () => {
+    if (reviewRating === 0) return;
+    setReviewSubmitting(true);
+    setReviewError(null);
+    try {
+      await submitReview({ adventureId: adventure.id, organizerId: adventure.organizerId, rating: reviewRating as Review['rating'], text: reviewText });
+      setReviewSubmitted(true);
+    } catch (e) {
+      setReviewError(e instanceof Error ? e.message : 'Something went wrong.');
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
 
   const handleMessageOrganizer = () => {
     if (!authenticated) {
@@ -164,6 +213,25 @@ export default function AdventureDetail() {
             </View>
             <Text style={styles.guidelinesText}>{adventure.guidelines.join(' · ')}</Text>
           </View>
+
+          {canReview && !alreadyReviewed && !reviewSubmitted && (
+            <Section title="Rate this adventure">
+              <StarRating value={reviewRating} onChange={setReviewRating} size={26} />
+              <TextInput
+                value={reviewText}
+                onChangeText={setReviewText}
+                placeholder="Share how it went (optional)"
+                placeholderTextColor={colors.textMuted}
+                multiline
+                numberOfLines={3}
+                maxLength={600}
+                style={styles.reviewInput}
+              />
+              {reviewError && <InlineError message={reviewError} onRetry={handleSubmitReview} />}
+              <Button label="Submit review" onPress={handleSubmitReview} disabled={reviewRating === 0} loading={reviewSubmitting} />
+            </Section>
+          )}
+          {canReview && (alreadyReviewed || reviewSubmitted) && <Text style={styles.reviewThanks}>✓ Thanks for your review.</Text>}
 
           {organizer && (
             <Section title="Organizer">
@@ -306,6 +374,17 @@ const styles = StyleSheet.create({
   guidelinesHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   guidelinesTitle: { fontWeight: '700', color: colors.hosting, fontSize: 14 },
   guidelinesText: { color: colors.hosting, fontSize: 13 },
+  reviewInput: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    minHeight: 70,
+    textAlignVertical: 'top',
+    ...type.body,
+  },
+  reviewThanks: { ...type.bodyEmphasis, color: colors.success },
   organizerRow: {
     flexDirection: 'row',
     alignItems: 'center',

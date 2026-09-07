@@ -20,9 +20,10 @@ import {
   verifyPhoneCodeReal,
 } from './authProvider';
 import { timestampForBucket } from './dateBuckets';
-import { ME_ID, initialAdventures, initialThreads, users } from './mockData';
+import { ME_ID, initialAdventures, initialReviews, initialThreads, users } from './mockData';
 import { ensureProfileReal, fetchProfileReal, subscribeProfileReal, updateProfileReal } from './profileProvider';
-import { Adventure, AppNotification, DEFAULT_PRIVACY, DeepLink, NewAdventureDraft, NotificationType, Thread, User } from './types';
+import { fetchReviewsForOrganizerReal, hasReviewedReal, submitReviewReal } from './reviewsProvider';
+import { Adventure, AppNotification, DEFAULT_PRIVACY, DeepLink, NewAdventureDraft, NotificationType, Review, Thread, User } from './types';
 
 let notificationSeq = 0;
 function makeNotification(type: NotificationType, title: string, body: string, deepLink: DeepLink | null): AppNotification {
@@ -129,6 +130,10 @@ interface AppContextValue extends AppState {
   notifications: AppNotification[];
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
+  reviewsByOrganizer: Record<string, Review[]>;
+  fetchReviewsForOrganizer: (organizerId: string) => Promise<Review[]>;
+  hasReviewed: (adventureId: string) => Promise<boolean>;
+  submitReview: (params: { adventureId: string; organizerId: string; rating: Review['rating']; text: string }) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -156,6 +161,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
   const hasLoadedAdventuresOnceRef = useRef(false);
   const [usersState, setUsersState] = useState<Record<string, User>>(users);
+  // Web-mock master list of every review (native ignores this — it fetches
+  // and caches per organizer instead, since Firestore has no reason to ship
+  // every review in the app to every client up front).
+  const [reviews, setReviews] = useState<Review[]>(initialReviews);
+  const reviewsRef = useRef(reviews);
+  reviewsRef.current = reviews;
+  const [reviewsByOrganizer, setReviewsByOrganizer] = useState<Record<string, Review[]>>({});
   const [simulateFailures, setSimulateFailures] = useState(false);
   const simulateFailuresRef = useRef(simulateFailures);
   simulateFailuresRef.current = simulateFailures;
@@ -640,6 +652,57 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return placeholder;
   }, []);
 
+  const fetchReviewsForOrganizer = useCallback(async (organizerId: string): Promise<Review[]> => {
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      const list = reviewsRef.current.filter((r) => r.organizerId === organizerId);
+      setReviewsByOrganizer((prev) => ({ ...prev, [organizerId]: list }));
+      return list;
+    }
+    try {
+      const list = await fetchReviewsForOrganizerReal(organizerId);
+      setReviewsByOrganizer((prev) => ({ ...prev, [organizerId]: list }));
+      return list;
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const hasReviewed = useCallback(async (adventureId: string): Promise<boolean> => {
+    const id = `${adventureId}_${myIdRef.current}`;
+    if (!IS_NATIVE) return reviewsRef.current.some((r) => r.id === id);
+    try {
+      return await hasReviewedReal(adventureId, myIdRef.current);
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const submitReview = useCallback(
+    async ({ adventureId, organizerId, rating, text }: { adventureId: string; organizerId: string; rating: Review['rating']; text: string }) => {
+      if (simulateFailuresRef.current) {
+        await delay(NETWORK_LATENCY_MS);
+        throw new ApiError("Couldn't submit your review. Try again.");
+      }
+      if (!IS_NATIVE) {
+        await delay(NETWORK_LATENCY_MS);
+        const id = `${adventureId}_${myIdRef.current}`;
+        if (reviewsRef.current.some((r) => r.id === id)) return;
+        const created: Review = { id, adventureId, organizerId, reviewerId: myIdRef.current, rating, text: text.trim(), createdAt: Date.now() };
+        setReviews((prev) => [created, ...prev]);
+        setReviewsByOrganizer((prev) => ({ ...prev, [organizerId]: [created, ...(prev[organizerId] ?? [])] }));
+        return;
+      }
+      try {
+        const created = await submitReviewReal({ adventureId, organizerId, reviewerId: myIdRef.current, rating, text: text.trim() });
+        setReviewsByOrganizer((prev) => ({ ...prev, [organizerId]: [created, ...(prev[organizerId] ?? [])] }));
+      } catch (e) {
+        throw new ApiError(e instanceof Error ? e.message : "Couldn't submit your review. Try again.");
+      }
+    },
+    []
+  );
+
   const markNotificationRead = useCallback((id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
   }, []);
@@ -690,6 +753,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       notifications,
       markNotificationRead,
       markAllNotificationsRead,
+      reviewsByOrganizer,
+      fetchReviewsForOrganizer,
+      hasReviewed,
+      submitReview,
     }),
     [
       ready,
@@ -722,6 +789,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       notifications,
       markNotificationRead,
       markAllNotificationsRead,
+      reviewsByOrganizer,
+      fetchReviewsForOrganizer,
+      hasReviewed,
+      submitReview,
     ]
   );
 
