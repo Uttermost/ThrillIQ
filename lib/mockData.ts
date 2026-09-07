@@ -378,6 +378,8 @@ export const initialPostComments: PostComment[] = [
     postId: 'p-brian-naivasha',
     authorId: 'u-tom',
     text: "It's a great spot — bring a zoom lens if you have one, the hippos keep their distance.",
+    likedByMe: true,
+    likeCount: 2,
     createdAt: inDays(-1) + 1000 * 60 * 30,
   },
   {
@@ -385,6 +387,8 @@ export const initialPostComments: PostComment[] = [
     postId: 'p-brian-naivasha',
     authorId: 'u-kevin',
     text: 'Same, first time for me too. See you there!',
+    likedByMe: false,
+    likeCount: 0,
     createdAt: inDays(-1) + 1000 * 60 * 90,
   },
   {
@@ -393,6 +397,8 @@ export const initialPostComments: PostComment[] = [
     authorId: 'u-brian',
     parentCommentId: 'pc-tom-naivasha-1',
     text: 'Good shout, packing the 200mm.',
+    likedByMe: false,
+    likeCount: 1,
     createdAt: inDays(-1) + 1000 * 60 * 100,
   },
   {
@@ -400,6 +406,8 @@ export const initialPostComments: PostComment[] = [
     postId: 'p-tom-amboseli',
     authorId: ME_ID,
     text: 'Good call on the layers — it was freezing at night last time.',
+    likedByMe: false,
+    likeCount: 1,
     createdAt: inDays(-2) + 1000 * 60 * 45,
   },
 ];

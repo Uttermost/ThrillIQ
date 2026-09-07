@@ -19,7 +19,8 @@ type Status = 'loading' | 'ready' | 'error';
 
 export default function PostDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { me, users, authenticated, posts, toggleLikePost, recordShare, fetchCommentsForPost, createComment, fetchOtherProfile } = useApp();
+  const { me, users, authenticated, posts, toggleLikePost, toggleLikeComment, recordShare, fetchCommentsForPost, createComment, fetchOtherProfile } =
+    useApp();
   const post = posts.find((p) => p.id === id);
 
   const [status, setStatus] = useState<Status>('loading');
@@ -88,6 +89,20 @@ export default function PostDetail() {
     recordShare(post.id);
   };
 
+  // Comments have no single global reactive array on native, unlike posts
+  // — this screen owns the optimistic flip itself, then persists it.
+  const handleToggleLikeComment = (comment: PostComment) => {
+    if (!authenticated) {
+      router.push('/auth');
+      return;
+    }
+    const wasLiked = comment.likedByMe;
+    setComments((prev) =>
+      prev.map((c) => (c.id === comment.id ? { ...c, likedByMe: !wasLiked, likeCount: c.likeCount + (wasLiked ? -1 : 1) } : c))
+    );
+    toggleLikeComment(comment.id, wasLiked);
+  };
+
   const handleSend = async () => {
     const text = draft.trim();
     if (!text || posting) return;
@@ -136,11 +151,25 @@ export default function PostDetail() {
                     <Text style={styles.commentTime}>{formatRelativeTime(item.createdAt)}</Text>
                   </View>
                   <Text style={styles.commentText}>{item.text}</Text>
-                  {!item.isReply && authenticated && (
-                    <Pressable onPress={() => setReplyingTo({ id: item.id, authorName: author?.name ?? 'Someone' })} hitSlop={8}>
-                      <Text style={styles.replyLink}>Reply</Text>
+                  <View style={styles.commentFooter}>
+                    <Pressable
+                      style={styles.commentLikeBtn}
+                      onPress={() => handleToggleLikeComment(item)}
+                      hitSlop={8}
+                      accessibilityLabel={item.likedByMe ? 'Unlike comment' : 'Like comment'}>
+                      <Ionicons
+                        name={item.likedByMe ? 'heart' : 'heart-outline'}
+                        size={14}
+                        color={item.likedByMe ? colors.accent : colors.textSecondary}
+                      />
+                      {item.likeCount > 0 && <Text style={styles.commentLikeCount}>{item.likeCount}</Text>}
                     </Pressable>
-                  )}
+                    {!item.isReply && authenticated && (
+                      <Pressable onPress={() => setReplyingTo({ id: item.id, authorName: author?.name ?? 'Someone' })} hitSlop={8}>
+                        <Text style={styles.replyLink}>Reply</Text>
+                      </Pressable>
+                    )}
+                  </View>
                 </View>
               </View>
             );
@@ -207,7 +236,10 @@ const styles = StyleSheet.create({
   commentAuthor: { ...type.bodyEmphasis, fontSize: 13 },
   commentTime: { ...type.secondary, color: colors.textMuted },
   commentText: { ...type.body, color: colors.textPrimary },
-  replyLink: { ...type.secondary, color: colors.primary, fontWeight: '700', marginTop: 2, alignSelf: 'flex-start' },
+  commentFooter: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: 2 },
+  commentLikeBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  commentLikeCount: { ...type.secondary, color: colors.textSecondary },
+  replyLink: { ...type.secondary, color: colors.primary, fontWeight: '700' },
   replyingToRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

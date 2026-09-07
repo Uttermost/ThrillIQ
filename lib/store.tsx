@@ -41,7 +41,7 @@ import {
   initialWaitlist,
   users,
 } from './mockData';
-import { createPostCommentReal, fetchCommentsForPostReal } from './postCommentsProvider';
+import { createPostCommentReal, fetchCommentsForPostReal, toggleLikeCommentReal } from './postCommentsProvider';
 import { createPostReal, incrementShareCountReal, subscribePostsReal, toggleLikePostReal } from './postsProvider';
 import { ensureProfileReal, fetchProfileReal, subscribeProfileReal, updateProfileReal } from './profileProvider';
 import { fetchReviewsForAdventureReal, fetchReviewsForOrganizerReal, hasReviewedReal, submitReviewReal } from './reviewsProvider';
@@ -188,6 +188,7 @@ interface AppContextValue extends AppState {
   toggleLikePost: (id: string) => void;
   fetchCommentsForPost: (postId: string) => Promise<PostComment[]>;
   createComment: (input: { postId: string; text: string; parentCommentId?: string | null }) => Promise<PostComment>;
+  toggleLikeComment: (commentId: string, currentlyLiked: boolean) => void;
   recordShare: (postId: string) => void;
   // Who the signed-in user follows — always available without a fetch (a
   // small, own-account-scoped set), unlike per-profile follower/following
@@ -898,7 +899,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return postCommentsRef.current.filter((c) => c.postId === postId);
     }
     try {
-      return await fetchCommentsForPostReal(postId);
+      return await fetchCommentsForPostReal(postId, myIdRef.current);
     } catch {
       return [];
     }
@@ -918,6 +919,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           authorId: myIdRef.current,
           text: text.trim(),
           parentCommentId: parentCommentId ?? null,
+          likeCount: 0,
+          likedByMe: false,
           createdAt: Date.now(),
         };
         setPostComments((prev) => [...prev, created]);
@@ -932,6 +935,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     },
     []
   );
+
+  // Unlike posts/adventures, comments have no single global reactive array
+  // on native (fetchCommentsForPost hands results straight to whichever
+  // screen asked, per-post) — so the caller passes currentlyLiked and owns
+  // its own optimistic UI update; this just persists it. Web still keeps
+  // its whole mock graph in postComments, so it's updated here too, kept
+  // in sync with whatever the caller already flipped locally.
+  const toggleLikeComment = useCallback((commentId: string, currentlyLiked: boolean) => {
+    if (!IS_NATIVE) {
+      setPostComments((prev) =>
+        prev.map((c) => (c.id === commentId ? { ...c, likedByMe: !currentlyLiked, likeCount: c.likeCount + (currentlyLiked ? -1 : 1) } : c))
+      );
+      return;
+    }
+    toggleLikeCommentReal(commentId, myIdRef.current, currentlyLiked).catch(() => {
+      // Best-effort, same as adventure/post likes — a failed like just doesn't flip.
+    });
+  }, []);
 
   // Fire-and-forget, same style as toggleLike/toggleLikePost — the caller
   // (lib/share.ts via the UI) already confirmed the share itself completed
@@ -1643,6 +1664,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       toggleLikePost,
       fetchCommentsForPost,
       createComment,
+      toggleLikeComment,
       recordShare,
       myFollowingIds,
       fetchFollowersFor,
@@ -1708,6 +1730,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       toggleLikePost,
       fetchCommentsForPost,
       createComment,
+      toggleLikeComment,
       recordShare,
       myFollowingIds,
       fetchFollowersFor,

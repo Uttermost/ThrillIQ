@@ -275,6 +275,8 @@ export interface PostComment {
   // One level deep only — replying to a reply attaches to that reply's own
   // top-level parent, not to the reply itself (see app/post/[id].tsx).
   parentCommentId?: string | null;
+  likeCount: number;
+  likedByMe: boolean;
   createdAt: number;
 }
 

@@ -202,6 +202,8 @@ service cloud.firestore {
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0
         && request.resource.data.text.size() <= 500
+        && request.resource.data.likedBy == []
+        && request.resource.data.likeCount == 0
         && exists(/databases/$(database)/documents/posts/$(request.resource.data.postId))
         // A reply must point at a real comment on this same post — one
         // level deep only (see the PostComment type comment), so this
@@ -211,7 +213,19 @@ service cloud.firestore {
             || (exists(/databases/$(database)/documents/postComments/$(request.resource.data.parentCommentId))
                 && get(/databases/$(database)/documents/postComments/$(request.resource.data.parentCommentId)).data.postId == request.resource.data.postId));
 
-      allow update: if false;
+      // Like/unlike: same shape as the posts like rule.
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'likeCount'])
+        && (
+          (request.resource.data.likedBy == resource.data.likedBy.concat([request.auth.uid])
+            && !resource.data.likedBy.hasAny([request.auth.uid])
+            && request.resource.data.likeCount == resource.data.likeCount + 1)
+          ||
+          (request.resource.data.likedBy == resource.data.likedBy.removeAll([request.auth.uid])
+            && resource.data.likedBy.hasAny([request.auth.uid])
+            && request.resource.data.likeCount == resource.data.likeCount - 1)
+        );
+
       allow delete: if request.auth != null && resource.data.authorId == request.auth.uid;
     }
 

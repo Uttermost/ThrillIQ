@@ -4,7 +4,7 @@
 
 import { PostComment } from './types';
 
-export async function fetchCommentsForPostReal(_postId: string): Promise<PostComment[]> {
+export async function fetchCommentsForPostReal(_postId: string, _myUid: string): Promise<PostComment[]> {
   return [];
 }
 
@@ -16,3 +16,5 @@ export async function createPostCommentReal(_input: {
 }): Promise<PostComment> {
   throw new Error('Not implemented on web.');
 }
+
+export async function toggleLikeCommentReal(_commentId: string, _myUid: string, _currentlyLiked: boolean): Promise<void> {}
