@@ -10,7 +10,7 @@ export function MountainScene({ height = 160, rounded = true }: { height?: numbe
       <Svg width="100%" height="100%" viewBox="0 0 300 160" preserveAspectRatio="xMidYMid slice">
         <Defs>
           <LinearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor="#F6D9A6" />
+            <Stop offset="0" stopColor="#DCFCE7" />
             <Stop offset="1" stopColor={colors.background} />
           </LinearGradient>
         </Defs>

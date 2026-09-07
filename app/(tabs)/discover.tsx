@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
   mapWrap: { flex: 1, paddingHorizontal: spacing.lg, marginTop: spacing.md },
   mapCanvas: {
     flex: 1,
-    backgroundColor: '#E4EBDD',
+    backgroundColor: colors.primarySurface,
     borderRadius: radius.lg,
     overflow: 'hidden',
   },

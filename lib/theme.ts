@@ -2,39 +2,44 @@
 // and motion across the app. Screens should reference these, never hard-code
 // a raw hex/px value. See the ThrillIQ UI/UX spec (design system section).
 
+// Brand palette: Deep Slate / Soft Off-White / Adventure Green / Energy
+// Amber. These four are Tailwind's slate-900, slate-50, green-600 and
+// amber-500 exactly, so the rest of the scale below is built out from the
+// matching Tailwind slate/green/amber/red/blue steps for a coherent system,
+// rather than bolting four raw hexes onto an otherwise-unrelated palette.
 export const colors = {
-  background: '#FAF3E8',
+  background: '#F8FAFC', // slate-50 — Soft Off-White
   surface: '#FFFFFF',
-  surfaceMuted: '#F1E9DA',
+  surfaceMuted: '#F1F5F9', // slate-100
   elevatedSurface: '#FFFFFF',
-  border: '#E9DFCB',
-  textPrimary: '#2B2620',
-  textSecondary: '#6B6255',
-  textMuted: '#948B7C',
-  accent: '#C9622F',
-  accentMuted: '#FBEADD',
-  hosting: '#B4652E',
-  success: '#3F6B4F',
-  successBg: '#E4F0E6',
-  danger: '#C0392B',
-  dangerBg: '#FBEAEA',
-  dangerBorder: '#F3CFCB',
-  skeleton: '#EDE3D2',
-  overlay: 'rgba(43, 38, 32, 0.4)',
-  sunrise: '#E8A05C',
-  mountainFar: '#C9A876',
-  mountainNear: '#5B7A5C',
+  border: '#E2E8F0', // slate-200
+  textPrimary: '#0F172A', // slate-900 — Deep Slate
+  textSecondary: '#475569', // slate-600
+  textMuted: '#94A3B8', // slate-400
+  accent: '#F59E0B', // amber-500 — Energy Amber
+  accentMuted: '#FFFBEB', // amber-50
+  hosting: '#D97706', // amber-600
+  success: '#15803D', // green-700 (darker than brand green, for text contrast)
+  successBg: '#F0FDF4', // green-50
+  danger: '#DC2626', // red-600
+  dangerBg: '#FEF2F2', // red-50
+  dangerBorder: '#FECACA', // red-200
+  skeleton: '#E2E8F0', // slate-200
+  overlay: 'rgba(15, 23, 42, 0.5)', // slate-900 tint
+  sunrise: '#F59E0B', // amber-500 — reused for the onboarding illustration's sun
+  mountainFar: '#CBD5E1', // slate-300
+  mountainNear: '#16A34A', // green-600 — Adventure Green
 
   // Semantic aliases (design-system section 79). Point at the values above —
   // new code should prefer these names; the underlying values stay unified.
-  primary: '#C9622F',
-  primarySurface: '#FBEADD',
-  warning: '#B9832E',
-  warningBg: '#F5E8D2',
-  error: '#C0392B',
-  errorBg: '#FBEAEA',
-  info: '#3E6A82',
-  infoBg: '#E2EEF2',
+  primary: '#16A34A', // green-600 — Adventure Green
+  primarySurface: '#F0FDF4', // green-50
+  warning: '#D97706', // amber-600 (darker than accent, for text-on-light contrast)
+  warningBg: '#FFFBEB', // amber-50
+  error: '#DC2626', // red-600
+  errorBg: '#FEF2F2', // red-50
+  info: '#2563EB', // blue-600
+  infoBg: '#EFF6FF', // blue-50
 } as const;
 
 // 8-point spacing scale (design-system section 5). Every margin/padding
