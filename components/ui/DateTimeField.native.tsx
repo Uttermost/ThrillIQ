@@ -10,9 +10,10 @@ interface DateTimeFieldProps {
   value: Date;
   onChange: (date: Date) => void;
   minimumDate?: Date;
+  mode?: 'date' | 'datetime';
 }
 
-export function DateTimeField({ value, onChange, minimumDate }: DateTimeFieldProps) {
+export function DateTimeField({ value, onChange, minimumDate, mode = 'datetime' }: DateTimeFieldProps) {
   const [showDate, setShowDate] = useState(false);
   const [showTime, setShowTime] = useState(false);
 
@@ -39,10 +40,12 @@ export function DateTimeField({ value, onChange, minimumDate }: DateTimeFieldPro
           <Text style={styles.label}>Date</Text>
           <Text style={styles.value}>{formatDateLabel(value.getTime())}</Text>
         </Pressable>
-        <Pressable style={styles.field} onPress={() => setShowTime(true)}>
-          <Text style={styles.label}>Time</Text>
-          <Text style={styles.value}>{formatTimeLabel(value.getTime())}</Text>
-        </Pressable>
+        {mode === 'datetime' && (
+          <Pressable style={styles.field} onPress={() => setShowTime(true)}>
+            <Text style={styles.label}>Time</Text>
+            <Text style={styles.value}>{formatTimeLabel(value.getTime())}</Text>
+          </Pressable>
+        )}
       </View>
 
       {showDate && (

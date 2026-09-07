@@ -4,24 +4,36 @@ import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, useW
 
 import { Button } from '@/components/ui/Button';
 import { ChipGroup } from '@/components/ui/ChipGroup';
+import { DateTimeField } from '@/components/ui/DateTimeField';
 import { colors, CONTENT_MAX_WIDTH, radius, spacing, type } from '@/lib/theme';
-import { Audience, Difficulty, Intensity, Pace, PriceBand, Region, SocialLevel, Transport, WhenBucket } from '@/lib/types';
+import { Audience, Difficulty, Intensity, Pace, PriceBand, Region, SocialLevel, Transport, WhenFilter } from '@/lib/types';
+
+export type DurationBand = 'Any' | 'Under 2h' | '2-4h' | '4-8h' | 'Full day' | 'Multi-day';
 
 export interface DiscoverFilters {
   nearMe: boolean;
+  // Only meaningful while nearMe is on — kept even when it's off so toggling
+  // Near Me back on remembers the last radius picked.
+  radiusKm: number;
   difficulty: Difficulty | 'Any';
   socialLevel: SocialLevel | 'Any';
   pace: Pace | 'Any';
   intensity: Intensity | 'Any';
   transport: Transport | 'Any';
   audience: Audience[];
-  when: WhenBucket | 'Any time';
+  when: WhenFilter | 'Any time';
+  // Only meaningful when when === 'Custom'.
+  customDate: number | null;
+  duration: DurationBand;
   price: PriceBand | 'Any';
   region: Region | 'Any';
 }
 
+export const DEFAULT_RADIUS_KM = 50;
+
 export const DEFAULT_FILTERS: DiscoverFilters = {
   nearMe: false,
+  radiusKm: DEFAULT_RADIUS_KM,
   difficulty: 'Any',
   socialLevel: 'Any',
   pace: 'Any',
@@ -29,6 +41,8 @@ export const DEFAULT_FILTERS: DiscoverFilters = {
   transport: 'Any',
   audience: [],
   when: 'Any time',
+  customDate: null,
+  duration: 'Any',
   price: 'Any',
   region: 'Any',
 };
@@ -43,20 +57,49 @@ export function countActiveFilters(f: DiscoverFilters): number {
   if (f.transport !== 'Any') n += 1;
   if (f.audience.length > 0) n += 1;
   if (f.when !== 'Any time') n += 1;
+  if (f.duration !== 'Any') n += 1;
   if (f.price !== 'Any') n += 1;
   if (f.region !== 'Any') n += 1;
   return n;
+}
+
+// Does dateTimestamp/durationHours match a given band? Exported so Discover
+// can apply the same rule it shows here.
+export function durationMatchesBand(hours: number, band: DurationBand): boolean {
+  switch (band) {
+    case 'Any':
+      return true;
+    case 'Under 2h':
+      return hours < 2;
+    case '2-4h':
+      return hours >= 2 && hours <= 4;
+    case '4-8h':
+      return hours > 4 && hours <= 8;
+    case 'Full day':
+      return hours > 8 && hours <= 24;
+    case 'Multi-day':
+      return hours > 24;
+  }
 }
 
 const DIFFICULTIES: (Difficulty | 'Any')[] = ['Any', 'Easy', 'Moderate', 'Challenging', 'Extreme'];
 const SOCIAL_LEVELS: (SocialLevel | 'Any')[] = ['Any', 'Quiet', 'Social', 'Very Social'];
 const PACES: (Pace | 'Any')[] = ['Any', 'Relaxed', 'Moderate', 'Fast'];
 const INTENSITIES: (Intensity | 'Any')[] = ['Any', 'Easy', 'Moderate', 'Challenging', 'Extreme'];
-const TRANSPORTS: (Transport | 'Any')[] = ['Any', 'Own transport', 'Organizer transport', 'Carpool available'];
+const TRANSPORTS: (Transport | 'Any')[] = [
+  'Any',
+  'Own transport',
+  'Organizer transport',
+  'Carpool available',
+  'Bus/van',
+  '4x4',
+];
 const AUDIENCES: Audience[] = ['Solo friendly', 'Couples', 'Families', 'Beginners', 'Experienced', 'Networking'];
-const WHENS: (WhenBucket | 'Any time')[] = ['Any time', 'This week', 'This month', 'Later'];
+const WHENS: (WhenFilter | 'Any time')[] = ['Any time', 'Today', 'Tomorrow', 'This weekend', 'This week', 'This month', 'Later', 'Custom'];
+const DURATIONS: DurationBand[] = ['Any', 'Under 2h', '2-4h', '4-8h', 'Full day', 'Multi-day'];
 const PRICES: (PriceBand | 'Any')[] = ['Any', 'Free', 'Under 1,000', '1,000–3,000', '3,000–5,000', '5,000+'];
 const REGIONS: Region[] = ['Nairobi', 'Kiambu', 'Kajiado', 'Nakuru', 'Naivasha', 'Machakos'];
+const RADII_KM = [10, 25, 50, 100];
 
 interface FilterSheetProps {
   visible: boolean;
@@ -113,6 +156,20 @@ export function FilterSheet({ visible, onClose, filters, onChange, resultCount, 
               </Pressable>
             </View>
             {!!nearMeError && <Text style={styles.errorHint}>{nearMeError}</Text>}
+            {filters.nearMe && (
+              <View style={styles.chipRow}>
+                {RADII_KM.map((km) => (
+                  <Pressable
+                    key={km}
+                    onPress={() => onChange({ ...filters, radiusKm: km })}
+                    style={[styles.radiusChip, filters.radiusKm === km && styles.radiusChipActive]}>
+                    <Text style={[styles.radiusChipLabel, filters.radiusKm === km && styles.radiusChipLabelActive]}>
+                      {km} km
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
             <ChipGroup
               label="Region"
               options={REGIONS}
@@ -123,7 +180,28 @@ export function FilterSheet({ visible, onClose, filters, onChange, resultCount, 
           </View>
 
           <View style={styles.section}>
-            <ChipGroup label="When" options={WHENS} selected={[filters.when]} onChange={single('when')} multi={false} />
+            <ChipGroup
+              label="When"
+              options={WHENS}
+              selected={[filters.when]}
+              onChange={(v) => {
+                const next = v.length > 0 ? v[v.length - 1] : 'Any time';
+                onChange({ ...filters, when: next, customDate: next === 'Custom' ? filters.customDate : null });
+              }}
+              multi={false}
+            />
+            {filters.when === 'Custom' && (
+              <DateTimeField
+                mode="date"
+                value={new Date(filters.customDate ?? Date.now())}
+                onChange={(date) => onChange({ ...filters, customDate: date.getTime() })}
+                minimumDate={new Date()}
+              />
+            )}
+          </View>
+
+          <View style={styles.section}>
+            <ChipGroup label="Duration" options={DURATIONS} selected={[filters.duration]} onChange={single('duration')} multi={false} />
           </View>
 
           <View style={styles.section}>
@@ -235,6 +313,17 @@ const styles = StyleSheet.create({
   nearMeChipActive: { backgroundColor: colors.primarySurface, borderColor: colors.primary },
   nearMeChipLabel: { ...type.chip, color: colors.textSecondary },
   nearMeChipLabelActive: { color: colors.primary },
+  radiusChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  radiusChipActive: { backgroundColor: colors.primarySurface, borderColor: colors.primary },
+  radiusChipLabel: { ...type.chip, color: colors.textSecondary },
+  radiusChipLabelActive: { color: colors.primary },
   errorHint: { ...type.secondary, color: colors.danger },
   hint: { ...type.secondary, color: colors.textMuted },
   footer: { padding: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border },

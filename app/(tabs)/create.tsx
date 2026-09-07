@@ -32,7 +32,7 @@ const DIFFICULTIES: Difficulty[] = ['Easy', 'Moderate', 'Challenging', 'Extreme'
 const SOCIAL_LEVELS: SocialLevel[] = ['Quiet', 'Social', 'Very Social'];
 const PACES: Pace[] = ['Relaxed', 'Moderate', 'Fast'];
 const INTENSITIES: Intensity[] = ['Easy', 'Moderate', 'Challenging', 'Extreme'];
-const TRANSPORTS: Transport[] = ['Own transport', 'Organizer transport', 'Carpool available'];
+const TRANSPORTS: Transport[] = ['Own transport', 'Organizer transport', 'Carpool available', 'Bus/van', '4x4'];
 const AUDIENCES: Audience[] = ['Solo friendly', 'Couples', 'Families', 'Beginners', 'Experienced', 'Networking'];
 const TITLE_MIN = 5;
 const TITLE_MAX = 100;
@@ -67,6 +67,7 @@ function makeEmptyDraft(): NewAdventureDraft {
     location: '',
     latitude: null,
     longitude: null,
+    durationHours: '',
     priceKsh: '',
     cancellationPolicy: '',
     spots: '',
@@ -93,7 +94,7 @@ function isStepValid(step: number, draft: NewAdventureDraft): boolean {
     case 0: // Basics
       return draft.title.trim().length >= TITLE_MIN && draft.description.trim().length > 0;
     case 1: // When
-      return draft.scheduledAt > Date.now();
+      return draft.scheduledAt > Date.now() && (parseInt(draft.durationHours, 10) || 0) > 0;
     case 2: // Location
       return draft.location.trim().length > 0;
     case 4: // Participants
@@ -194,6 +195,7 @@ export default function Create() {
     location: draft.location.trim() || 'Location TBC',
     latitude: draft.latitude,
     longitude: draft.longitude,
+    durationHours: Math.max(1, parseInt(draft.durationHours, 10) || 1),
     priceKsh: parseInt(draft.priceKsh, 10) || 0,
     cancellationPolicy: draft.cancellationPolicy.trim(),
     spotsTotal: Math.max(1, parseInt(draft.spots, 10) || 1),
@@ -259,6 +261,16 @@ export default function Create() {
               minimumDate={new Date()}
             />
             <Text style={styles.hint}>Exactly when participants should show up.</Text>
+
+            <FormField
+              label="Duration (hours)"
+              required
+              value={draft.durationHours}
+              onChangeText={(durationHours) => setDraft((d) => ({ ...d, durationHours: durationHours.replace(/[^0-9]/g, '') }))}
+              placeholder="e.g. 4"
+              hint="Roughly how long, start to finish. Use a big number (e.g. 48) for a multi-day trip."
+              keyboardType="number-pad"
+            />
           </>
         )}
 

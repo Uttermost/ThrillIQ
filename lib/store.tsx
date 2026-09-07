@@ -618,6 +618,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         location: draft.location.trim() || 'Location TBC',
         latitude: draft.latitude,
         longitude: draft.longitude,
+        durationHours: Math.max(1, parseInt(draft.durationHours, 10) || 1),
         priceKsh: parseInt(draft.priceKsh, 10) || 0,
         cancellationPolicy: draft.cancellationPolicy.trim(),
         spotsTotal: spots,

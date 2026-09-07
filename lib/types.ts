@@ -3,10 +3,14 @@
 export type Category = 'Hiking' | 'Road trip' | 'Camping' | 'Cycling' | 'Wellness' | 'Water' | 'Photography' | 'Networking' | 'Social' | 'Other';
 export type Difficulty = 'Easy' | 'Moderate' | 'Challenging' | 'Extreme';
 export type WhenBucket = 'This week' | 'This month' | 'Later';
+// Granular date-filter taxonomy for Discover (spec §15) — distinct from
+// WhenBucket, which is only the coarse fallback used when deriving a
+// representative timestamp for legacy/native-default data.
+export type WhenFilter = 'Today' | 'Tomorrow' | 'This weekend' | 'This week' | 'This month' | 'Later' | 'Custom';
 export type SocialLevel = 'Quiet' | 'Social' | 'Very Social';
 export type Pace = 'Relaxed' | 'Moderate' | 'Fast';
 export type Intensity = 'Easy' | 'Moderate' | 'Challenging' | 'Extreme';
-export type Transport = 'Own transport' | 'Organizer transport' | 'Carpool available';
+export type Transport = 'Own transport' | 'Organizer transport' | 'Carpool available' | 'Bus/van' | '4x4';
 export type Audience = 'Solo friendly' | 'Couples' | 'Families' | 'Beginners' | 'Experienced' | 'Networking';
 export type PriceBand = 'Free' | 'Under 1,000' | '1,000–3,000' | '3,000–5,000' | '5,000+';
 export type Region = 'Nairobi' | 'Kiambu' | 'Kajiado' | 'Nakuru' | 'Naivasha' | 'Machakos';
@@ -116,6 +120,9 @@ export interface Adventure {
   // one does, so a missing value here isn't a bug to chase.
   latitude: number | null;
   longitude: number | null;
+  // Whole hours; multi-day adventures (e.g. an overnight safari) just use a
+  // large value (e.g. 48) rather than a separate day-count field.
+  durationHours: number;
   priceKsh: number;
   cancellationPolicy: string;
   spotsTotal: number;
@@ -233,6 +240,7 @@ export interface NewAdventureDraft {
   location: string;
   latitude: number | null;
   longitude: number | null;
+  durationHours: string;
   priceKsh: string;
   cancellationPolicy: string;
   spots: string;

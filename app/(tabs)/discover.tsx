@@ -8,14 +8,34 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AdventureCard } from '@/components/AdventureCard';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState, ErrorState } from '@/components/ui/StateViews';
-import { countActiveFilters, DEFAULT_FILTERS, DiscoverFilters, FilterSheet } from '@/components/ui/FilterSheet';
-import { bucketForTimestamp } from '@/lib/dateBuckets';
+import { countActiveFilters, DEFAULT_FILTERS, DiscoverFilters, durationMatchesBand, FilterSheet } from '@/components/ui/FilterSheet';
+import { isThisMonth, isThisWeek, isThisWeekend, isToday, isTomorrow, isLater, isSameDay } from '@/lib/dateBuckets';
+import { formatDateLabel } from '@/lib/dateFormat';
 import { distanceKm } from '@/lib/geo';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing, type, typography } from '@/lib/theme';
 import { Adventure, Category } from '@/lib/types';
 
-const NEAR_ME_RADIUS_KM = 50;
+function matchesWhenFilter(a: Adventure, filters: DiscoverFilters, now: number): boolean {
+  switch (filters.when) {
+    case 'Any time':
+      return true;
+    case 'Today':
+      return isToday(a.dateTimestamp, now);
+    case 'Tomorrow':
+      return isTomorrow(a.dateTimestamp, now);
+    case 'This weekend':
+      return isThisWeekend(a.dateTimestamp, now);
+    case 'This week':
+      return isThisWeek(a.dateTimestamp, now);
+    case 'This month':
+      return isThisMonth(a.dateTimestamp, now);
+    case 'Later':
+      return isLater(a.dateTimestamp, now);
+    case 'Custom':
+      return filters.customDate != null && isSameDay(a.dateTimestamp, filters.customDate);
+  }
+}
 
 type CategoryFilter = 'All' | Category;
 const CATEGORY_FILTERS: CategoryFilter[] = [
@@ -107,7 +127,8 @@ export default function Discover() {
       const matchesIntensity = filters.intensity === 'Any' || a.intensity === filters.intensity;
       const matchesTransport = filters.transport === 'Any' || a.transport === filters.transport;
       const matchesAudience = filters.audience.length === 0 || filters.audience.some((aud) => a.audience.includes(aud));
-      const matchesWhen = filters.when === 'Any time' || bucketForTimestamp(a.dateTimestamp, now) === filters.when;
+      const matchesWhen = matchesWhenFilter(a, filters, now);
+      const matchesDuration = durationMatchesBand(a.durationHours, filters.duration);
       const matchesPrice = priceMatchesBand(a.priceKsh, filters.price);
       // Adventures with no saved coordinates (every one created before a
       // location was ever attached) can't match Near Me — there's nothing
@@ -118,7 +139,7 @@ export default function Discover() {
         (myCoords != null &&
           a.latitude != null &&
           a.longitude != null &&
-          distanceKm(myCoords.latitude, myCoords.longitude, a.latitude, a.longitude) <= NEAR_ME_RADIUS_KM);
+          distanceKm(myCoords.latitude, myCoords.longitude, a.latitude, a.longitude) <= filters.radiusKm);
       return (
         matchesSearch &&
         matchesCategory &&
@@ -130,6 +151,7 @@ export default function Discover() {
         matchesTransport &&
         matchesAudience &&
         matchesWhen &&
+        matchesDuration &&
         matchesPrice &&
         matchesNearMe
       );
@@ -179,8 +201,16 @@ export default function Discover() {
 
   const activeChips = useMemo(() => {
     const chips: { key: string; label: string; onRemove: () => void }[] = [];
-    if (filters.nearMe) chips.push({ key: 'nearMe', label: 'Near me', onRemove: () => setFilters((f) => ({ ...f, nearMe: false })) });
-    if (filters.when !== 'Any time') chips.push({ key: 'when', label: filters.when, onRemove: () => setFilters((f) => ({ ...f, when: 'Any time' })) });
+    if (filters.nearMe)
+      chips.push({ key: 'nearMe', label: `Within ${filters.radiusKm}km`, onRemove: () => setFilters((f) => ({ ...f, nearMe: false })) });
+    if (filters.when !== 'Any time')
+      chips.push({
+        key: 'when',
+        label: filters.when === 'Custom' && filters.customDate != null ? formatDateLabel(filters.customDate) : filters.when,
+        onRemove: () => setFilters((f) => ({ ...f, when: 'Any time', customDate: null })),
+      });
+    if (filters.duration !== 'Any')
+      chips.push({ key: 'duration', label: filters.duration, onRemove: () => setFilters((f) => ({ ...f, duration: 'Any' })) });
     if (filters.difficulty !== 'Any')
       chips.push({ key: 'difficulty', label: filters.difficulty, onRemove: () => setFilters((f) => ({ ...f, difficulty: 'Any' })) });
     if (filters.region !== 'Any')

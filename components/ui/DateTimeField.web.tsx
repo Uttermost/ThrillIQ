@@ -7,6 +7,7 @@ interface DateTimeFieldProps {
   value: Date;
   onChange: (date: Date) => void;
   minimumDate?: Date;
+  mode?: 'date' | 'datetime';
 }
 
 // Web has no native picker UI to borrow — real HTML date/time inputs give
@@ -27,7 +28,7 @@ function toTimeInputValue(d: Date): string {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function DateTimeField({ value, onChange, minimumDate }: DateTimeFieldProps) {
+export function DateTimeField({ value, onChange, minimumDate, mode = 'datetime' }: DateTimeFieldProps) {
   const handleDate = (e: React.ChangeEvent<HTMLInputElement>) => {
     const [y, m, d] = e.target.value.split('-').map(Number);
     if (!y || !m || !d) return;
@@ -56,10 +57,12 @@ export function DateTimeField({ value, onChange, minimumDate }: DateTimeFieldPro
           style={inputStyle}
         />
       </View>
-      <View style={styles.field}>
-        <Text style={styles.label}>Time</Text>
-        <Input type="time" value={toTimeInputValue(value)} onChange={handleTime} style={inputStyle} />
-      </View>
+      {mode === 'datetime' && (
+        <View style={styles.field}>
+          <Text style={styles.label}>Time</Text>
+          <Input type="time" value={toTimeInputValue(value)} onChange={handleTime} style={inputStyle} />
+        </View>
+      )}
     </View>
   );
 }
