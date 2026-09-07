@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
+import * as Location from 'expo-location';
 import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,12 +8,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AdventureCard } from '@/components/AdventureCard';
 import { Button } from '@/components/ui/Button';
 import { ChipGroup } from '@/components/ui/ChipGroup';
+import { DateTimeField } from '@/components/ui/DateTimeField';
 import { FormField } from '@/components/ui/FormField';
 import { InlineError } from '@/components/ui/StateViews';
-import { timestampForBucket } from '@/lib/dateBuckets';
+import { formatDateLabel, formatTimeLabel } from '@/lib/dateFormat';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing, type } from '@/lib/theme';
-import { Adventure, Audience, Category, Difficulty, Intensity, NewAdventureDraft, Pace, SocialLevel, Transport, WhenBucket } from '@/lib/types';
+import { Adventure, Audience, Category, Difficulty, Intensity, NewAdventureDraft, Pace, SocialLevel, Transport } from '@/lib/types';
 
 const CATEGORIES: Category[] = [
   'Hiking',
@@ -32,7 +34,6 @@ const PACES: Pace[] = ['Relaxed', 'Moderate', 'Fast'];
 const INTENSITIES: Intensity[] = ['Easy', 'Moderate', 'Challenging', 'Extreme'];
 const TRANSPORTS: Transport[] = ['Own transport', 'Organizer transport', 'Carpool available'];
 const AUDIENCES: Audience[] = ['Solo friendly', 'Couples', 'Families', 'Beginners', 'Experienced', 'Networking'];
-const WHEN_BUCKETS: WhenBucket[] = ['This week', 'This month', 'Later'];
 const TITLE_MIN = 5;
 const TITLE_MAX = 100;
 const DESCRIPTION_MAX = 600;
@@ -51,39 +52,48 @@ const STEP_TITLES = [
   'Preview & publish',
 ] as const;
 
-const EMPTY_DRAFT: NewAdventureDraft = {
-  title: '',
-  description: '',
-  schedule: '',
-  location: '',
-  priceKsh: '',
-  cancellationPolicy: '',
-  spots: '',
-  category: 'Hiking',
-  difficulty: 'Moderate',
-  socialLevel: 'Social',
-  pace: 'Moderate',
-  intensity: 'Moderate',
-  transport: 'Own transport',
-  audience: [],
-  when: 'This week',
-  childrenWelcome: false,
-  equipment: '',
-  included: '',
-  excluded: '',
-  noAlcohol: false,
-  petsOk: false,
-};
+function defaultScheduledAt(): number {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  d.setHours(9, 0, 0, 0);
+  return d.getTime();
+}
 
-// Deliberately narrower than the spec's 11-step wizard: no real date/time
-// pickers (still the lightweight When bucket — a real picker is its own
-// flagged gap), and no Save Draft (no draft-persistence backend exists).
+function makeEmptyDraft(): NewAdventureDraft {
+  return {
+    title: '',
+    description: '',
+    scheduledAt: defaultScheduledAt(),
+    location: '',
+    latitude: null,
+    longitude: null,
+    priceKsh: '',
+    cancellationPolicy: '',
+    spots: '',
+    category: 'Hiking',
+    difficulty: 'Moderate',
+    socialLevel: 'Social',
+    pace: 'Moderate',
+    intensity: 'Moderate',
+    transport: 'Own transport',
+    audience: [],
+    childrenWelcome: false,
+    equipment: '',
+    included: '',
+    excluded: '',
+    noAlcohol: false,
+    petsOk: false,
+  };
+}
+
+// Deliberately narrower than the spec's 11-step wizard: no Save Draft (no
+// draft-persistence backend exists).
 function isStepValid(step: number, draft: NewAdventureDraft): boolean {
   switch (step) {
     case 0: // Basics
       return draft.title.trim().length >= TITLE_MIN && draft.description.trim().length > 0;
     case 1: // When
-      return draft.schedule.trim().length > 0;
+      return draft.scheduledAt > Date.now();
     case 2: // Location
       return draft.location.trim().length > 0;
     case 4: // Participants
@@ -95,18 +105,20 @@ function isStepValid(step: number, draft: NewAdventureDraft): boolean {
 
 export default function Create() {
   const { createAdventure, myId } = useApp();
-  const [draft, setDraft] = useState<NewAdventureDraft>(EMPTY_DRAFT);
+  const [draft, setDraft] = useState<NewAdventureDraft>(makeEmptyDraft);
   const [step, setStep] = useState(0);
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       return () => {
         setSuccess(false);
         setStep(0);
-        setDraft(EMPTY_DRAFT);
+        setDraft(makeEmptyDraft());
       };
     }, [])
   );
@@ -125,7 +137,7 @@ export default function Create() {
     setError(null);
     try {
       const created = await createAdventure(draft);
-      setDraft(EMPTY_DRAFT);
+      setDraft(makeEmptyDraft());
       setStep(0);
       setSuccess(true);
       router.push(`/organizer/${created.id}`);
@@ -145,8 +157,25 @@ export default function Create() {
   const setPace = single<Pace>('pace');
   const setIntensity = single<Intensity>('intensity');
   const setTransport = single<Transport>('transport');
-  const setWhen = single<WhenBucket>('when');
   const setAudience = (values: Audience[]) => setDraft((d) => ({ ...d, audience: values }));
+
+  const handleUseCurrentLocation = async () => {
+    setLocating(true);
+    setLocationError(null);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocationError('Location permission denied.');
+        return;
+      }
+      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setDraft((d) => ({ ...d, latitude: position.coords.latitude, longitude: position.coords.longitude }));
+    } catch {
+      setLocationError("Couldn't get your location.");
+    } finally {
+      setLocating(false);
+    }
+  };
 
   const previewAdventure: Adventure = {
     id: 'preview',
@@ -159,12 +188,12 @@ export default function Create() {
     intensity: draft.intensity,
     transport: draft.transport,
     audience: draft.audience,
-    dateLabel: draft.schedule.trim() || 'Date TBC',
-    meetingTime: '',
-    dateTimestamp: timestampForBucket(draft.when),
+    dateLabel: formatDateLabel(draft.scheduledAt),
+    meetingTime: formatTimeLabel(draft.scheduledAt),
+    dateTimestamp: draft.scheduledAt,
     location: draft.location.trim() || 'Location TBC',
-    latitude: null,
-    longitude: null,
+    latitude: draft.latitude,
+    longitude: draft.longitude,
     priceKsh: parseInt(draft.priceKsh, 10) || 0,
     cancellationPolicy: draft.cancellationPolicy.trim(),
     spotsTotal: Math.max(1, parseInt(draft.spots, 10) || 1),
@@ -223,28 +252,35 @@ export default function Create() {
 
         {step === 1 && (
           <>
-            <FormField
-              label="Date and meeting time"
-              required
-              value={draft.schedule}
-              onChangeText={(schedule) => setDraft((d) => ({ ...d, schedule }))}
-              placeholder="e.g. Sat, Sep 12 · 6:00am"
-              hint="Exactly when and where participants should show up."
+            <Text style={styles.sectionLabel}>Date and time</Text>
+            <DateTimeField
+              value={new Date(draft.scheduledAt)}
+              onChange={(date) => setDraft((d) => ({ ...d, scheduledAt: date.getTime() }))}
+              minimumDate={new Date()}
             />
-            <ChipGroup label="When" options={WHEN_BUCKETS} selected={[draft.when]} onChange={setWhen} multi={false} />
-            <Text style={styles.hint}>An approximate window — so people can filter Discover by it. Put the exact date above.</Text>
+            <Text style={styles.hint}>Exactly when participants should show up.</Text>
           </>
         )}
 
         {step === 2 && (
-          <FormField
-            label="Meeting point"
-            required
-            value={draft.location}
-            onChangeText={(location) => setDraft((d) => ({ ...d, location }))}
-            placeholder="e.g. Ngong Hills Main Gate, Kajiado"
-            hint="Where participants should meet you — as specific as you can make it."
-          />
+          <>
+            <FormField
+              label="Meeting point"
+              required
+              value={draft.location}
+              onChangeText={(location) => setDraft((d) => ({ ...d, location }))}
+              placeholder="e.g. Ngong Hills Main Gate, Kajiado"
+              hint="Where participants should meet you — as specific as you can make it."
+            />
+            <Pressable onPress={handleUseCurrentLocation} style={styles.locationBtn} disabled={locating}>
+              <Ionicons name="locate-outline" size={16} color={colors.primary} />
+              <Text style={styles.locationBtnLabel}>
+                {locating ? 'Locating…' : draft.latitude != null ? 'Location attached ✓' : 'Use my current location'}
+              </Text>
+            </Pressable>
+            {locationError && <Text style={styles.hint}>{locationError}</Text>}
+            <Text style={styles.hint}>Optional — lets people find this adventure with "Near me" on Discover.</Text>
+          </>
         )}
 
         {step === 3 && (
@@ -426,6 +462,9 @@ const styles = StyleSheet.create({
   toggleChipLabelActive: { color: colors.hosting },
   successText: { color: colors.success, textAlign: 'center', fontWeight: '600' },
   hint: { ...type.secondary, color: colors.textMuted, marginTop: -spacing.xs },
+  sectionLabel: { ...type.inputLabel },
+  locationBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, alignSelf: 'flex-start' },
+  locationBtnLabel: { ...type.bodyEmphasis, color: colors.primary },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',

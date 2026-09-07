@@ -1,6 +1,7 @@
 import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 
 import { timestampForBucket } from './dateBuckets';
+import { formatDateLabel, formatTimeLabel } from './dateFormat';
 import { Adventure, NewAdventureDraft } from './types';
 
 const COLLECTION = 'adventures';
@@ -107,12 +108,12 @@ export async function createAdventureReal(draft: NewAdventureDraft, organizerId:
     intensity: draft.intensity,
     transport: draft.transport,
     audience: draft.audience,
-    dateLabel: draft.schedule.trim() || 'Date TBC',
-    meetingTime: '',
-    dateTimestamp: timestampForBucket(draft.when),
+    dateLabel: formatDateLabel(draft.scheduledAt),
+    meetingTime: formatTimeLabel(draft.scheduledAt),
+    dateTimestamp: draft.scheduledAt,
     location: draft.location.trim() || 'Location TBC',
-    latitude: null,
-    longitude: null,
+    latitude: draft.latitude,
+    longitude: draft.longitude,
     priceKsh: parseInt(draft.priceKsh, 10) || 0,
     cancellationPolicy: draft.cancellationPolicy.trim(),
     spotsTotal: spots,

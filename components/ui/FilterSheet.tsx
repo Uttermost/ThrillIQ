@@ -1,5 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
 import { ChipGroup } from '@/components/ui/ChipGroup';
@@ -7,6 +8,7 @@ import { colors, CONTENT_MAX_WIDTH, radius, spacing, type } from '@/lib/theme';
 import { Audience, Difficulty, Intensity, Pace, PriceBand, Region, SocialLevel, Transport, WhenBucket } from '@/lib/types';
 
 export interface DiscoverFilters {
+  nearMe: boolean;
   difficulty: Difficulty | 'Any';
   socialLevel: SocialLevel | 'Any';
   pace: Pace | 'Any';
@@ -19,6 +21,7 @@ export interface DiscoverFilters {
 }
 
 export const DEFAULT_FILTERS: DiscoverFilters = {
+  nearMe: false,
   difficulty: 'Any',
   socialLevel: 'Any',
   pace: 'Any',
@@ -32,6 +35,7 @@ export const DEFAULT_FILTERS: DiscoverFilters = {
 
 export function countActiveFilters(f: DiscoverFilters): number {
   let n = 0;
+  if (f.nearMe) n += 1;
   if (f.difficulty !== 'Any') n += 1;
   if (f.socialLevel !== 'Any') n += 1;
   if (f.pace !== 'Any') n += 1;
@@ -60,12 +64,19 @@ interface FilterSheetProps {
   filters: DiscoverFilters;
   onChange: (next: DiscoverFilters) => void;
   resultCount: number;
+  // Turning Near Me on needs a permission request + a location fetch, both
+  // async — the parent (Discover) owns that so it can share the fetched
+  // position with the actual list-filtering logic. Turning it off is just
+  // a plain filters update, no different from any other chip here.
+  onRequestNearMe: () => void;
+  nearMeLoading: boolean;
+  nearMeError: string | null;
 }
 
 // The real filter bottom sheet (spec §15) — one place for every secondary
 // Discover filter. Category stays as its own always-visible carousel on the
 // main screen; everything here is the "more filters" set.
-export function FilterSheet({ visible, onClose, filters, onChange, resultCount }: FilterSheetProps) {
+export function FilterSheet({ visible, onClose, filters, onChange, resultCount, onRequestNearMe, nearMeLoading, nearMeError }: FilterSheetProps) {
   const { width } = useWindowDimensions();
   const isWide = width > CONTENT_MAX_WIDTH;
   const single = <K extends keyof DiscoverFilters>(key: K) => (values: DiscoverFilters[K][]) => {
@@ -87,11 +98,21 @@ export function FilterSheet({ visible, onClose, filters, onChange, resultCount }
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>Location</Text>
             <View style={styles.chipRow}>
-              <Pressable disabled style={[styles.disabledChip]}>
-                <Text style={styles.disabledChipLabel}>Near me</Text>
-                <Text style={styles.comingSoon}>Coming soon</Text>
+              <Pressable
+                disabled={nearMeLoading}
+                onPress={() => (filters.nearMe ? onChange({ ...filters, nearMe: false }) : onRequestNearMe())}
+                style={[styles.nearMeChip, filters.nearMe && styles.nearMeChipActive]}>
+                {nearMeLoading ? (
+                  <ActivityIndicator size="small" color={colors.textSecondary} />
+                ) : (
+                  <Ionicons name="locate-outline" size={14} color={filters.nearMe ? colors.primary : colors.textSecondary} />
+                )}
+                <Text style={[styles.nearMeChipLabel, filters.nearMe && styles.nearMeChipLabelActive]}>
+                  {nearMeLoading ? 'Locating…' : 'Near me'}
+                </Text>
               </Pressable>
             </View>
+            {!!nearMeError && <Text style={styles.errorHint}>{nearMeError}</Text>}
             <ChipGroup
               label="Region"
               options={REGIONS}
@@ -200,7 +221,7 @@ const styles = StyleSheet.create({
   section: { gap: spacing.sm },
   sectionLabel: { ...type.inputLabel },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  disabledChip: {
+  nearMeChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
@@ -208,10 +229,13 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: radius.pill,
     backgroundColor: colors.surfaceMuted,
-    opacity: 0.55,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  disabledChipLabel: { ...type.chip, color: colors.textMuted },
-  comingSoon: { ...type.caption, fontSize: 10, color: colors.textMuted },
+  nearMeChipActive: { backgroundColor: colors.primarySurface, borderColor: colors.primary },
+  nearMeChipLabel: { ...type.chip, color: colors.textSecondary },
+  nearMeChipLabelActive: { color: colors.primary },
+  errorHint: { ...type.secondary, color: colors.danger },
   hint: { ...type.secondary, color: colors.textMuted },
   footer: { padding: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border },
 });

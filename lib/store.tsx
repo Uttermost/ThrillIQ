@@ -23,7 +23,7 @@ import { fetchAcknowledgementsReal, recordAcknowledgementReal } from './acknowle
 import { fetchAuditLogReal, fetchOpenReportsReal, recordAuditLogReal, resolveReportReal, submitReportReal } from './adminProvider';
 import { fetchConnectionsForReal, respondToConnectionRequestReal, sendConnectionRequestReal } from './connectionsProvider';
 import { createCrewReal, joinCrewReal, leaveCrewReal, subscribeCrewsReal } from './crewsProvider';
-import { timestampForBucket } from './dateBuckets';
+import { formatDateLabel, formatTimeLabel } from './dateFormat';
 import {
   ME_ID,
   initialAcknowledgements,
@@ -612,12 +612,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         intensity: draft.intensity,
         transport: draft.transport,
         audience: draft.audience,
-        dateLabel: draft.schedule.trim() || 'Date TBC',
-        meetingTime: '',
-        dateTimestamp: timestampForBucket(draft.when),
+        dateLabel: formatDateLabel(draft.scheduledAt),
+        meetingTime: formatTimeLabel(draft.scheduledAt),
+        dateTimestamp: draft.scheduledAt,
         location: draft.location.trim() || 'Location TBC',
-        latitude: null,
-        longitude: null,
+        latitude: draft.latitude,
+        longitude: draft.longitude,
         priceKsh: parseInt(draft.priceKsh, 10) || 0,
         cancellationPolicy: draft.cancellationPolicy.trim(),
         spotsTotal: spots,

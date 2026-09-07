@@ -226,8 +226,13 @@ export interface Review {
 export interface NewAdventureDraft {
   title: string;
   description: string;
-  schedule: string;
+  // Real epoch ms, set via native date/time pickers — dateLabel, meetingTime
+  // and the WhenBucket used for filtering are all derived from this rather
+  // than entered separately.
+  scheduledAt: number;
   location: string;
+  latitude: number | null;
+  longitude: number | null;
   priceKsh: string;
   cancellationPolicy: string;
   spots: string;
@@ -238,7 +243,6 @@ export interface NewAdventureDraft {
   intensity: Intensity;
   transport: Transport;
   audience: Audience[];
-  when: WhenBucket;
   childrenWelcome: boolean;
   equipment: string;
   included: string;

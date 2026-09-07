@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import * as Location from 'expo-location';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,9 +10,12 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState, ErrorState } from '@/components/ui/StateViews';
 import { countActiveFilters, DEFAULT_FILTERS, DiscoverFilters, FilterSheet } from '@/components/ui/FilterSheet';
 import { bucketForTimestamp } from '@/lib/dateBuckets';
+import { distanceKm } from '@/lib/geo';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing, type, typography } from '@/lib/theme';
 import { Adventure, Category } from '@/lib/types';
+
+const NEAR_ME_RADIUS_KM = 50;
 
 type CategoryFilter = 'All' | Category;
 const CATEGORY_FILTERS: CategoryFilter[] = [
@@ -56,6 +60,28 @@ export default function Discover() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [view, setView] = useState<'list' | 'map'>('list');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [myCoords, setMyCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [nearMeLoading, setNearMeLoading] = useState(false);
+  const [nearMeError, setNearMeError] = useState<string | null>(null);
+
+  const handleRequestNearMe = useCallback(async () => {
+    setNearMeLoading(true);
+    setNearMeError(null);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setNearMeError('Location permission denied.');
+        return;
+      }
+      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setMyCoords({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+      setFilters((f) => ({ ...f, nearMe: true }));
+    } catch {
+      setNearMeError("Couldn't get your location.");
+    } finally {
+      setNearMeLoading(false);
+    }
+  }, []);
 
   const load = useCallback(() => {
     setStatus('loading');
@@ -71,7 +97,7 @@ export default function Discover() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const now = Date.now();
-    return adventures.filter((a) => {
+    const list = adventures.filter((a) => {
       const matchesSearch = !q || a.title.toLowerCase().includes(q) || a.location.toLowerCase().includes(q);
       const matchesCategory = categoryFilter === 'All' || a.category === categoryFilter;
       const matchesRegion = filters.region === 'Any' || a.location.toLowerCase().includes(filters.region.toLowerCase());
@@ -83,6 +109,16 @@ export default function Discover() {
       const matchesAudience = filters.audience.length === 0 || filters.audience.some((aud) => a.audience.includes(aud));
       const matchesWhen = filters.when === 'Any time' || bucketForTimestamp(a.dateTimestamp, now) === filters.when;
       const matchesPrice = priceMatchesBand(a.priceKsh, filters.price);
+      // Adventures with no saved coordinates (every one created before a
+      // location was ever attached) can't match Near Me — there's nothing
+      // to measure distance from, so they're correctly excluded rather than
+      // silently included regardless of actual distance.
+      const matchesNearMe =
+        !filters.nearMe ||
+        (myCoords != null &&
+          a.latitude != null &&
+          a.longitude != null &&
+          distanceKm(myCoords.latitude, myCoords.longitude, a.latitude, a.longitude) <= NEAR_ME_RADIUS_KM);
       return (
         matchesSearch &&
         matchesCategory &&
@@ -94,10 +130,19 @@ export default function Discover() {
         matchesTransport &&
         matchesAudience &&
         matchesWhen &&
-        matchesPrice
+        matchesPrice &&
+        matchesNearMe
       );
     });
-  }, [adventures, search, categoryFilter, filters]);
+    if (filters.nearMe && myCoords) {
+      list.sort((a, b) => {
+        const da = a.latitude != null && a.longitude != null ? distanceKm(myCoords.latitude, myCoords.longitude, a.latitude, a.longitude) : Infinity;
+        const db = b.latitude != null && b.longitude != null ? distanceKm(myCoords.latitude, myCoords.longitude, b.latitude, b.longitude) : Infinity;
+        return da - db;
+      });
+    }
+    return list;
+  }, [adventures, search, categoryFilter, filters, myCoords]);
 
   useEffect(() => {
     if (!selectedId && filtered.length > 0) setSelectedId(filtered[0].id);
@@ -108,6 +153,7 @@ export default function Discover() {
 
   const activeChips = useMemo(() => {
     const chips: { key: string; label: string; onRemove: () => void }[] = [];
+    if (filters.nearMe) chips.push({ key: 'nearMe', label: 'Near me', onRemove: () => setFilters((f) => ({ ...f, nearMe: false })) });
     if (filters.when !== 'Any time') chips.push({ key: 'when', label: filters.when, onRemove: () => setFilters((f) => ({ ...f, when: 'Any time' })) });
     if (filters.difficulty !== 'Any')
       chips.push({ key: 'difficulty', label: filters.difficulty, onRemove: () => setFilters((f) => ({ ...f, difficulty: 'Any' })) });
@@ -278,6 +324,9 @@ export default function Discover() {
         filters={filters}
         onChange={setFilters}
         resultCount={filtered.length}
+        onRequestNearMe={handleRequestNearMe}
+        nearMeLoading={nearMeLoading}
+        nearMeError={nearMeError}
       />
     </SafeAreaView>
   );
