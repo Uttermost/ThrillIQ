@@ -1,4 +1,18 @@
-import { AuditLogEntry, Connection, Crew, DEFAULT_PRIVACY, Adventure, Post, Report, Review, SafetyAcknowledgement, Thread, User, WaitlistEntry } from './types';
+import {
+  AuditLogEntry,
+  Connection,
+  Crew,
+  DEFAULT_PRIVACY,
+  Adventure,
+  Post,
+  PostComment,
+  Report,
+  Review,
+  SafetyAcknowledgement,
+  Thread,
+  User,
+  WaitlistEntry,
+} from './types';
 
 function pairId(a: string, b: string): string {
   return [a, b].sort().join('_');
@@ -303,6 +317,8 @@ export const initialPosts: Post[] = [
     adventureId: 'a-naivasha',
     likedByMe: true,
     likeCount: 4,
+    commentCount: 2,
+    shareCount: 1,
     createdAt: inDays(-1),
   },
   {
@@ -312,6 +328,8 @@ export const initialPosts: Post[] = [
     adventureId: 'a-amboseli',
     likedByMe: false,
     likeCount: 9,
+    commentCount: 1,
+    shareCount: 3,
     createdAt: inDays(-2),
   },
   {
@@ -321,6 +339,8 @@ export const initialPosts: Post[] = [
     adventureId: null,
     likedByMe: false,
     likeCount: 6,
+    commentCount: 0,
+    shareCount: 0,
     createdAt: inDays(-4),
   },
   {
@@ -330,7 +350,36 @@ export const initialPosts: Post[] = [
     adventureId: 'a-naivasha',
     likedByMe: false,
     likeCount: 1,
+    commentCount: 0,
+    shareCount: 0,
     createdAt: inDays(-5),
+  },
+];
+
+// One comment doc per (postId, author) pair reflected in the commentCount
+// values above — kept in sync by hand here since mock data has no batch
+// write to enforce it the way postCommentsProvider.native.ts does.
+export const initialPostComments: PostComment[] = [
+  {
+    id: 'pc-tom-naivasha-1',
+    postId: 'p-brian-naivasha',
+    authorId: 'u-tom',
+    text: "It's a great spot — bring a zoom lens if you have one, the hippos keep their distance.",
+    createdAt: inDays(-1) + 1000 * 60 * 30,
+  },
+  {
+    id: 'pc-kevin-naivasha-1',
+    postId: 'p-brian-naivasha',
+    authorId: 'u-kevin',
+    text: 'Same, first time for me too. See you there!',
+    createdAt: inDays(-1) + 1000 * 60 * 90,
+  },
+  {
+    id: `pc-${ME_ID}-amboseli-1`,
+    postId: 'p-tom-amboseli',
+    authorId: ME_ID,
+    text: 'Good call on the layers — it was freezing at night last time.',
+    createdAt: inDays(-2) + 1000 * 60 * 45,
   },
 ];
 

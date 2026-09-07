@@ -132,6 +132,8 @@ service cloud.firestore {
         && request.resource.data.text.size() <= 500
         && request.resource.data.likedBy == []
         && request.resource.data.likeCount == 0
+        && request.resource.data.commentCount == 0
+        && request.resource.data.shareCount == 0
         // Photos are inline data URIs (no Storage bucket deployed for this
         // project) — capped at 3, same as reviews.
         && (!('photos' in request.resource.data)
@@ -156,6 +158,35 @@ service cloud.firestore {
             && request.resource.data.likeCount == resource.data.likeCount - 1)
         );
 
+      // Comment count: only ever bumped by exactly +1. createPostCommentReal
+      // writes this alongside the new postComments doc in one atomic batch,
+      // so the count can never drift from the real number of comment docs.
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['commentCount'])
+        && request.resource.data.commentCount == resource.data.commentCount + 1;
+
+      // Share count: bumped by exactly +1, only after a share actually
+      // completed client-side (see lib/share.ts) — anyone signed in may
+      // record one, not just the post's author.
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['shareCount'])
+        && request.resource.data.shareCount == resource.data.shareCount + 1;
+
+      allow delete: if request.auth != null && resource.data.authorId == request.auth.uid;
+    }
+
+    match /postComments/{commentId} {
+      // Publicly readable, like the post they belong to.
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 500
+        && exists(/databases/$(database)/documents/posts/$(request.resource.data.postId));
+
+      allow update: if false;
       allow delete: if request.auth != null && resource.data.authorId == request.auth.uid;
     }
 

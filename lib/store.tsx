@@ -31,6 +31,7 @@ import {
   initialAuditLog,
   initialConnections,
   initialCrews,
+  initialPostComments,
   initialPosts,
   initialReports,
   initialReviews,
@@ -38,7 +39,8 @@ import {
   initialWaitlist,
   users,
 } from './mockData';
-import { createPostReal, subscribePostsReal, toggleLikePostReal } from './postsProvider';
+import { createPostCommentReal, fetchCommentsForPostReal } from './postCommentsProvider';
+import { createPostReal, incrementShareCountReal, subscribePostsReal, toggleLikePostReal } from './postsProvider';
 import { ensureProfileReal, fetchProfileReal, subscribeProfileReal, updateProfileReal } from './profileProvider';
 import { fetchReviewsForAdventureReal, fetchReviewsForOrganizerReal, hasReviewedReal, submitReviewReal } from './reviewsProvider';
 import { fetchWaitlistForUserReal, fetchWaitlistReal, joinWaitlistReal, leaveWaitlistReal } from './waitlistProvider';
@@ -53,6 +55,7 @@ import {
   NewAdventureDraft,
   NotificationType,
   Post,
+  PostComment,
   Report,
   ReportStatus,
   Review,
@@ -180,6 +183,9 @@ interface AppContextValue extends AppState {
   fetchPosts: () => Promise<Post[]>;
   createPost: (input: { text: string; photos?: string[]; adventureId?: string | null }) => Promise<Post>;
   toggleLikePost: (id: string) => void;
+  fetchCommentsForPost: (postId: string) => Promise<PostComment[]>;
+  createComment: (input: { postId: string; text: string }) => Promise<PostComment>;
+  recordShare: (postId: string) => void;
   fetchConnectionsFor: (uid: string) => Promise<Connection[]>;
   sendConnectionRequest: (toUserId: string) => Promise<void>;
   respondToConnectionRequest: (connectionId: string, accept: boolean) => Promise<void>;
@@ -207,6 +213,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const postsRef = useRef(posts);
   postsRef.current = posts;
   const postsErrorRef = useRef<string | null>(null);
+  const [postComments, setPostComments] = useState<PostComment[]>(IS_NATIVE ? [] : initialPostComments);
+  const postCommentsRef = useRef(postComments);
+  postCommentsRef.current = postComments;
   const [threads, setThreads] = useState<Thread[]>(initialThreads);
   const [notifications, setNotifications] = useState<AppNotification[]>(() =>
     initialThreads
@@ -806,6 +815,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         adventureId: adventureId ?? null,
         likeCount: 0,
         likedByMe: false,
+        commentCount: 0,
+        shareCount: 0,
         createdAt: Date.now(),
       };
       setPosts((prev) => [created, ...prev]);
@@ -828,6 +839,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     toggleLikePostReal(id, myIdRef.current, target.likedByMe).catch(() => {
       // Best-effort, same as adventure likes — a failed like just doesn't flip.
     });
+  }, []);
+
+  const fetchCommentsForPost = useCallback(async (postId: string): Promise<PostComment[]> => {
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      return postCommentsRef.current.filter((c) => c.postId === postId);
+    }
+    try {
+      return await fetchCommentsForPostReal(postId);
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const createComment = useCallback(async ({ postId, text }: { postId: string; text: string }): Promise<PostComment> => {
+    if (simulateFailuresRef.current) {
+      await delay(NETWORK_LATENCY_MS);
+      throw new ApiError("Couldn't post your comment. Try again.");
+    }
+    if (!IS_NATIVE) {
+      await delay(NETWORK_LATENCY_MS);
+      const created: PostComment = { id: `pc-${Date.now()}`, postId, authorId: myIdRef.current, text: text.trim(), createdAt: Date.now() };
+      setPostComments((prev) => [...prev, created]);
+      setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, commentCount: p.commentCount + 1 } : p)));
+      return created;
+    }
+    try {
+      return await createPostCommentReal({ postId, authorId: myIdRef.current, text: text.trim() });
+    } catch (e) {
+      throw new ApiError(e instanceof Error ? e.message : "Couldn't post your comment. Try again.");
+    }
+  }, []);
+
+  // Fire-and-forget, same style as toggleLike/toggleLikePost — the caller
+  // (lib/share.ts via the UI) already confirmed the share itself completed
+  // before calling this, so a failed count-increment isn't worth surfacing.
+  const recordShare = useCallback((id: string) => {
+    if (!IS_NATIVE) {
+      setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, shareCount: p.shareCount + 1 } : p)));
+      return;
+    }
+    incrementShareCountReal(id).catch(() => {});
   }, []);
 
   const fetchConnectionsFor = useCallback(async (uid: string): Promise<Connection[]> => {
@@ -1358,6 +1411,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchPosts,
       createPost,
       toggleLikePost,
+      fetchCommentsForPost,
+      createComment,
+      recordShare,
       fetchConnectionsFor,
       sendConnectionRequest,
       respondToConnectionRequest,
@@ -1415,6 +1471,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchPosts,
       createPost,
       toggleLikePost,
+      fetchCommentsForPost,
+      createComment,
+      recordShare,
       fetchConnectionsFor,
       sendConnectionRequest,
       respondToConnectionRequest,

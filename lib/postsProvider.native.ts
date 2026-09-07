@@ -15,6 +15,8 @@ function fromDoc(doc: FirebaseFirestoreTypes.QueryDocumentSnapshot, myUid: strin
     adventureId: (data.adventureId as string | null | undefined) ?? null,
     likeCount: (data.likeCount as number) ?? 0,
     likedByMe: ((data.likedBy as string[]) ?? []).includes(myUid),
+    commentCount: (data.commentCount as number) ?? 0,
+    shareCount: (data.shareCount as number) ?? 0,
     createdAt: (data.createdAt as number) ?? Date.now(),
   };
 }
@@ -46,9 +48,22 @@ export async function createPostReal(input: {
       adventureId: input.adventureId ?? null,
       likedBy: [] as string[],
       likeCount: 0,
+      commentCount: 0,
+      shareCount: 0,
       createdAt,
     });
-  return { id: ref.id, authorId: input.authorId, text: input.text, photos, adventureId: input.adventureId ?? null, likeCount: 0, likedByMe: false, createdAt };
+  return {
+    id: ref.id,
+    authorId: input.authorId,
+    text: input.text,
+    photos,
+    adventureId: input.adventureId ?? null,
+    likeCount: 0,
+    likedByMe: false,
+    commentCount: 0,
+    shareCount: 0,
+    createdAt,
+  };
 }
 
 export async function toggleLikePostReal(postId: string, myUid: string, currentlyLiked: boolean): Promise<void> {
@@ -59,4 +74,14 @@ export async function toggleLikePostReal(postId: string, myUid: string, currentl
       likedBy: currentlyLiked ? firestore.FieldValue.arrayRemove(myUid) : firestore.FieldValue.arrayUnion(myUid),
       likeCount: firestore.FieldValue.increment(currentlyLiked ? -1 : 1),
     });
+}
+
+// Bumped only when a share actually completes — see lib/share.ts, which
+// calls this only after the platform share sheet resolves or the
+// clipboard-copy fallback succeeds.
+export async function incrementShareCountReal(postId: string): Promise<void> {
+  await firestore()
+    .collection(COLLECTION)
+    .doc(postId)
+    .update({ shareCount: firestore.FieldValue.increment(1) });
 }

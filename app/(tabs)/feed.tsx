@@ -17,7 +17,7 @@ const POST_MAX = 500;
 type Status = 'loading' | 'ready' | 'error';
 
 export default function Feed() {
-  const { myId, me, authenticated, adventures, posts, fetchPosts, createPost, toggleLikePost } = useApp();
+  const { myId, me, authenticated, adventures, posts, fetchPosts, createPost, toggleLikePost, recordShare } = useApp();
   const [status, setStatus] = useState<Status>('loading');
   const [refreshing, setRefreshing] = useState(false);
   const [text, setText] = useState('');
@@ -76,6 +76,14 @@ export default function Feed() {
       return;
     }
     toggleLikePost(post.id);
+  };
+
+  // The share sheet itself (or the clipboard fallback) fires regardless of
+  // sign-in state — sharing isn't an account action — but only a signed-in
+  // user's share gets counted, since the count is a Firestore write.
+  const handleShared = (post: Post) => {
+    if (!authenticated) return;
+    recordShare(post.id);
   };
 
   return (
@@ -144,7 +152,7 @@ export default function Feed() {
           }
           renderItem={({ item }) => (
             <View style={styles.postWrap}>
-              <PostCard post={item} onToggleLike={() => handleToggleLike(item)} />
+              <PostCard post={item} onToggleLike={() => handleToggleLike(item)} onShared={() => handleShared(item)} />
             </View>
           )}
           ListEmptyComponent={

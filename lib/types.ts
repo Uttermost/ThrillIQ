@@ -221,9 +221,9 @@ export interface SafetyAcknowledgement {
 }
 
 // The standalone Post model — deliberately minimal for now: text + optional
-// photos + an optional tag back to one adventure. No comments, shares, or
-// crew tagging yet; see components/PostCard.tsx / app/(tabs)/feed.tsx for
-// what's actually wired up.
+// photos + an optional tag back to one adventure, plus comments and shares.
+// No crew tagging yet; see components/PostCard.tsx / app/(tabs)/feed.tsx /
+// app/post/[id].tsx for what's actually wired up.
 export interface Post {
   id: string;
   authorId: string;
@@ -234,6 +234,23 @@ export interface Post {
   adventureId?: string | null;
   likeCount: number;
   likedByMe: boolean;
+  // Denormalized from the postComments collection so the count can show on
+  // a PostCard without fetching every comment — kept in sync by a single
+  // atomic batch write (add comment + increment) whenever a comment is
+  // created; see postCommentsProvider.native.ts.
+  commentCount: number;
+  // Bumped only when a share actually completes (the platform share sheet
+  // resolves, or the clipboard-copy fallback succeeds) — never just for
+  // opening the share sheet, so this stays an honest count.
+  shareCount: number;
+  createdAt: number;
+}
+
+export interface PostComment {
+  id: string;
+  postId: string;
+  authorId: string;
+  text: string;
   createdAt: number;
 }
 

@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/ui/Avatar';
 import { Card } from '@/components/ui/Card';
 import { formatRelativeTime } from '@/lib/relativeTime';
+import { sharePost } from '@/lib/share';
 import { useApp } from '@/lib/store';
 import { colors, iconSize, radius, spacing, type } from '@/lib/theme';
 import { Post } from '@/lib/types';
@@ -13,12 +14,21 @@ import { Post } from '@/lib/types';
 interface PostCardProps {
   post: Post;
   onToggleLike: () => void;
+  // Called only once a share actually completes (sheet resolved, or the
+  // web clipboard fallback succeeded) — never for a dismissed sheet.
+  onShared: () => void;
+  // The post-detail screen embeds this same card at the top of its own
+  // comment thread — tapping "comments" there would just navigate to
+  // itself, so it renders as a plain count instead of a link.
+  hideCommentLink?: boolean;
 }
 
-export function PostCard({ post, onToggleLike }: PostCardProps) {
+export function PostCard({ post, onToggleLike, onShared, hideCommentLink }: PostCardProps) {
   const { myId, users, adventures, fetchOtherProfile } = useApp();
   const author = users[post.authorId];
   const adventure = post.adventureId ? adventures.find((a) => a.id === post.adventureId) : undefined;
+  const [sharing, setSharing] = useState(false);
+  const [justShared, setJustShared] = useState(false);
 
   useEffect(() => {
     if (!users[post.authorId]) fetchOtherProfile(post.authorId);
@@ -31,6 +41,21 @@ export function PostCard({ post, onToggleLike }: PostCardProps) {
   const openAdventure = () => {
     if (!adventure) return;
     router.push(adventure.organizerId === myId ? `/organizer/${adventure.id}` : `/adventure/${adventure.id}`);
+  };
+
+  const handleShare = async () => {
+    if (sharing) return;
+    setSharing(true);
+    try {
+      const completed = await sharePost(post);
+      if (completed) {
+        onShared();
+        setJustShared(true);
+        setTimeout(() => setJustShared(false), 1500);
+      }
+    } finally {
+      setSharing(false);
+    }
   };
 
   return (
@@ -64,9 +89,28 @@ export function PostCard({ post, onToggleLike }: PostCardProps) {
       )}
 
       <View style={styles.footer}>
-        <Pressable style={styles.likeBtn} onPress={onToggleLike} hitSlop={8}>
+        <Pressable
+          style={styles.actionBtn}
+          onPress={onToggleLike}
+          hitSlop={8}
+          accessibilityLabel={post.likedByMe ? 'Unlike post' : 'Like post'}>
           <Ionicons name={post.likedByMe ? 'heart' : 'heart-outline'} size={iconSize.inline} color={post.likedByMe ? colors.accent : colors.textSecondary} />
-          <Text style={styles.likeCount}>{post.likeCount}</Text>
+          <Text style={styles.actionCount}>{post.likeCount}</Text>
+        </Pressable>
+
+        <Pressable
+          style={styles.actionBtn}
+          onPress={() => !hideCommentLink && router.push(`/post/${post.id}`)}
+          hitSlop={8}
+          disabled={hideCommentLink}
+          accessibilityLabel="View comments">
+          <Ionicons name="chatbubble-outline" size={iconSize.inline} color={colors.textSecondary} />
+          <Text style={styles.actionCount}>{post.commentCount}</Text>
+        </Pressable>
+
+        <Pressable style={styles.actionBtn} onPress={handleShare} hitSlop={8} disabled={sharing} accessibilityLabel="Share post">
+          <Ionicons name="share-outline" size={iconSize.inline} color={colors.textSecondary} />
+          <Text style={styles.actionCount}>{justShared ? 'Shared' : post.shareCount}</Text>
         </Pressable>
       </View>
     </Card>
@@ -98,10 +142,11 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.lg,
     paddingTop: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
-  likeBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  likeCount: { ...type.secondary, color: colors.textSecondary },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  actionCount: { ...type.secondary, color: colors.textSecondary },
 });
