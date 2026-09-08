@@ -20,7 +20,7 @@ const NAV_LINKS: NavLink[] = [
   // '/organizer/' (trailing slash, not bare '/organizer') — managing one
   // hosted adventure is still part of the Discover flow; the Organizer
   // Dashboard index itself (reached from Profile) isn't any of these four.
-  { label: 'Discover', href: '/discover', icon: 'compass-outline', activePrefixes: ['/discover', '/adventure', '/organizer/'] },
+  { label: 'Discover', href: '/discover', icon: 'compass-outline', activePrefixes: ['/discover', '/adventure', '/organizer/', '/places'] },
   { label: 'Feed', href: '/feed', icon: 'chatbubbles-outline', activePrefixes: ['/feed', '/post'] },
   { label: 'People', href: '/connections', icon: 'people-outline', activePrefixes: ['/connections', '/profile/'] },
   { label: 'Crews', href: '/crews', icon: 'flag-outline', activePrefixes: ['/crews', '/crew/'] },

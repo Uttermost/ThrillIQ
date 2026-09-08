@@ -6,6 +6,7 @@ import { DESKTOP_CONTENT_MAX_WIDTH, colors, spacing, type } from '@/lib/theme';
 
 const EXPLORE_LINKS = [
   { label: 'Discover', href: '/discover' },
+  { label: 'Places', href: '/places' },
   { label: 'Feed', href: '/feed' },
   { label: 'People', href: '/connections' },
   { label: 'Crews', href: '/crews' },

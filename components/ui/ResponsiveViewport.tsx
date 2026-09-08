@@ -8,7 +8,7 @@ import { CONTENT_MAX_WIDTH, DESKTOP_CONTENT_MAX_WIDTH, colors } from '@/lib/them
 // grids) instead of the narrow centered column below — see DesktopNav and
 // Discover. Everything not listed here still gets the phone-width
 // treatment on wide viewports until it's redesigned too.
-const WIDE_LAYOUT_PREFIXES = ['/discover', '/connections', '/crews', '/adventure', '/feed'];
+const WIDE_LAYOUT_PREFIXES = ['/discover', '/connections', '/crews', '/adventure', '/feed', '/places'];
 
 // Exact-path-only entries — for routes that share a prefix with a sibling
 // dynamic route that hasn't been redesigned for wide yet. /organizer is the

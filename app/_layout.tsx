@@ -70,6 +70,8 @@ export default function RootLayout() {
             <Stack.Screen name="adventure/[id]" />
             <Stack.Screen name="crews" />
             <Stack.Screen name="crew/[id]" />
+            <Stack.Screen name="places/index" />
+            <Stack.Screen name="places/[place]" />
             <Stack.Screen name="connections" />
             <Stack.Screen name="admin" />
             <Stack.Screen name="chat/[id]" />
