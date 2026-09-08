@@ -1,19 +1,33 @@
-// Web has no native Firestore SDK support (@react-native-firebase is native-only).
-// store.tsx never actually calls these on web — it keeps its own mock array logic
-// inline for that platform — but this file must exist so the import resolves.
+import { collection, deleteDoc, doc, getDocs, query, setDoc, where } from 'firebase/firestore';
 
+import { db } from './firebase';
 import { Follow } from './types';
 
-export async function fetchFollowingReal(_uid: string): Promise<Follow[]> {
-  return [];
+const COLLECTION = 'follows';
+
+function followId(followerId: string, followingId: string): string {
+  return `${followerId}_${followingId}`;
 }
 
-export async function fetchFollowersReal(_uid: string): Promise<Follow[]> {
-  return [];
+// Who `uid` follows.
+export async function fetchFollowingReal(uid: string): Promise<Follow[]> {
+  const snapshot = await getDocs(query(collection(db, COLLECTION), where('followerId', '==', uid)));
+  return snapshot.docs.map((d) => d.data() as Follow);
 }
 
-export async function followUserReal(_followerId: string, _followingId: string): Promise<Follow> {
-  throw new Error('Not implemented on web.');
+// Who follows `uid`.
+export async function fetchFollowersReal(uid: string): Promise<Follow[]> {
+  const snapshot = await getDocs(query(collection(db, COLLECTION), where('followingId', '==', uid)));
+  return snapshot.docs.map((d) => d.data() as Follow);
 }
 
-export async function unfollowUserReal(_followerId: string, _followingId: string): Promise<void> {}
+export async function followUserReal(followerId: string, followingId: string): Promise<Follow> {
+  const id = followId(followerId, followingId);
+  const data: Follow = { id, followerId, followingId, createdAt: Date.now() };
+  await setDoc(doc(db, COLLECTION, id), data);
+  return data;
+}
+
+export async function unfollowUserReal(followerId: string, followingId: string): Promise<void> {
+  await deleteDoc(doc(db, COLLECTION, followId(followerId, followingId)));
+}

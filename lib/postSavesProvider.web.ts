@@ -1,15 +1,29 @@
-// Web has no native Firestore SDK support (@react-native-firebase is native-only).
-// store.tsx never actually calls these on web — it keeps its own mock array logic
-// inline for that platform — but this file must exist so the import resolves.
+import { collection, deleteDoc, doc, getDocs, query, setDoc, where } from 'firebase/firestore';
 
+import { db } from './firebase';
 import { PostSave } from './types';
 
-export async function fetchMySavesReal(_myUid: string): Promise<PostSave[]> {
-  return [];
+const COLLECTION = 'postSaves';
+
+function saveId(userId: string, postId: string): string {
+  return `${userId}_${postId}`;
 }
 
-export async function savePostReal(_userId: string, _postId: string): Promise<PostSave> {
-  throw new Error('Not implemented on web.');
+// Own saves only — firestore.rules denies reading anyone else's, so this is
+// a one-shot fetch on sign-in (same pattern as fetchFollowingReal), not a
+// live subscription of a whole collection like posts/reposts.
+export async function fetchMySavesReal(myUid: string): Promise<PostSave[]> {
+  const snapshot = await getDocs(query(collection(db, COLLECTION), where('userId', '==', myUid)));
+  return snapshot.docs.map((d) => d.data() as PostSave);
 }
 
-export async function unsavePostReal(_userId: string, _postId: string): Promise<void> {}
+export async function savePostReal(userId: string, postId: string): Promise<PostSave> {
+  const id = saveId(userId, postId);
+  const data: PostSave = { id, userId, postId, createdAt: Date.now() };
+  await setDoc(doc(db, COLLECTION, id), data);
+  return data;
+}
+
+export async function unsavePostReal(userId: string, postId: string): Promise<void> {
+  await deleteDoc(doc(db, COLLECTION, saveId(userId, postId)));
+}

@@ -1,27 +1,160 @@
-// Web has no native Firestore SDK support (@react-native-firebase is native-only).
-// store.tsx never actually calls these on web — it keeps its own mock array logic
-// inline for that platform — but this file must exist so the import resolves.
+import {
+  DocumentData,
+  QueryDocumentSnapshot,
+  addDoc,
+  arrayRemove,
+  arrayUnion,
+  collection,
+  deleteDoc,
+  doc,
+  increment,
+  onSnapshot,
+  orderBy,
+  query,
+  runTransaction,
+  serverTimestamp,
+  updateDoc,
+} from 'firebase/firestore';
 
+import { timestampForBucket } from './dateBuckets';
+import { formatDateLabel, formatTimeLabel } from './dateFormat';
+import { db } from './firebase';
 import { Adventure, NewAdventureDraft } from './types';
 
+const COLLECTION = 'adventures';
+
+function fromDoc(snap: QueryDocumentSnapshot<DocumentData>, myUid: string): Adventure {
+  const data = snap.data();
+  return {
+    id: snap.id,
+    title: (data.title as string) ?? '',
+    description: (data.description as string) ?? '',
+    category: (data.category as Adventure['category']) ?? 'Other',
+    difficulty: (data.difficulty as Adventure['difficulty']) ?? 'Moderate',
+    socialLevel: (data.socialLevel as Adventure['socialLevel']) ?? 'Social',
+    pace: (data.pace as Adventure['pace']) ?? 'Moderate',
+    intensity: (data.intensity as Adventure['intensity']) ?? 'Moderate',
+    transport: (data.transport as Adventure['transport']) ?? 'Own transport',
+    audience: (data.audience as Adventure['audience']) ?? [],
+    dateLabel: (data.dateLabel as string) ?? 'Date TBC',
+    meetingTime: (data.meetingTime as string) ?? '',
+    dateTimestamp: (data.dateTimestamp as number) ?? timestampForBucket('Later'),
+    location: (data.location as string) ?? '',
+    latitude: (data.latitude as number) ?? null,
+    longitude: (data.longitude as number) ?? null,
+    durationHours: (data.durationHours as number) ?? 1,
+    priceKsh: (data.priceKsh as number) ?? 0,
+    cancellationPolicy: (data.cancellationPolicy as string) ?? '',
+    spotsTotal: (data.spotsTotal as number) ?? 1,
+    spotsFilled: (data.spotsFilled as number) ?? 0,
+    childrenWelcome: (data.childrenWelcome as boolean) ?? false,
+    equipment: (data.equipment as string) ?? '',
+    included: (data.included as string) ?? '',
+    excluded: (data.excluded as string) ?? '',
+    organizerId: (data.organizerId as string) ?? '',
+    participantIds: (data.participantIds as string[]) ?? [],
+    guidelines: (data.guidelines as string[]) ?? [],
+    likedByMe: ((data.likedBy as string[]) ?? []).includes(myUid),
+    likeCount: (data.likeCount as number) ?? 0,
+    coordinate: (data.coordinate as { x: number; y: number }) ?? { x: 0.5, y: 0.5 },
+  };
+}
+
 export function subscribeAdventuresReal(
-  _myUid: string,
-  _onData: (list: Adventure[]) => void,
-  _onError: (e: unknown) => void
+  myUid: string,
+  onData: (list: Adventure[]) => void,
+  onError: (e: unknown) => void
 ): () => void {
-  return () => {};
+  return onSnapshot(
+    query(collection(db, COLLECTION), orderBy('createdAt', 'desc')),
+    (snapshot) => onData(snapshot.docs.map((d) => fromDoc(d, myUid))),
+    onError
+  );
 }
 
-export async function joinAdventureReal(_adventureId: string, _myUid: string): Promise<void> {}
-
-export async function leaveAdventureReal(_adventureId: string, _myUid: string): Promise<void> {}
-
-export async function toggleLikeReal(_adventureId: string, _myUid: string, _currentlyLiked: boolean): Promise<void> {}
-
-export async function createAdventureReal(_draft: NewAdventureDraft, _organizerId: string): Promise<Adventure> {
-  throw new Error('Not implemented on web.');
+export async function joinAdventureReal(adventureId: string, myUid: string): Promise<void> {
+  const ref = doc(db, COLLECTION, adventureId);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error('This adventure no longer exists.');
+    const data = snap.data() as Record<string, unknown>;
+    const participantIds = (data.participantIds as string[]) ?? [];
+    if (participantIds.includes(myUid)) return;
+    const spotsFilled = (data.spotsFilled as number) ?? 0;
+    const spotsTotal = (data.spotsTotal as number) ?? 0;
+    if (spotsFilled >= spotsTotal) {
+      throw new Error('This adventure is full.');
+    }
+    tx.update(ref, {
+      spotsFilled: increment(1),
+      participantIds: arrayUnion(myUid),
+    });
+  });
 }
 
-export async function updateAdventureReal(_id: string, _patch: { title: string; schedule: string }): Promise<void> {}
+export async function leaveAdventureReal(adventureId: string, myUid: string): Promise<void> {
+  await updateDoc(doc(db, COLLECTION, adventureId), {
+    spotsFilled: increment(-1),
+    participantIds: arrayRemove(myUid),
+  });
+}
 
-export async function cancelAdventureReal(_id: string): Promise<void> {}
+export async function toggleLikeReal(adventureId: string, myUid: string, currentlyLiked: boolean): Promise<void> {
+  await updateDoc(doc(db, COLLECTION, adventureId), {
+    likedBy: currentlyLiked ? arrayRemove(myUid) : arrayUnion(myUid),
+    likeCount: increment(currentlyLiked ? -1 : 1),
+  });
+}
+
+export async function createAdventureReal(draft: NewAdventureDraft, organizerId: string): Promise<Adventure> {
+  const guidelines: string[] = [];
+  if (draft.noAlcohol) guidelines.push('No alcohol');
+  if (draft.petsOk) guidelines.push('Pets ok');
+  const spots = Math.max(1, parseInt(draft.spots, 10) || 1);
+  const base = {
+    title: draft.title.trim(),
+    description: draft.description.trim(),
+    category: draft.category,
+    difficulty: draft.difficulty,
+    socialLevel: draft.socialLevel,
+    pace: draft.pace,
+    intensity: draft.intensity,
+    transport: draft.transport,
+    audience: draft.audience,
+    dateLabel: formatDateLabel(draft.scheduledAt),
+    meetingTime: formatTimeLabel(draft.scheduledAt),
+    dateTimestamp: draft.scheduledAt,
+    location: draft.location.trim() || 'Location TBC',
+    latitude: draft.latitude,
+    longitude: draft.longitude,
+    durationHours: Math.max(1, parseInt(draft.durationHours, 10) || 1),
+    priceKsh: parseInt(draft.priceKsh, 10) || 0,
+    cancellationPolicy: draft.cancellationPolicy.trim(),
+    spotsTotal: spots,
+    spotsFilled: 0,
+    childrenWelcome: draft.childrenWelcome,
+    equipment: draft.equipment.trim(),
+    included: draft.included.trim(),
+    excluded: draft.excluded.trim(),
+    organizerId,
+    participantIds: [] as string[],
+    guidelines,
+    likedBy: [] as string[],
+    likeCount: 0,
+    coordinate: { x: 0.5, y: 0.5 },
+  };
+  const ref = await addDoc(collection(db, COLLECTION), { ...base, createdAt: serverTimestamp() });
+  return { id: ref.id, ...base, likedByMe: false };
+}
+
+export async function updateAdventureReal(id: string, patch: { title: string; schedule: string }): Promise<void> {
+  await updateDoc(doc(db, COLLECTION, id), {
+    title: patch.title,
+    dateLabel: patch.schedule,
+    meetingTime: '',
+  });
+}
+
+export async function cancelAdventureReal(id: string): Promise<void> {
+  await deleteDoc(doc(db, COLLECTION, id));
+}
