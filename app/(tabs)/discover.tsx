@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
@@ -83,7 +83,13 @@ export default function Discover() {
   const numColumns = isWide ? Math.max(2, Math.min(3, Math.floor(gridWidth / MIN_GRID_CARD_WIDTH))) : 1;
   const [status, setStatus] = useState<Status>('loading');
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('All');
+  // A category tile elsewhere (e.g. the public homepage) can deep-link here
+  // with ?category=Hiking to land already filtered — same list Discover's
+  // own chips use, so an invalid/missing param just falls back to 'All'.
+  const { category: categoryParam } = useLocalSearchParams<{ category?: string }>();
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>(() =>
+    CATEGORY_FILTERS.includes(categoryParam as CategoryFilter) ? (categoryParam as CategoryFilter) : 'All'
+  );
   const [filters, setFilters] = useState<DiscoverFilters>(DEFAULT_FILTERS);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [view, setView] = useState<'list' | 'map'>('list');

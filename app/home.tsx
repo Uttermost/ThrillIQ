@@ -37,7 +37,7 @@ const CATEGORY_TILES: { category: Category; icon: keyof typeof Ionicons.glyphMap
   { category: 'Wellness', icon: 'leaf-outline' },
   { category: 'Water', icon: 'water-outline' },
   { category: 'Photography', icon: 'camera-outline' },
-  { category: 'Social', icon: 'happy-outline' },
+  { category: 'Networking', icon: 'people-circle-outline' },
 ];
 
 const HERO_PILL_CATEGORIES: Category[] = ['Hiking', 'Road trip', 'Camping', 'Cycling', 'Wellness', 'Networking'];
@@ -134,7 +134,7 @@ export default function Home() {
                   <Text style={styles.heroLocationText}>Nairobi, Kenya</Text>
                 </View>
                 {HERO_PILL_CATEGORIES.map((c) => (
-                  <Pressable key={c} style={styles.heroPill} onPress={() => router.push('/discover')}>
+                  <Pressable key={c} style={styles.heroPill} onPress={() => router.push({ pathname: '/discover', params: { category: c } })}>
                     <Text style={styles.heroPillText}>{c}</Text>
                   </Pressable>
                 ))}
@@ -176,7 +176,10 @@ export default function Home() {
             </View>
             <View style={styles.categoryRow}>
               {CATEGORY_TILES.map((c) => (
-                <Pressable key={c.category} style={styles.categoryTile} onPress={() => router.push('/discover')}>
+                <Pressable
+                  key={c.category}
+                  style={styles.categoryTile}
+                  onPress={() => router.push({ pathname: '/discover', params: { category: c.category } })}>
                   <View style={styles.categoryTileArt}>
                     <MountainScene height={108} rounded={false} category={c.category} />
                     <View style={styles.categoryTileIconWrap}>
