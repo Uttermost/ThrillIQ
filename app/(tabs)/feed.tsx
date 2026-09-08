@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Platform, Pressable, RefreshControl, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PostCard } from '@/components/PostCard';
@@ -12,8 +12,8 @@ import { PhotoPicker } from '@/components/ui/PhotoPicker';
 import { EmptyState, ErrorState } from '@/components/ui/StateViews';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useApp } from '@/lib/store';
-import { colors, radius, spacing, type } from '@/lib/theme';
-import { Post, Repost } from '@/lib/types';
+import { CONTENT_MAX_WIDTH, colors, radius, spacing, type, typography } from '@/lib/theme';
+import { Adventure, Post, Repost } from '@/lib/types';
 
 const POST_MAX = 500;
 type Status = 'loading' | 'ready' | 'error';
@@ -40,6 +40,8 @@ export default function Feed() {
     recordShare,
     myFollowingIds,
   } = useApp();
+  const { width } = useWindowDimensions();
+  const isWide = Platform.OS === 'web' && width > CONTENT_MAX_WIDTH;
   const [status, setStatus] = useState<Status>('loading');
   const [refreshing, setRefreshing] = useState(false);
   const [text, setText] = useState('');
@@ -78,6 +80,19 @@ export default function Feed() {
   // Only crews the signed-in user is actually a member of — mirrors the
   // adventure-tagging restriction above, enforced server-side too.
   const myCrews = useMemo(() => crews.filter((c) => c.memberIds.includes(myId)), [crews, myId]);
+
+  // Desktop right rail — a real, if simple, signal (most-liked among
+  // upcoming, open adventures), same "real data or nothing" rule Discover's
+  // Find My People section already follows. Not a "people you may vibe
+  // with" panel: there's no query that could back that (firestore.rules
+  // denies `list` on /users on purpose — see app/search.tsx).
+  const trendingAdventures = useMemo<Adventure[]>(() => {
+    const now = Date.now();
+    return adventures
+      .filter((a) => a.dateTimestamp > now && a.spotsFilled < a.spotsTotal)
+      .sort((a, b) => b.likeCount - a.likeCount)
+      .slice(0, 5);
+  }, [adventures]);
 
   const feedItems = useMemo<FeedItem[]>(() => {
     const postItems: FeedItem[] = posts.map((p) => ({ kind: 'post', id: `post-${p.id}`, createdAt: p.createdAt, post: p }));
@@ -142,40 +157,43 @@ export default function Feed() {
     recordShare(post.id);
   };
 
-  return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.headerRow}>
-        <Text style={styles.heading}>Feed</Text>
-        <Pressable onPress={() => router.push('/search')} hitSlop={8} accessibilityLabel="Search">
-          <Ionicons name="search-outline" size={22} color={colors.textPrimary} />
-        </Pressable>
-      </View>
+  const header = (
+    <View style={styles.headerRow}>
+      <Text style={styles.heading}>Feed</Text>
+      <Pressable onPress={() => router.push('/search')} hitSlop={8} accessibilityLabel="Search">
+        <Ionicons name="search-outline" size={22} color={colors.textPrimary} />
+      </Pressable>
+    </View>
+  );
 
-      <View style={styles.tabRow}>
-        <Pressable onPress={() => handleTabChange('forYou')} style={[styles.tabBtn, tab === 'forYou' && styles.tabBtnActive]}>
-          <Text style={[styles.tabLabel, tab === 'forYou' && styles.tabLabelActive]}>For You</Text>
-        </Pressable>
-        <Pressable onPress={() => handleTabChange('following')} style={[styles.tabBtn, tab === 'following' && styles.tabBtnActive]}>
-          <Text style={[styles.tabLabel, tab === 'following' && styles.tabLabelActive]}>Following</Text>
-        </Pressable>
-      </View>
-
-      {status === 'loading' && (
-        <View style={styles.list}>
-          <Skeleton style={{ height: 120, marginBottom: spacing.md }} />
-          <Skeleton style={{ height: 120 }} />
+  function FeedList() {
+    return (
+      <>
+        <View style={styles.tabRow}>
+          <Pressable onPress={() => handleTabChange('forYou')} style={[styles.tabBtn, tab === 'forYou' && styles.tabBtnActive]}>
+            <Text style={[styles.tabLabel, tab === 'forYou' && styles.tabLabelActive]}>For You</Text>
+          </Pressable>
+          <Pressable onPress={() => handleTabChange('following')} style={[styles.tabBtn, tab === 'following' && styles.tabBtnActive]}>
+            <Text style={[styles.tabLabel, tab === 'following' && styles.tabLabelActive]}>Following</Text>
+          </Pressable>
         </View>
-      )}
 
-      {status === 'error' && <ErrorState title="Couldn't load the feed" message="Check your connection and try again." onRetry={load} />}
+        {status === 'loading' && (
+          <View style={styles.list}>
+            <Skeleton style={{ height: 120, marginBottom: spacing.md }} />
+            <Skeleton style={{ height: 120 }} />
+          </View>
+        )}
 
-      {status === 'ready' && (
-        <FlatList
-          data={visible}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.textSecondary} />}
-          ListHeaderComponent={
+        {status === 'error' && <ErrorState title="Couldn't load the feed" message="Check your connection and try again." onRetry={load} />}
+
+        {status === 'ready' && (
+          <FlatList
+            data={visible}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.list}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.textSecondary} />}
+            ListHeaderComponent={
             authenticated ? (
               <View style={styles.composer}>
                 <View style={styles.composerRow}>
@@ -255,25 +273,88 @@ export default function Feed() {
               </View>
             )
           }
-          ListEmptyComponent={
-            tab === 'following' ? (
-              <EmptyState
-                icon="person-add-outline"
-                title="Not following anyone yet"
-                message="Follow people from their profile to see their posts here."
-              />
-            ) : (
-              <EmptyState icon="chatbubbles-outline" title="No posts yet" message="Be the first to share something with the community." />
-            )
-          }
-        />
-      )}
+            ListEmptyComponent={
+              tab === 'following' ? (
+                <EmptyState
+                  icon="person-add-outline"
+                  title="Not following anyone yet"
+                  message="Follow people from their profile to see their posts here."
+                />
+              ) : (
+                <EmptyState icon="chatbubbles-outline" title="No posts yet" message="Be the first to share something with the community." />
+              )
+            }
+          />
+        )}
+      </>
+    );
+  }
+
+  function TrendingSidebar() {
+    if (trendingAdventures.length === 0) return null;
+    return (
+      <View style={styles.sidebarCard}>
+        <Text style={styles.sidebarTitle}>Trending Adventures</Text>
+        {trendingAdventures.map((a) => (
+          <Pressable key={a.id} style={styles.trendingRow} onPress={() => router.push(`/adventure/${a.id}`)}>
+            <Text style={styles.trendingTitle} numberOfLines={1}>
+              {a.title}
+            </Text>
+            <Text style={styles.trendingMeta} numberOfLines={1}>
+              {a.location} · {a.dateLabel}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+    );
+  }
+
+  if (isWide) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        {header}
+        <View style={styles.wideRow}>
+          <View style={styles.wideLeft}>
+            <FeedList />
+          </View>
+          <View style={styles.wideRight}>
+            <TrendingSidebar />
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      {header}
+      <FeedList />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
+  // Desktop: feed column on the left (capped so post cards don't stretch
+  // to an unreadable width), a sticky "Trending Adventures" rail on the
+  // right — see the design brief's three-column Feed, minus the
+  // people-matching panel (no real data to back it, see trendingAdventures'
+  // comment above).
+  wideRow: { flex: 1, flexDirection: 'row', gap: spacing.xl, paddingHorizontal: spacing.xl, alignItems: 'flex-start' },
+  wideLeft: { flex: 1, maxWidth: 640 },
+  wideRight: { width: 320, flexShrink: 0, position: 'sticky' as 'relative', top: spacing.lg },
+  sidebarCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    gap: spacing.xs,
+  },
+  sidebarTitle: { ...type.cardTitle, marginBottom: spacing.xs },
+  trendingRow: { paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
+  trendingTitle: { ...type.bodyEmphasis },
+  trendingMeta: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
