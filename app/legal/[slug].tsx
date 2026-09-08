@@ -4,6 +4,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions,
 
 import { PublicFooter } from '@/components/ui/PublicFooter';
 import { PublicHeader } from '@/components/ui/PublicHeader';
+import { Seo } from '@/components/ui/Seo';
 import { getLegalDoc } from '@/lib/legalDocs';
 import { CONTENT_MAX_WIDTH, DESKTOP_CONTENT_MAX_WIDTH, colors, radius, spacing, type } from '@/lib/theme';
 
@@ -24,6 +25,7 @@ export default function LegalDocPage() {
   if (!doc) {
     return (
       <View style={styles.page}>
+        <Seo title="Document not found" description="This legal document doesn't exist or has been removed." />
         <PublicHeader />
         <View style={styles.notFoundWrap}>
           <Text style={styles.notFoundTitle}>Document not found</Text>
@@ -38,6 +40,7 @@ export default function LegalDocPage() {
 
   return (
     <View style={styles.page}>
+      <Seo title={doc.title} description={`ThrillIQ's ${doc.title.toLowerCase()} — a working draft, pending legal review.`} />
       <ScrollView contentContainerStyle={styles.scroll}>
         <PublicHeader />
 

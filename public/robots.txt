@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /create
+Disallow: /messages
+Disallow: /chat
+Disallow: /notifications
+Disallow: /connections
+Disallow: /saved
+Disallow: /edit
+Disallow: /organizer
+Disallow: /auth
+Disallow: /onboarding
+Disallow: /profile/edit
+Disallow: /profile/privacy
+
+# Sitemap intentionally omitted: it needs an absolute production domain
+# (sitemap.xml <loc> entries must be fully-qualified URLs), which isn't
+# known yet. Add one here once ThrillIQ has a real deployed domain.

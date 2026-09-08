@@ -4,6 +4,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions,
 
 import { PublicFooter } from '@/components/ui/PublicFooter';
 import { PublicHeader } from '@/components/ui/PublicHeader';
+import { Seo } from '@/components/ui/Seo';
 import { CONTENT_MAX_WIDTH, DESKTOP_CONTENT_MAX_WIDTH, colors, radius, spacing, type } from '@/lib/theme';
 
 // DRAFT legal text, not a reviewed or finalized legal instrument. Sections
@@ -101,6 +102,7 @@ export default function Terms() {
 
   return (
     <View style={styles.page}>
+      <Seo title="Terms of Service" description="The terms that govern using ThrillIQ." />
       <ScrollView contentContainerStyle={styles.scroll}>
         <PublicHeader />
 

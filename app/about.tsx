@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { MountainScene } from '@/components/ui/MountainScene';
 import { PublicFooter } from '@/components/ui/PublicFooter';
 import { PublicHeader } from '@/components/ui/PublicHeader';
+import { Seo } from '@/components/ui/Seo';
 import { CONTENT_MAX_WIDTH, DESKTOP_CONTENT_MAX_WIDTH, colors, radius, spacing, type } from '@/lib/theme';
 
 // Company/product "About" page — the handoff doc's public-pages spec
@@ -37,6 +38,10 @@ export default function About() {
 
   return (
     <View style={styles.page}>
+      <Seo
+        title="About"
+        description="ThrillIQ connects adventurers with real people hosting hikes, road trips, camping and more. Learn what we're building and why."
+      />
       <ScrollView contentContainerStyle={styles.scroll}>
         <PublicHeader active="About" />
 

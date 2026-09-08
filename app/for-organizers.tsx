@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { MountainScene } from '@/components/ui/MountainScene';
 import { PublicFooter } from '@/components/ui/PublicFooter';
 import { PublicHeader } from '@/components/ui/PublicHeader';
+import { Seo } from '@/components/ui/Seo';
 import { useApp } from '@/lib/store';
 import { CONTENT_MAX_WIDTH, DESKTOP_CONTENT_MAX_WIDTH, colors, radius, spacing, type } from '@/lib/theme';
 
@@ -51,6 +52,10 @@ export default function ForOrganizers() {
 
   return (
     <View style={styles.page}>
+      <Seo
+        title="For Organizers"
+        description="Host your own adventures on ThrillIQ — set the details, manage spots, and build a following of people who trust your trips."
+      />
       <ScrollView contentContainerStyle={styles.scroll}>
         <PublicHeader />
 

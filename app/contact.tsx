@@ -9,6 +9,7 @@ import { FormField } from '@/components/ui/FormField';
 import { InlineError } from '@/components/ui/StateViews';
 import { PublicFooter } from '@/components/ui/PublicFooter';
 import { PublicHeader } from '@/components/ui/PublicHeader';
+import { Seo } from '@/components/ui/Seo';
 import { useApp } from '@/lib/store';
 import { CONTENT_MAX_WIDTH, colors, radius, spacing, type } from '@/lib/theme';
 import { ContactTopic } from '@/lib/types';
@@ -72,6 +73,10 @@ export default function Contact() {
 
   return (
     <View style={styles.page}>
+      <Seo
+        title="Contact"
+        description="Get in touch with the ThrillIQ team — questions, feedback, or help with your account."
+      />
       <ScrollView contentContainerStyle={styles.scroll}>
         <PublicHeader />
 

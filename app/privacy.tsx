@@ -4,6 +4,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions,
 
 import { PublicFooter } from '@/components/ui/PublicFooter';
 import { PublicHeader } from '@/components/ui/PublicHeader';
+import { Seo } from '@/components/ui/Seo';
 import { CONTENT_MAX_WIDTH, DESKTOP_CONTENT_MAX_WIDTH, colors, radius, spacing, type } from '@/lib/theme';
 
 // DRAFT legal text — see app/terms.tsx for the same caveat. Unlike Terms,
@@ -101,6 +102,7 @@ export default function Privacy() {
 
   return (
     <View style={styles.page}>
+      <Seo title="Privacy Policy" description="How ThrillIQ collects, uses, and protects your data." />
       <ScrollView contentContainerStyle={styles.scroll}>
         <PublicHeader />
 

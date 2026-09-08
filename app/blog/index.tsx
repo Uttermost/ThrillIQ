@@ -5,6 +5,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions,
 import { MountainScene } from '@/components/ui/MountainScene';
 import { PublicFooter } from '@/components/ui/PublicFooter';
 import { PublicHeader } from '@/components/ui/PublicHeader';
+import { Seo } from '@/components/ui/Seo';
 import { formatLongDate } from '@/lib/dateFormat';
 import { BLOG_POSTS, getReadTimeMinutes } from '@/lib/blogPosts';
 import { CONTENT_MAX_WIDTH, DESKTOP_CONTENT_MAX_WIDTH, colors, radius, spacing, type } from '@/lib/theme';
@@ -19,6 +20,7 @@ export default function BlogIndex() {
 
   return (
     <View style={styles.page}>
+      <Seo title="Blog" description="Guides and stories about how ThrillIQ actually works, from the team building it." />
       <ScrollView contentContainerStyle={styles.scroll}>
         <PublicHeader />
 

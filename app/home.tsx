@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { MountainScene } from '@/components/ui/MountainScene';
 import { PublicFooter } from '@/components/ui/PublicFooter';
 import { PublicHeader } from '@/components/ui/PublicHeader';
+import { Seo } from '@/components/ui/Seo';
 import { useApp } from '@/lib/store';
 import { CONTENT_MAX_WIDTH, DESKTOP_CONTENT_MAX_WIDTH, colors, radius, spacing, type } from '@/lib/theme';
 import { Adventure, Category } from '@/lib/types';
@@ -65,6 +66,10 @@ export default function Home() {
 
   return (
     <View style={styles.page}>
+      <Seo
+        title="Find Real Adventures Near You"
+        description="Find and join real adventures near you — hiking, road trips, camping and more, hosted by real people. Meet your crew and explore together."
+      />
       <ScrollView contentContainerStyle={styles.scroll}>
         <PublicHeader active="Home" />
 

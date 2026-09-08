@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MountainScene } from '@/components/ui/MountainScene';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { Seo } from '@/components/ui/Seo';
 import { EmptyState } from '@/components/ui/StateViews';
 import { useApp } from '@/lib/store';
 import { derivePlaces } from '@/lib/places';
@@ -20,6 +21,7 @@ export default function Places() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      <Seo title="Places" description="Browse ThrillIQ adventures grouped by where they actually happen." />
       {isWide ? (
         <View style={styles.wideHeader}>
           <Text style={styles.wideHeading}>Places</Text>

@@ -6,6 +6,7 @@ import { Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View } fro
 import { Button } from '@/components/ui/Button';
 import { PublicFooter } from '@/components/ui/PublicFooter';
 import { PublicHeader } from '@/components/ui/PublicHeader';
+import { Seo } from '@/components/ui/Seo';
 import { CONTENT_MAX_WIDTH, DESKTOP_CONTENT_MAX_WIDTH, colors, radius, spacing, type } from '@/lib/theme';
 
 // Describes only real, already-built safety features (guideline
@@ -28,6 +29,10 @@ export default function Safety() {
 
   return (
     <View style={styles.page}>
+      <Seo
+        title="Safety"
+        description="How ThrillIQ approaches safety — what to expect from organizers, guidelines for participants, and how to report a concern."
+      />
       <ScrollView contentContainerStyle={styles.scroll}>
         <PublicHeader />
 

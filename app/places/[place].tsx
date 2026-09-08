@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AdventureCard } from '@/components/AdventureCard';
 import { PostCard } from '@/components/PostCard';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { Seo } from '@/components/ui/Seo';
 import { EmptyState } from '@/components/ui/StateViews';
 import { useApp } from '@/lib/store';
 import { findPlace } from '@/lib/places';
@@ -34,6 +35,7 @@ export default function PlaceDetail() {
   if (!place) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
+        <Seo title="Place not found" description="This place doesn't have any adventures right now." />
         <ScreenHeader title="Place" />
         <View style={styles.notFoundWrap}>
           <Text style={styles.notFound}>We couldn't find this place — it may not have any adventures right now.</Text>
@@ -76,6 +78,10 @@ export default function PlaceDetail() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      <Seo
+        title={place.location}
+        description={`${place.adventures.length} adventure${place.adventures.length === 1 ? '' : 's'} in ${place.location} on ThrillIQ.`}
+      />
       {isWide ? (
         <View style={styles.wideHeader}>
           <Text style={styles.wideHeading}>{place.location}</Text>

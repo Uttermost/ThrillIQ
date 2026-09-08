@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { MountainScene } from '@/components/ui/MountainScene';
 import { PublicFooter } from '@/components/ui/PublicFooter';
 import { PublicHeader } from '@/components/ui/PublicHeader';
+import { Seo } from '@/components/ui/Seo';
 import { formatLongDate } from '@/lib/dateFormat';
 import { BLOG_POSTS, getBlogPost, getReadTimeMinutes } from '@/lib/blogPosts';
 import { CONTENT_MAX_WIDTH, DESKTOP_CONTENT_MAX_WIDTH, colors, radius, spacing, type } from '@/lib/theme';
@@ -20,6 +21,7 @@ export default function BlogPost() {
   if (!post) {
     return (
       <View style={styles.page}>
+        <Seo title="Post not found" description="This blog post doesn't exist or has been removed." />
         <PublicHeader />
         <View style={styles.notFoundWrap}>
           <Text style={styles.notFoundTitle}>Post not found</Text>
@@ -36,6 +38,7 @@ export default function BlogPost() {
 
   return (
     <View style={styles.page}>
+      <Seo title={post.title} description={post.excerpt} />
       <ScrollView contentContainerStyle={styles.scroll}>
         <PublicHeader />
 

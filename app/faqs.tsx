@@ -5,6 +5,7 @@ import { LayoutAnimation, Platform, Pressable, ScrollView, StyleSheet, Text, UIM
 
 import { PublicFooter } from '@/components/ui/PublicFooter';
 import { PublicHeader } from '@/components/ui/PublicHeader';
+import { Seo } from '@/components/ui/Seo';
 import { CONTENT_MAX_WIDTH, DESKTOP_CONTENT_MAX_WIDTH, colors, radius, spacing, type } from '@/lib/theme';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -139,6 +140,10 @@ export default function Faqs() {
 
   return (
     <View style={styles.page}>
+      <Seo
+        title="FAQs"
+        description="Answers to common questions about joining and hosting adventures on ThrillIQ."
+      />
       <ScrollView contentContainerStyle={styles.scroll}>
         <PublicHeader />
 
