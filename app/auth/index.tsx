@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { SocialButton } from '@/components/ui/SocialButton';
 import { InlineError } from '@/components/ui/StateViews';
 import { MountainScene } from '@/components/ui/MountainScene';
+import { TermsDisclaimer } from '@/components/ui/TermsConsent';
 import { SocialProvider, useApp } from '@/lib/store';
 import { colors, spacing, typography } from '@/lib/theme';
 
@@ -54,6 +55,7 @@ export default function AuthLanding() {
         </View>
 
         <Text style={styles.disclaimer}>New here? We'll create your account automatically.</Text>
+        <TermsDisclaimer />
 
         <Button
           label="Not now — keep browsing"

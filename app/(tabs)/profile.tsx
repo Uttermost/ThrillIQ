@@ -140,6 +140,25 @@ export default function Profile() {
           </View>
         )}
 
+        <View style={styles.legalSection}>
+          <Text style={styles.sectionTitle}>Help &amp; legal</Text>
+          <Pressable style={styles.crewsRow} onPress={() => router.push('/legal/faq')}>
+            <Ionicons name="help-circle-outline" size={20} color={colors.textPrimary} />
+            <Text style={styles.crewsRowLabel}>FAQ</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
+          <Pressable style={styles.crewsRow} onPress={() => router.push('/legal/privacy')}>
+            <Ionicons name="shield-outline" size={20} color={colors.textPrimary} />
+            <Text style={styles.crewsRowLabel}>Privacy Policy</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
+          <Pressable style={styles.crewsRow} onPress={() => router.push('/legal/terms')}>
+            <Ionicons name="document-text-outline" size={20} color={colors.textPrimary} />
+            <Text style={styles.crewsRowLabel}>Terms of Service</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
+        </View>
+
         {!confirmingLogout ? (
           <Pressable onPress={() => setConfirmingLogout(true)}>
             <Text style={styles.logoutLink}>Log out</Text>
@@ -205,6 +224,8 @@ const styles = StyleSheet.create({
   },
   crewsRowLabel: { ...typography.body, flex: 1 },
   crewsRowCount: { ...typography.caption, fontWeight: '700', color: colors.textSecondary },
+  legalSection: { gap: spacing.sm },
+  sectionTitle: { ...typography.subheading, fontSize: 15 },
   tabs: { flexDirection: 'row', gap: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.border },
   tabButton: { paddingBottom: spacing.sm },
   tabLabel: { ...typography.caption, fontWeight: '600', color: colors.textMuted },

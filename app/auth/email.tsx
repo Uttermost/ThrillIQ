@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { InlineError } from '@/components/ui/StateViews';
+import { TermsConsentCheckbox } from '@/components/ui/TermsConsent';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing } from '@/lib/theme';
 
@@ -14,10 +15,11 @@ export default function EmailAuth() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canContinue = name.trim().length > 0 && email.trim().length > 0 && password.length > 0;
+  const canContinue = name.trim().length > 0 && email.trim().length > 0 && password.length > 0 && agreed;
 
   const handleContinue = async () => {
     if (!canContinue) return;
@@ -65,6 +67,7 @@ export default function EmailAuth() {
           textContentType="password"
         />
 
+        <TermsConsentCheckbox checked={agreed} onToggle={() => setAgreed((v) => !v)} />
         <Button label="Continue" onPress={handleContinue} disabled={!canContinue} loading={loading} style={{ marginTop: spacing.sm }} />
         {error && <InlineError message={error} onRetry={handleContinue} />}
       </ScrollView>

@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { InlineError } from '@/components/ui/StateViews';
+import { TermsConsentCheckbox } from '@/components/ui/TermsConsent';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing } from '@/lib/theme';
 
@@ -13,11 +14,12 @@ export default function PhoneAuth() {
   const { sendPhoneCode } = useApp();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('+254');
+  const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const digits = phone.replace(/\D/g, '');
-  const canContinue = name.trim().length > 0 && digits.length >= 9;
+  const canContinue = name.trim().length > 0 && digits.length >= 9 && agreed;
 
   const handleSendCode = async () => {
     if (!canContinue) return;
@@ -59,6 +61,7 @@ export default function PhoneAuth() {
           textContentType="telephoneNumber"
         />
 
+        <TermsConsentCheckbox checked={agreed} onToggle={() => setAgreed((v) => !v)} />
         <Button label="Send code" onPress={handleSendCode} disabled={!canContinue} loading={loading} style={{ marginTop: spacing.sm }} />
         {error && <InlineError message={error} onRetry={handleSendCode} />}
       </ScrollView>
