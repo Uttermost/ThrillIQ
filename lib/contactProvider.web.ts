@@ -1,7 +1,7 @@
-import { doc, setDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, orderBy, query, setDoc, updateDoc, where } from 'firebase/firestore';
 
 import { db } from './firebase';
-import { ContactMessage } from './types';
+import { ContactMessage, ReportStatus } from './types';
 
 const COLLECTION = 'contactMessages';
 
@@ -28,4 +28,13 @@ export async function submitContactMessageReal(input: {
   };
   await setDoc(doc(db, COLLECTION, id), data);
   return data;
+}
+
+export async function fetchOpenContactMessagesReal(): Promise<ContactMessage[]> {
+  const snapshot = await getDocs(query(collection(db, COLLECTION), where('status', '==', 'open'), orderBy('createdAt', 'desc')));
+  return snapshot.docs.map((d) => d.data() as ContactMessage);
+}
+
+export async function resolveContactMessageReal(messageId: string, status: ReportStatus): Promise<void> {
+  await updateDoc(doc(db, COLLECTION, messageId), { status });
 }

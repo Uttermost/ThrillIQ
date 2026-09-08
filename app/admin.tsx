@@ -12,13 +12,25 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing, type } from '@/lib/theme';
-import { AuditLogEntry, Report } from '@/lib/types';
+import { AuditLogEntry, ContactMessage, Report } from '@/lib/types';
 
 type Status = 'loading' | 'ready' | 'error';
 
 export default function Admin() {
-  const { me, users, fetchOtherProfile, fetchOpenReports, resolveReport, fetchAuditLog, deletePost, deleteComment } = useApp();
+  const {
+    me,
+    users,
+    fetchOtherProfile,
+    fetchOpenReports,
+    resolveReport,
+    fetchOpenContactMessages,
+    resolveContactMessage,
+    fetchAuditLog,
+    deletePost,
+    deleteComment,
+  } = useApp();
   const [reports, setReports] = useState<Report[]>([]);
+  const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
   const [status, setStatus] = useState<Status>('loading');
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -28,14 +40,15 @@ export default function Admin() {
   const load = useCallback(async () => {
     setStatus('loading');
     try {
-      const [reportList, logList] = await Promise.all([fetchOpenReports(), fetchAuditLog()]);
+      const [reportList, messageList, logList] = await Promise.all([fetchOpenReports(), fetchOpenContactMessages(), fetchAuditLog()]);
       setReports(reportList);
+      setContactMessages(messageList);
       setAuditLog(logList);
       setStatus('ready');
     } catch {
       setStatus('error');
     }
-  }, [fetchOpenReports, fetchAuditLog]);
+  }, [fetchOpenReports, fetchOpenContactMessages, fetchAuditLog]);
 
   useEffect(() => {
     if (me.isAdmin) load();
@@ -66,6 +79,18 @@ export default function Admin() {
       ]);
     } catch {
       // Best-effort: the report just stays in the open list on failure.
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleResolveContactMessage = async (message: ContactMessage) => {
+    setBusyId(message.id);
+    try {
+      await resolveContactMessage(message.id, 'resolved');
+      setContactMessages((prev) => prev.filter((m) => m.id !== message.id));
+    } catch {
+      // Best-effort: the message just stays in the open list on failure.
     } finally {
       setBusyId(null);
     }
@@ -221,6 +246,29 @@ export default function Admin() {
             </View>
 
             <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Contact messages</Text>
+              {contactMessages.length === 0 ? (
+                <EmptyState icon="mail-outline" title="Inbox zero" message="No open contact messages right now." />
+              ) : (
+                contactMessages.map((m) => (
+                  <View key={m.id} style={styles.card}>
+                    <View style={styles.cardHeader}>
+                      <Badge label={m.topic} tone="accent" />
+                      <Text style={styles.cardDate}>{formatRelativeTime(m.createdAt)}</Text>
+                    </View>
+                    <Text style={styles.cardContact}>
+                      {m.name} · {m.email}
+                    </Text>
+                    <Text style={styles.cardDetails}>{m.message}</Text>
+                    <View style={styles.actionsRow}>
+                      <Button label="Mark resolved" onPress={() => handleResolveContactMessage(m)} loading={busyId === m.id} style={styles.actionBtn} />
+                    </View>
+                  </View>
+                ))
+              )}
+            </View>
+
+            <View style={styles.section}>
               <Text style={styles.sectionTitle}>Recent activity</Text>
               {auditLog.length === 0 ? (
                 <Text style={styles.cardMeta}>No moderation actions yet.</Text>
@@ -259,6 +307,7 @@ const styles = StyleSheet.create({
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardDate: { ...type.caption, color: colors.textMuted },
   cardTarget: { ...type.bodyEmphasis, color: colors.primary },
+  cardContact: { ...type.bodyEmphasis },
   cardMeta: { ...type.secondary, color: colors.textSecondary },
   cardDetails: { ...type.secondary },
   actionsRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },

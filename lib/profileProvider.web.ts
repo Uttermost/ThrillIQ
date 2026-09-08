@@ -25,6 +25,7 @@ function fromDoc(uid: string, data: Record<string, unknown>): User {
     tags: (data.tags as User['tags']) ?? [],
     completedAdventuresCount: (data.completedAdventuresCount as number) ?? 0,
     privacy: (data.privacy as User['privacy']) ?? DEFAULT_PRIVACY,
+    isAdmin: (data.isAdmin as boolean) ?? false,
   };
 }
 

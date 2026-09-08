@@ -21,7 +21,7 @@ import {
 import { fetchAcknowledgementsReal, recordAcknowledgementReal } from './acknowledgementsProvider';
 import { fetchAuditLogReal, fetchOpenReportsReal, recordAuditLogReal, resolveReportReal, submitReportReal } from './adminProvider';
 import { fetchConnectionsForReal, respondToConnectionRequestReal, sendConnectionRequestReal } from './connectionsProvider';
-import { submitContactMessageReal } from './contactProvider';
+import { fetchOpenContactMessagesReal, resolveContactMessageReal, submitContactMessageReal } from './contactProvider';
 import { createCrewReal, joinCrewReal, leaveCrewReal, subscribeCrewsReal } from './crewsProvider';
 import { fetchFollowersReal, fetchFollowingReal, followUserReal, unfollowUserReal } from './followsProvider';
 import { ME_ID, initialThreads, users } from './mockData';
@@ -210,6 +210,8 @@ interface AppContextValue extends AppState {
   leaveWaitlist: (adventureId: string) => Promise<void>;
   submitReport: (input: { targetType: Report['targetType']; targetId: string; contextId?: string; reason: Report['reason']; details: string }) => Promise<void>;
   submitContactMessage: (input: { name: string; email: string; topic: ContactMessage['topic']; message: string }) => Promise<void>;
+  fetchOpenContactMessages: () => Promise<ContactMessage[]>;
+  resolveContactMessage: (messageId: string, status: ReportStatus) => Promise<void>;
   fetchOpenReports: () => Promise<Report[]>;
   resolveReport: (report: Report, status: ReportStatus) => Promise<void>;
   fetchAuditLog: () => Promise<AuditLogEntry[]>;
@@ -1087,6 +1089,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [authenticated]
   );
 
+  const fetchOpenContactMessages = useCallback(async (): Promise<ContactMessage[]> => {
+    try {
+      return await fetchOpenContactMessagesReal();
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const resolveContactMessage = useCallback(async (messageId: string, status: ReportStatus) => {
+    if (simulateFailuresRef.current) {
+      await delay(NETWORK_LATENCY_MS);
+      throw new ApiError("Couldn't update the message. Try again.");
+    }
+    try {
+      await resolveContactMessageReal(messageId, status);
+    } catch (e) {
+      throw new ApiError(e instanceof Error ? e.message : "Couldn't update the message. Try again.");
+    }
+  }, []);
+
   const fetchOpenReports = useCallback(async (): Promise<Report[]> => {
     try {
       return await fetchOpenReportsReal();
@@ -1557,6 +1579,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       leaveWaitlist,
       submitReport,
       submitContactMessage,
+      fetchOpenContactMessages,
+      resolveContactMessage,
       fetchOpenReports,
       resolveReport,
       fetchAuditLog,
@@ -1635,6 +1659,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       leaveWaitlist,
       submitReport,
       submitContactMessage,
+      fetchOpenContactMessages,
+      resolveContactMessage,
       fetchOpenReports,
       resolveReport,
       fetchAuditLog,

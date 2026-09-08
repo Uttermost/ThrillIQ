@@ -3,7 +3,7 @@
 // build time, so this file's body never actually runs. See
 // adventuresProvider.ts and its peers for the same pattern.
 
-import { ContactMessage } from './types';
+import { ContactMessage, ReportStatus } from './types';
 
 export async function submitContactMessageReal(_input: {
   name: string;
@@ -14,3 +14,9 @@ export async function submitContactMessageReal(_input: {
 }): Promise<ContactMessage> {
   throw new Error('Not implemented');
 }
+
+export async function fetchOpenContactMessagesReal(): Promise<ContactMessage[]> {
+  return [];
+}
+
+export async function resolveContactMessageReal(_messageId: string, _status: ReportStatus): Promise<void> {}
