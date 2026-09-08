@@ -2,11 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useMemo } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AdventureCard } from '@/components/AdventureCard';
 import { Button } from '@/components/ui/Button';
 import { MountainScene } from '@/components/ui/MountainScene';
+import { PublicFooter } from '@/components/ui/PublicFooter';
+import { PublicHeader } from '@/components/ui/PublicHeader';
 import { useApp } from '@/lib/store';
 import { CONTENT_MAX_WIDTH, DESKTOP_CONTENT_MAX_WIDTH, colors, radius, spacing, type } from '@/lib/theme';
 import { Adventure, Category } from '@/lib/types';
@@ -42,13 +43,6 @@ const CATEGORY_TILES: { category: Category; icon: keyof typeof Ionicons.glyphMap
 
 const HERO_PILL_CATEGORIES: Category[] = ['Hiking', 'Road trip', 'Camping', 'Cycling', 'Wellness', 'Networking'];
 
-const NAV_LINKS = [
-  { label: 'Discover', href: '/discover' },
-  { label: 'Feed', href: '/feed' },
-  { label: 'People', href: '/connections' },
-  { label: 'Crews', href: '/crews' },
-];
-
 export default function Home() {
   const { width } = useWindowDimensions();
   const { adventures, authenticated } = useApp();
@@ -72,37 +66,7 @@ export default function Home() {
   return (
     <View style={styles.page}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <SafeAreaView edges={['top']} style={styles.headerSafe}>
-          <View style={styles.headerBar}>
-            <View style={styles.headerInner}>
-              <Text style={styles.logo}>ThrillIQ</Text>
-              {isWide && (
-                <View style={styles.headerLinks}>
-                  <View style={styles.headerLinkActive}>
-                    <Text style={[styles.headerLinkText, styles.headerLinkTextActive]}>Home</Text>
-                    <View style={styles.headerLinkUnderline} />
-                  </View>
-                  {NAV_LINKS.map((link) => (
-                    <Pressable key={link.href} onPress={() => router.push(link.href as never)} hitSlop={8}>
-                      <Text style={styles.headerLinkText}>{link.label}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              )}
-              <View style={styles.headerActions}>
-                {isWide && (
-                  <Pressable onPress={() => router.push('/discover')} hitSlop={8} style={styles.headerIconBtn} accessibilityLabel="Search">
-                    <Ionicons name="search" size={18} color={colors.textPrimary} />
-                  </Pressable>
-                )}
-                <Button label="Join" onPress={() => router.push('/auth')} style={styles.joinBtn} />
-                <Pressable onPress={() => router.push('/auth')} hitSlop={8} style={styles.loginBtn}>
-                  <Text style={styles.loginBtnText}>Login</Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        </SafeAreaView>
+        <PublicHeader active="Home" />
 
         {/* Hero — illustrated (not photographic) background, per MountainScene's
             "no fake stock photos" rule: no adventure photography exists yet. */}
@@ -250,24 +214,7 @@ export default function Home() {
           </View>
         </View>
 
-        {/* Footer */}
-        <View style={[styles.section, styles.footerSection]}>
-          <View style={styles.sectionInner}>
-            <Text style={styles.footerLogo}>ThrillIQ</Text>
-            <Text style={styles.footerTagline}>Think. Explore. Connect.</Text>
-            <View style={styles.footerLinks}>
-              {NAV_LINKS.map((link) => (
-                <Pressable key={link.href} onPress={() => router.push(link.href as never)} hitSlop={8}>
-                  <Text style={styles.footerLinkText}>{link.label}</Text>
-                </Pressable>
-              ))}
-              <Pressable onPress={() => router.push('/auth')} hitSlop={8}>
-                <Text style={styles.footerLinkText}>Sign in</Text>
-              </Pressable>
-            </View>
-            <Text style={styles.footerCopyright}>© {new Date().getFullYear()} ThrillIQ. Adventures are run independently by their organizers.</Text>
-          </View>
-        </View>
+        <PublicFooter />
       </ScrollView>
     </View>
   );
@@ -276,28 +223,6 @@ export default function Home() {
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.background },
   scroll: { flexGrow: 1 },
-  headerSafe: { backgroundColor: colors.surface },
-  headerBar: { backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border, alignItems: 'center' },
-  headerInner: {
-    width: '100%',
-    maxWidth: DESKTOP_CONTENT_MAX_WIDTH,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-    height: 64,
-    gap: spacing.xl,
-  },
-  logo: { ...type.sectionHeading, color: colors.primary, fontWeight: '800' },
-  headerLinks: { flexDirection: 'row', alignItems: 'center', gap: spacing.xl, flex: 1 },
-  headerLinkActive: { alignItems: 'center' },
-  headerLinkText: { ...type.bodyEmphasis, color: colors.textSecondary },
-  headerLinkTextActive: { color: colors.textPrimary },
-  headerLinkUnderline: { height: 2, width: 20, borderRadius: 1, backgroundColor: colors.primary, marginTop: spacing.xs },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginLeft: 'auto' },
-  headerIconBtn: { padding: spacing.xs },
-  loginBtn: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  loginBtnText: { ...type.bodyEmphasis, color: colors.textPrimary },
-  joinBtn: { paddingHorizontal: spacing.lg, minHeight: 40 },
 
   section: { alignItems: 'center' },
   sectionInner: { width: '100%', maxWidth: DESKTOP_CONTENT_MAX_WIDTH, paddingHorizontal: spacing.xl, paddingVertical: spacing.xxxl },
@@ -401,11 +326,4 @@ const styles = StyleSheet.create({
   closingSection: { backgroundColor: colors.textPrimary, alignItems: 'center' },
   closingTitle: { ...type.screenHeading, color: '#fff', textAlign: 'center', marginBottom: spacing.lg },
   closingBtn: { alignSelf: 'center', paddingHorizontal: spacing.xxl },
-
-  footerSection: { backgroundColor: colors.surfaceMuted, paddingBottom: spacing.xxxl },
-  footerLogo: { ...type.sectionHeading, color: colors.primary, fontWeight: '800' },
-  footerTagline: { ...type.secondary, color: colors.textSecondary, marginTop: 2, marginBottom: spacing.lg },
-  footerLinks: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xl, marginBottom: spacing.lg },
-  footerLinkText: { ...type.bodyEmphasis, color: colors.textSecondary },
-  footerCopyright: { ...type.secondary, color: colors.textMuted },
 });

@@ -26,6 +26,10 @@ const NAV_LINKS: NavLink[] = [
   { label: 'Crews', href: '/crews', icon: 'flag-outline', activePrefixes: ['/crews', '/crew/'] },
 ];
 
+// Public marketing pages (their own PublicHeader, not this nav) — checked
+// once here rather than allocated fresh on every render.
+const PUBLIC_SITE_PATHS = ['/home', '/about', '/faqs', '/safety'];
+
 // Desktop web only (see ResponsiveViewport for the same breakpoint gating
 // the wide content layout it replaces the bottom tab bar for) — a
 // persistent top nav across every screen, per the product's desktop IA:
@@ -38,10 +42,17 @@ export function DesktopNav() {
 
   // Onboarding and sign-in are single-purpose, centered forms — showing the
   // full app shell (Feed/People/Crews) before someone has even opened the
-  // app would be premature, not just visually cramped. The public homepage
-  // (app/home.tsx) has its own marketing-oriented header with Login/Join,
-  // not this authenticated-app nav.
-  if (Platform.OS !== 'web' || width <= CONTENT_MAX_WIDTH || !onboarded || pathname.startsWith('/auth') || pathname === '/onboarding' || pathname === '/home') {
+  // app would be premature, not just visually cramped. The public site
+  // pages (Home, About, FAQs, Safety) have their own marketing-oriented
+  // header (PublicHeader) with Login/Join, not this authenticated-app nav.
+  if (
+    Platform.OS !== 'web' ||
+    width <= CONTENT_MAX_WIDTH ||
+    !onboarded ||
+    pathname.startsWith('/auth') ||
+    pathname === '/onboarding' ||
+    PUBLIC_SITE_PATHS.includes(pathname)
+  ) {
     return null;
   }
 

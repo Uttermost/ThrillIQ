@@ -52,6 +52,9 @@ export default function RootLayout() {
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="home" />
+            <Stack.Screen name="about" />
+            <Stack.Screen name="faqs" />
+            <Stack.Screen name="safety" />
             <Stack.Screen name="onboarding" />
             <Stack.Screen name="auth/index" />
             <Stack.Screen name="auth/email" />
