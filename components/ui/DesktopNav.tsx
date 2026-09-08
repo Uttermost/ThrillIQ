@@ -29,7 +29,7 @@ const NAV_LINKS: NavLink[] = [
 // Public marketing pages (their own PublicHeader, not this nav) — checked
 // once here rather than allocated fresh on every render. Prefix-matched so
 // /blog/[slug] doesn't need every post slug listed here.
-const PUBLIC_SITE_PATHS = ['/home', '/about', '/faqs', '/safety', '/terms', '/privacy', '/contact', '/blog'];
+const PUBLIC_SITE_PATHS = ['/home', '/about', '/faqs', '/safety', '/terms', '/privacy', '/contact', '/blog', '/for-organizers'];
 function isPublicSitePath(pathname: string): boolean {
   return PUBLIC_SITE_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }

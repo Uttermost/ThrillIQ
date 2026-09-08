@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/Button';
 import { MountainScene } from '@/components/ui/MountainScene';
 import { PublicFooter } from '@/components/ui/PublicFooter';
 import { PublicHeader } from '@/components/ui/PublicHeader';
-import { useApp } from '@/lib/store';
 import { CONTENT_MAX_WIDTH, DESKTOP_CONTENT_MAX_WIDTH, colors, radius, spacing, type } from '@/lib/theme';
 
 // Company/product "About" page — the handoff doc's public-pages spec
@@ -34,10 +33,7 @@ const STEPS: { title: string; body: string }[] = [
 
 export default function About() {
   const { width } = useWindowDimensions();
-  const { authenticated } = useApp();
   const isWide = Platform.OS === 'web' && width > CONTENT_MAX_WIDTH;
-
-  const goCreate = () => router.push(authenticated ? '/create' : '/auth');
 
   return (
     <View style={styles.page}>
@@ -111,8 +107,8 @@ export default function About() {
               <Text style={styles.trustBody}>
                 Set the date, price, and details. ThrillIQ doesn't process payments — participants pay you directly, and you manage who's coming.
               </Text>
-              <Pressable onPress={goCreate} hitSlop={8}>
-                <Text style={styles.trustLink}>Create an adventure →</Text>
+              <Pressable onPress={() => router.push('/for-organizers')} hitSlop={8}>
+                <Text style={styles.trustLink}>Learn more →</Text>
               </Pressable>
             </View>
           </View>

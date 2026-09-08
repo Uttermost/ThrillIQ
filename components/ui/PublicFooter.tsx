@@ -9,12 +9,14 @@ const EXPLORE_LINKS = [
   { label: 'Feed', href: '/feed' },
   { label: 'People', href: '/connections' },
   { label: 'Crews', href: '/crews' },
+  { label: 'For Organizers', href: '/for-organizers' },
 ];
 
-// About/FAQs/Safety/Contact/Blog/Terms/Privacy now exist as real pages —
-// see app/about.tsx, app/faqs.tsx, app/safety.tsx, app/contact.tsx,
-// app/blog/, app/terms.tsx, app/privacy.tsx. Terms and Privacy are drafts
-// pending legal review (see those files), not finalized policies.
+// About/FAQs/Safety/Contact/Blog/For Organizers/Terms/Privacy now exist as
+// real pages — see app/about.tsx, app/faqs.tsx, app/safety.tsx,
+// app/contact.tsx, app/blog/, app/for-organizers.tsx, app/terms.tsx,
+// app/privacy.tsx. Terms and Privacy are drafts pending legal review (see
+// those files), not finalized policies.
 const COMPANY_LINKS = [
   { label: 'About', href: '/about' },
   { label: 'Blog', href: '/blog' },
