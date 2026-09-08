@@ -40,7 +40,7 @@ const CATEGORY_TILES: { category: Category; icon: keyof typeof Ionicons.glyphMap
   { category: 'Social', icon: 'happy-outline', bg: colors.accentMuted, fg: colors.accent },
 ];
 
-const HERO_PILL_CATEGORIES: Category[] = ['Hiking', 'Camping', 'Water', 'Cycling', 'Wellness'];
+const HERO_PILL_CATEGORIES: Category[] = ['Hiking', 'Road trip', 'Camping', 'Cycling', 'Wellness', 'Networking'];
 
 const NAV_LINKS = [
   { label: 'Discover', href: '/discover' },
@@ -51,8 +51,10 @@ const NAV_LINKS = [
 
 export default function Home() {
   const { width } = useWindowDimensions();
-  const { adventures } = useApp();
+  const { adventures, authenticated } = useApp();
   const isWide = Platform.OS === 'web' && width > CONTENT_MAX_WIDTH;
+
+  const goCreate = () => router.push(authenticated ? '/create' : '/auth');
 
   const featured = useMemo(() => {
     const now = Date.now();
@@ -76,6 +78,10 @@ export default function Home() {
               <Text style={styles.logo}>ThrillIQ</Text>
               {isWide && (
                 <View style={styles.headerLinks}>
+                  <View style={styles.headerLinkActive}>
+                    <Text style={[styles.headerLinkText, styles.headerLinkTextActive]}>Home</Text>
+                    <View style={styles.headerLinkUnderline} />
+                  </View>
                   {NAV_LINKS.map((link) => (
                     <Pressable key={link.href} onPress={() => router.push(link.href as never)} hitSlop={8}>
                       <Text style={styles.headerLinkText}>{link.label}</Text>
@@ -89,10 +95,10 @@ export default function Home() {
                     <Ionicons name="search" size={18} color={colors.textPrimary} />
                   </Pressable>
                 )}
-                <Pressable onPress={() => router.push('/auth')} hitSlop={8} style={styles.loginBtn}>
-                  <Text style={styles.loginBtnText}>Log in</Text>
-                </Pressable>
                 <Button label="Join" onPress={() => router.push('/auth')} style={styles.joinBtn} />
+                <Pressable onPress={() => router.push('/auth')} hitSlop={8} style={styles.loginBtn}>
+                  <Text style={styles.loginBtnText}>Login</Text>
+                </Pressable>
               </View>
             </View>
           </View>
@@ -123,6 +129,10 @@ export default function Home() {
               </Pressable>
 
               <View style={styles.heroPillRow}>
+                <View style={styles.heroLocation}>
+                  <Ionicons name="location-outline" size={14} color="rgba(255,255,255,0.85)" />
+                  <Text style={styles.heroLocationText}>Nairobi, Kenya</Text>
+                </View>
                 {HERO_PILL_CATEGORIES.map((c) => (
                   <Pressable key={c} style={styles.heroPill} onPress={() => router.push('/discover')}>
                     <Text style={styles.heroPillText}>{c}</Text>
@@ -131,6 +141,11 @@ export default function Home() {
               </View>
             </View>
           </View>
+          {isWide && (
+            <Text style={styles.heroTagline}>
+              Real people.{'\n'}Amazing places.{'\n'}Unforgettable moments.
+            </Text>
+          )}
         </View>
 
         {/* Value props */}
@@ -161,9 +176,13 @@ export default function Home() {
             </View>
             <View style={styles.categoryRow}>
               {CATEGORY_TILES.map((c) => (
-                <Pressable key={c.category} style={[styles.categoryTile, { backgroundColor: c.bg }]} onPress={() => router.push('/discover')}>
-                  <Ionicons name={c.icon} size={26} color={c.fg} />
-                  <Text style={[styles.categoryLabel, { color: c.fg }]}>{c.category}</Text>
+                <Pressable key={c.category} style={styles.categoryTile} onPress={() => router.push('/discover')}>
+                  <View style={[styles.categoryTileArt, { backgroundColor: c.bg }]}>
+                    <Ionicons name={c.icon} size={30} color={c.fg} />
+                  </View>
+                  <View style={styles.categoryTileFooter}>
+                    <Text style={styles.categoryLabel}>{c.category}</Text>
+                  </View>
                 </Pressable>
               ))}
             </View>
@@ -198,10 +217,20 @@ export default function Home() {
         {/* Community CTA */}
         <View style={[styles.section, styles.crewSection]}>
           <View style={styles.sectionInner}>
-            <Text style={styles.crewEyebrow}>JOIN THE COMMUNITY</Text>
-            <Text style={styles.crewTitle}>More than adventures. It's a community.</Text>
-            <Text style={styles.crewBody}>Meet people who share your interests, explore together, and build a crew you keep coming back to.</Text>
-            <Button label="See Crews" variant="secondary" onPress={() => router.push('/crews')} style={styles.crewBtn} />
+            <View style={[styles.crewRow, isWide && styles.crewRowWide]}>
+              <View style={[styles.crewPanel, isWide && styles.crewPanelWide]}>
+                <Text style={styles.crewEyebrow}>JOIN THE COMMUNITY</Text>
+                <Text style={styles.crewTitle}>More than adventures. It's a community.</Text>
+                <Text style={styles.crewBody}>Meet people who share your interests, explore together, and build a crew you keep coming back to.</Text>
+                <Button label="See Crews" variant="secondary" onPress={() => router.push('/crews')} style={styles.crewBtn} />
+              </View>
+              <View style={[styles.crewPanel, isWide && styles.crewPanelWide]}>
+                <Text style={styles.crewEyebrow}>FOR ORGANIZERS</Text>
+                <Text style={styles.crewTitle}>Have an adventure to share?</Text>
+                <Text style={styles.crewBody}>Host your own hike, ride, or meetup — set the spots, the price, and the details, and manage everyone who joins.</Text>
+                <Button label="Create an adventure" variant="secondary" onPress={goCreate} style={styles.crewBtn} />
+              </View>
+            </View>
           </View>
         </View>
 
@@ -252,7 +281,10 @@ const styles = StyleSheet.create({
   },
   logo: { ...type.sectionHeading, color: colors.primary, fontWeight: '800' },
   headerLinks: { flexDirection: 'row', alignItems: 'center', gap: spacing.xl, flex: 1 },
+  headerLinkActive: { alignItems: 'center' },
   headerLinkText: { ...type.bodyEmphasis, color: colors.textSecondary },
+  headerLinkTextActive: { color: colors.textPrimary },
+  headerLinkUnderline: { height: 2, width: 20, borderRadius: 1, backgroundColor: colors.primary, marginTop: spacing.xs },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginLeft: 'auto' },
   headerIconBtn: { padding: spacing.xs },
   loginBtn: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
@@ -270,6 +302,17 @@ const styles = StyleSheet.create({
   heroScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15, 23, 42, 0.55)' },
   heroContentWrap: { width: '100%', alignItems: 'center' },
   heroInner: { paddingTop: 0, paddingBottom: spacing.xxxl },
+  heroTagline: {
+    position: 'absolute',
+    right: spacing.xxxl,
+    bottom: spacing.huge * 2,
+    ...type.body,
+    fontStyle: 'italic',
+    color: 'rgba(255,255,255,0.85)',
+    textAlign: 'right',
+  },
+  heroLocation: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: spacing.sm },
+  heroLocationText: { ...type.bodyEmphasis, color: 'rgba(255,255,255,0.9)' },
   heroEyebrow: { ...type.caption, color: 'rgba(255,255,255,0.85)', letterSpacing: 1.5, fontWeight: '700', marginBottom: spacing.sm },
   heroTitle: { ...type.display, fontSize: 40, lineHeight: 46, color: '#fff' },
   heroTitleAccent: { color: '#4ADE80' },
@@ -310,13 +353,15 @@ const styles = StyleSheet.create({
 
   categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
   categoryTile: {
-    width: 128,
-    height: 100,
+    width: 132,
     borderRadius: radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
+  categoryTileArt: { height: 108, alignItems: 'center', justifyContent: 'center' },
+  categoryTileFooter: { paddingVertical: spacing.sm, alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.border },
   categoryLabel: { ...type.bodyEmphasis },
 
   featuredGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -spacing.sm },
@@ -325,9 +370,13 @@ const styles = StyleSheet.create({
   emptyFeaturedText: { ...type.body, color: colors.textSecondary, textAlign: 'center' },
 
   crewSection: { backgroundColor: colors.surfaceMuted },
-  crewEyebrow: { ...type.caption, color: colors.primary, fontWeight: '700', letterSpacing: 1, marginBottom: spacing.sm },
-  crewTitle: { ...type.screenHeading, marginBottom: spacing.sm, maxWidth: 520 },
-  crewBody: { ...type.body, color: colors.textSecondary, marginBottom: spacing.lg, maxWidth: 520 },
+  crewRow: { gap: spacing.xxl },
+  crewRowWide: { flexDirection: 'row' },
+  crewPanel: { gap: spacing.sm },
+  crewPanelWide: { flex: 1 },
+  crewEyebrow: { ...type.caption, color: colors.primary, fontWeight: '700', letterSpacing: 1 },
+  crewTitle: { ...type.screenHeading },
+  crewBody: { ...type.body, color: colors.textSecondary, marginBottom: spacing.sm },
   crewBtn: { alignSelf: 'flex-start', paddingHorizontal: spacing.xl },
 
   closingSection: { backgroundColor: colors.textPrimary, alignItems: 'center' },
