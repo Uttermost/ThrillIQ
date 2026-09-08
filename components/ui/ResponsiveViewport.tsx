@@ -8,7 +8,7 @@ import { CONTENT_MAX_WIDTH, DESKTOP_CONTENT_MAX_WIDTH, colors } from '@/lib/them
 // grids) instead of the narrow centered column below — see DesktopNav and
 // Discover. Everything not listed here still gets the phone-width
 // treatment on wide viewports until it's redesigned too.
-const WIDE_LAYOUT_PREFIXES = ['/discover', '/connections', '/crews'];
+const WIDE_LAYOUT_PREFIXES = ['/discover', '/connections', '/crews', '/adventure'];
 
 // Phones render full-bleed; anything wider (tablets, desktop web) gets the
 // app centered in a fixed-width column with a neutral gutter on each side,
