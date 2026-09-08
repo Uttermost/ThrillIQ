@@ -10,6 +10,13 @@ import { CONTENT_MAX_WIDTH, DESKTOP_CONTENT_MAX_WIDTH, colors } from '@/lib/them
 // treatment on wide viewports until it's redesigned too.
 const WIDE_LAYOUT_PREFIXES = ['/discover', '/connections', '/crews', '/adventure', '/feed'];
 
+// Exact-path-only entries — for routes that share a prefix with a sibling
+// dynamic route that hasn't been redesigned for wide yet. /organizer is the
+// dashboard index; /organizer/[id] (per-adventure participant management)
+// stays narrow, so it can't go in WIDE_LAYOUT_PREFIXES above without also
+// widening that screen.
+const WIDE_LAYOUT_EXACT = ['/organizer'];
+
 // Phones render full-bleed; anything wider (tablets, desktop web) gets the
 // app centered in a fixed-width column with a neutral gutter on each side,
 // per the responsive-design spec (§60) — cards, forms and text shouldn't
@@ -24,7 +31,7 @@ export function ResponsiveViewport({ children }: { children: React.ReactNode }) 
     return <View style={styles.fullBleed}>{children}</View>;
   }
 
-  const isWide = WIDE_LAYOUT_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  const isWide = WIDE_LAYOUT_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`)) || WIDE_LAYOUT_EXACT.includes(pathname);
 
   return (
     <View style={styles.gutter}>
