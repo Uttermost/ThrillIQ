@@ -24,6 +24,7 @@ import { fetchAuditLogReal, fetchOpenReportsReal, recordAuditLogReal, resolveRep
 import { fetchConnectionsForReal, respondToConnectionRequestReal, sendConnectionRequestReal } from './connectionsProvider';
 import { createCrewReal, joinCrewReal, leaveCrewReal, subscribeCrewsReal } from './crewsProvider';
 import { formatDateLabel, formatTimeLabel } from './dateFormat';
+import { CURRENT_TERMS_VERSION } from './legal';
 import { fetchFollowersReal, fetchFollowingReal, followUserReal, unfollowUserReal } from './followsProvider';
 import {
   ME_ID,
@@ -525,6 +526,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [myId]
   );
 
+  // Every sign-in path (social/email/phone) calls this to finish signing
+  // in — which makes it the one place to record Terms/Privacy consent so
+  // there's no route to an authenticated state that skips it. Each of
+  // those call sites gates its own action behind a required
+  // TermsConsentCheckbox first, so by the time this runs, agreement has
+  // already happened; this just records it.
   const completeSignIn = useCallback(async () => {
     setAuthenticated(true);
     try {
@@ -532,10 +539,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // Non-fatal: session just won't persist across restarts.
     }
+    const agreedToTermsAt = Date.now();
+    setUsersState((prev) => ({
+      ...prev,
+      [myIdRef.current]: { ...(prev[myIdRef.current] ?? defaultUser(myIdRef.current)), agreedToTermsAt, agreedToTermsVersion: CURRENT_TERMS_VERSION },
+    }));
     if (IS_NATIVE) {
       const known = usersStateRef.current[myIdRef.current];
       try {
         await ensureProfileReal(myIdRef.current, { name: known?.name || 'Explorer', initials: known?.initials || 'ME' });
+        await updateProfileReal(myIdRef.current, { agreedToTermsAt, agreedToTermsVersion: CURRENT_TERMS_VERSION });
       } catch {
         // Non-fatal: the local defaultUser() fallback covers the gap until
         // the next successful sign-in retries this.

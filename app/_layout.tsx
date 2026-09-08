@@ -20,7 +20,7 @@ function requiresAuth(pathname: string): boolean {
 }
 
 function AuthGate({ children }: { children: React.ReactNode }) {
-  const { ready, onboarded, authenticated } = useApp();
+  const { ready, onboarded, authenticated, me } = useApp();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -36,7 +36,17 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       if (!pathname.startsWith('/auth')) router.replace('/auth');
       return;
     }
-  }, [ready, onboarded, authenticated, pathname, router]);
+    // Every sign-in path stamps agreedToTermsAt before completeSignIn ever
+    // runs, so an authenticated session missing it didn't come from any of
+    // them — it's a session restored from a device/profile that predates
+    // this field. Applies everywhere, not just auth-required screens: the
+    // point is nobody stays authenticated without having agreed, not just
+    // that they can't reach a specific gated screen.
+    if (authenticated && !me.agreedToTermsAt && pathname !== '/auth/consent') {
+      router.replace('/auth/consent');
+      return;
+    }
+  }, [ready, onboarded, authenticated, me.agreedToTermsAt, pathname, router]);
 
   return <>{children}</>;
 }
@@ -54,6 +64,7 @@ export default function RootLayout() {
             <Stack.Screen name="auth/email" />
             <Stack.Screen name="auth/phone" />
             <Stack.Screen name="auth/otp" />
+            <Stack.Screen name="auth/consent" />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="adventure/[id]" />
             <Stack.Screen name="crews" />

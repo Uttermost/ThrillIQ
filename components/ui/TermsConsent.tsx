@@ -41,24 +41,6 @@ export function TermsConsentCheckbox({ checked, onToggle }: TermsConsentCheckbox
   );
 }
 
-// For one-tap social sign-in, where there's no form step to gate with a
-// checkbox — a disclaimer line is the standard pattern instead.
-export function TermsDisclaimer() {
-  return (
-    <Text style={styles.disclaimer}>
-      By continuing, you agree to our{' '}
-      <Text style={styles.link} onPress={() => router.push('/legal/terms')}>
-        Terms of Service
-      </Text>{' '}
-      and{' '}
-      <Text style={styles.link} onPress={() => router.push('/legal/privacy')}>
-        Privacy Policy
-      </Text>
-      .
-    </Text>
-  );
-}
-
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   checkbox: {
@@ -73,5 +55,4 @@ const styles = StyleSheet.create({
   checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
   label: { ...type.secondary, flex: 1 },
   link: { color: colors.primary, fontWeight: '600' },
-  disclaimer: { ...type.secondary, color: colors.textMuted, textAlign: 'center' },
 });

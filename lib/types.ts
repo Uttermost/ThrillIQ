@@ -71,6 +71,14 @@ export interface User {
   // changing this on their own doc. Only ever set out-of-band (seeded here,
   // or by a human directly in the Firebase console in a real deployment).
   isAdmin?: boolean;
+  // Stamped once, inside completeSignIn — the single choke point every
+  // sign-in path (social/email/phone) funnels through — so there's no way
+  // to reach an authenticated state without this being recorded. Missing
+  // on an already-authenticated session (e.g. one restored from a device
+  // that predates this field) is exactly what app/_layout.tsx's AuthGate
+  // checks for to route back to a mandatory consent screen.
+  agreedToTermsAt?: number;
+  agreedToTermsVersion?: string;
 }
 
 export type ReportTargetType = 'adventure' | 'user' | 'review' | 'post' | 'comment';

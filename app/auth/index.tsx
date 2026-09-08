@@ -7,16 +7,18 @@ import { Button } from '@/components/ui/Button';
 import { SocialButton } from '@/components/ui/SocialButton';
 import { InlineError } from '@/components/ui/StateViews';
 import { MountainScene } from '@/components/ui/MountainScene';
-import { TermsDisclaimer } from '@/components/ui/TermsConsent';
+import { TermsConsentCheckbox } from '@/components/ui/TermsConsent';
 import { SocialProvider, useApp } from '@/lib/store';
 import { colors, spacing, typography } from '@/lib/theme';
 
 export default function AuthLanding() {
   const { signInWithProvider } = useApp();
   const [loadingProvider, setLoadingProvider] = useState<SocialProvider | null>(null);
+  const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSocial = async (provider: SocialProvider) => {
+    if (!agreed) return;
     setLoadingProvider(provider);
     setError(null);
     try {
@@ -36,9 +38,11 @@ export default function AuthLanding() {
         <Text style={styles.title}>Welcome to ThrillIQ</Text>
         <Text style={styles.subtitle}>Sign in or create an account to start exploring.</Text>
 
+        <TermsConsentCheckbox checked={agreed} onToggle={() => setAgreed((v) => !v)} />
+
         <View style={styles.group}>
-          <SocialButton provider="google" onPress={() => handleSocial('google')} loading={loadingProvider === 'google'} />
-          <SocialButton provider="apple" onPress={() => handleSocial('apple')} loading={loadingProvider === 'apple'} />
+          <SocialButton provider="google" onPress={() => handleSocial('google')} loading={loadingProvider === 'google'} disabled={!agreed} />
+          <SocialButton provider="apple" onPress={() => handleSocial('apple')} loading={loadingProvider === 'apple'} disabled={!agreed} />
         </View>
 
         {error && <InlineError message={error} onRetry={() => setError(null)} retryLabel="Dismiss" />}
@@ -55,7 +59,6 @@ export default function AuthLanding() {
         </View>
 
         <Text style={styles.disclaimer}>New here? We'll create your account automatically.</Text>
-        <TermsDisclaimer />
 
         <Button
           label="Not now — keep browsing"
