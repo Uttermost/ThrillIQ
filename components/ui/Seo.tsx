@@ -20,10 +20,20 @@ interface SeoProps {
 // crawlability for those would need server-side rendering, which is a
 // framework-level change, not something this component can fix.
 export function Seo({ title, description }: SeoProps) {
+  // No fixed production domain exists yet (same reason sitemap.xml is
+  // deferred — see public/robots.txt), so this is computed from the real
+  // runtime origin rather than a guessed/hardcoded one. Query string
+  // dropped deliberately: canonical should point at the clean page, not a
+  // particular filter/search state. undefined on native (no window) or
+  // during a server render pass, where <Head> simply omits the tag.
+  const canonical = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}` : undefined;
+
   return (
     <Head>
       <title>{`${title} | ${SITE_NAME}`}</title>
       <meta name="description" content={description} />
+      {canonical && <link rel="canonical" href={canonical} />}
+      {canonical && <meta property="og:url" content={canonical} />}
       <meta property="og:title" content={title} />
       <meta property="og:description" content={description} />
       <meta property="og:site_name" content={SITE_NAME} />
