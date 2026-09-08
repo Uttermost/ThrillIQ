@@ -28,7 +28,7 @@ const NAV_LINKS: NavLink[] = [
 
 // Public marketing pages (their own PublicHeader, not this nav) — checked
 // once here rather than allocated fresh on every render.
-const PUBLIC_SITE_PATHS = ['/home', '/about', '/faqs', '/safety', '/terms', '/privacy'];
+const PUBLIC_SITE_PATHS = ['/home', '/about', '/faqs', '/safety', '/terms', '/privacy', '/contact'];
 
 // Desktop web only (see ResponsiveViewport for the same breakpoint gating
 // the wide content layout it replaces the bottom tab bar for) — a

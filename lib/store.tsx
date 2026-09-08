@@ -21,6 +21,7 @@ import {
 import { fetchAcknowledgementsReal, recordAcknowledgementReal } from './acknowledgementsProvider';
 import { fetchAuditLogReal, fetchOpenReportsReal, recordAuditLogReal, resolveReportReal, submitReportReal } from './adminProvider';
 import { fetchConnectionsForReal, respondToConnectionRequestReal, sendConnectionRequestReal } from './connectionsProvider';
+import { submitContactMessageReal } from './contactProvider';
 import { createCrewReal, joinCrewReal, leaveCrewReal, subscribeCrewsReal } from './crewsProvider';
 import { fetchFollowersReal, fetchFollowingReal, followUserReal, unfollowUserReal } from './followsProvider';
 import { ME_ID, initialThreads, users } from './mockData';
@@ -35,6 +36,7 @@ import {
   Adventure,
   AppNotification,
   AuditLogEntry,
+  ContactMessage,
   Connection,
   Crew,
   DEFAULT_PRIVACY,
@@ -207,6 +209,7 @@ interface AppContextValue extends AppState {
   joinWaitlist: (adventureId: string) => Promise<void>;
   leaveWaitlist: (adventureId: string) => Promise<void>;
   submitReport: (input: { targetType: Report['targetType']; targetId: string; contextId?: string; reason: Report['reason']; details: string }) => Promise<void>;
+  submitContactMessage: (input: { name: string; email: string; topic: ContactMessage['topic']; message: string }) => Promise<void>;
   fetchOpenReports: () => Promise<Report[]>;
   resolveReport: (report: Report, status: ReportStatus) => Promise<void>;
   fetchAuditLog: () => Promise<AuditLogEntry[]>;
@@ -1060,6 +1063,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  // Reachable signed in or not — myId defaults to the mock ME_ID on web
+  // even when nobody's signed in, so only attach it when `authenticated`
+  // actually confirms there's a real user behind it.
+  const submitContactMessage = useCallback(
+    async ({ name, email, topic, message }: { name: string; email: string; topic: ContactMessage['topic']; message: string }) => {
+      if (simulateFailuresRef.current) {
+        await delay(NETWORK_LATENCY_MS);
+        throw new ApiError("Couldn't send your message. Try again.");
+      }
+      try {
+        await submitContactMessageReal({
+          name: name.trim(),
+          email: email.trim(),
+          topic,
+          message: message.trim(),
+          ...(authenticated ? { userId: myIdRef.current } : {}),
+        });
+      } catch (e) {
+        throw new ApiError(e instanceof Error ? e.message : "Couldn't send your message. Try again.");
+      }
+    },
+    [authenticated]
+  );
+
   const fetchOpenReports = useCallback(async (): Promise<Report[]> => {
     try {
       return await fetchOpenReportsReal();
@@ -1529,6 +1556,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       joinWaitlist,
       leaveWaitlist,
       submitReport,
+      submitContactMessage,
       fetchOpenReports,
       resolveReport,
       fetchAuditLog,
@@ -1606,6 +1634,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       joinWaitlist,
       leaveWaitlist,
       submitReport,
+      submitContactMessage,
       fetchOpenReports,
       resolveReport,
       fetchAuditLog,

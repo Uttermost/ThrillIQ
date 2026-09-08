@@ -367,6 +367,25 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /contactMessages/{messageId} {
+      // The public Contact page — reachable signed in or not, so unlike
+      // /reports this doesn't require request.auth. Reading the inbox is
+      // admin-only, same pattern as /reports.
+      allow create: if request.resource.data.name is string
+        && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 200
+        && request.resource.data.email is string
+        && request.resource.data.email.size() > 0 && request.resource.data.email.size() <= 200
+        && request.resource.data.topic is string
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 0 && request.resource.data.message.size() <= 5000
+        && request.resource.data.status == 'open';
+
+      allow read, update: if request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+
+      allow delete: if false;
+    }
+
     match /auditLog/{entryId} {
       // A record of moderation actions — admin-only, and nobody may alter
       // history once written.

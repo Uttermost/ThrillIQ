@@ -1,5 +1,6 @@
+import { router } from 'expo-router';
 import React from 'react';
-import { Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { PublicFooter } from '@/components/ui/PublicFooter';
 import { PublicHeader } from '@/components/ui/PublicHeader';
@@ -90,7 +91,7 @@ const SECTIONS: LegalSection[] = [
   },
   {
     heading: '11. Contact',
-    paragraphs: ['Questions about this policy: [insert contact address].'],
+    paragraphs: ['Questions about this policy: use the Contact page.'],
   },
 ];
 
@@ -116,8 +117,8 @@ export default function Privacy() {
             <View style={styles.noticeBox}>
               <Text style={styles.noticeText}>
                 This page is a working draft, not a finalized legal document. What's collected and how it's used is accurate to how the app actually
-                works; bracketed text marks the handful of items — retention periods, a monitored contact address, applicable data-protection law — that
-                need confirmation before this is relied on as a live policy.
+                works; bracketed text marks the handful of items — retention periods, applicable data-protection law — that need confirmation before
+                this is relied on as a live policy.
               </Text>
             </View>
             {SECTIONS.map((s) => (
@@ -130,6 +131,9 @@ export default function Privacy() {
                 ))}
               </View>
             ))}
+            <Pressable onPress={() => router.push('/contact')} hitSlop={8}>
+              <Text style={styles.contactLink}>Contact us →</Text>
+            </Pressable>
           </View>
         </View>
 
@@ -165,4 +169,5 @@ const styles = StyleSheet.create({
   block: { marginBottom: spacing.xl },
   blockHeading: { ...type.sectionHeading, marginBottom: spacing.sm },
   blockBody: { ...type.body, color: colors.textSecondary, marginBottom: spacing.sm },
+  contactLink: { ...type.bodyEmphasis, color: colors.primary },
 });

@@ -1,5 +1,6 @@
+import { router } from 'expo-router';
 import React from 'react';
-import { Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { PublicFooter } from '@/components/ui/PublicFooter';
 import { PublicHeader } from '@/components/ui/PublicHeader';
@@ -90,7 +91,7 @@ const SECTIONS: LegalSection[] = [
   },
   {
     heading: '12. Contact',
-    paragraphs: ['Questions about these Terms: [insert contact address].'],
+    paragraphs: ['Questions about these Terms: use the Contact page.'],
   },
 ];
 
@@ -115,8 +116,8 @@ export default function Terms() {
           <View style={[styles.sectionInner, isWide && styles.contentWide]}>
             <View style={styles.noticeBox}>
               <Text style={styles.noticeText}>
-                This page is a working draft, not a finalized legal document. Bracketed text marks details — company entity, jurisdiction, contact
-                address — that need confirmation before this is relied on as a live policy.
+                This page is a working draft, not a finalized legal document. Bracketed text marks details — company entity, jurisdiction, liability
+                terms — that need confirmation before this is relied on as a live policy.
               </Text>
             </View>
             {SECTIONS.map((s) => (
@@ -129,6 +130,9 @@ export default function Terms() {
                 ))}
               </View>
             ))}
+            <Pressable onPress={() => router.push('/contact')} hitSlop={8}>
+              <Text style={styles.contactLink}>Contact us →</Text>
+            </Pressable>
           </View>
         </View>
 
@@ -164,4 +168,5 @@ const styles = StyleSheet.create({
   block: { marginBottom: spacing.xl },
   blockHeading: { ...type.sectionHeading, marginBottom: spacing.sm },
   blockBody: { ...type.body, color: colors.textSecondary, marginBottom: spacing.sm },
+  contactLink: { ...type.bodyEmphasis, color: colors.primary },
 });

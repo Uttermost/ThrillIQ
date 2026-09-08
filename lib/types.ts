@@ -93,6 +93,22 @@ export interface Report {
   createdAt: number;
 }
 
+export type ContactTopic = 'General question' | 'Safety concern' | 'Organizer question' | 'Report a problem' | 'Other';
+
+// From the public Contact page — reachable signed in or not, so this
+// carries its own name/email rather than a reporterId. userId is set
+// only when the submitter happened to be signed in.
+export interface ContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  topic: ContactTopic;
+  message: string;
+  userId?: string;
+  status: ReportStatus;
+  createdAt: number;
+}
+
 export interface AuditLogEntry {
   id: string;
   actorId: string;

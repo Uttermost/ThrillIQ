@@ -176,6 +176,14 @@ export default function Faqs() {
                 <Text style={styles.contactLink}>Read our safety approach →</Text>
               </Pressable>
             </View>
+
+            <View style={styles.contactBox}>
+              <Text style={styles.contactTitle}>Still stuck?</Text>
+              <Text style={styles.contactBody}>Send us a message and we'll get back to you.</Text>
+              <Pressable onPress={() => router.push('/contact')} hitSlop={8}>
+                <Text style={styles.contactLink}>Contact us →</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
 
@@ -219,6 +227,7 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     alignItems: 'center',
     gap: spacing.xs,
+    marginBottom: spacing.lg,
   },
   contactTitle: { ...type.cardTitle },
   contactBody: { ...type.secondary, color: colors.textSecondary, marginBottom: spacing.xs },

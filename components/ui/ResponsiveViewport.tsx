@@ -21,7 +21,7 @@ const WIDE_LAYOUT_EXACT = ['/organizer'];
 // feature strip, footer — each with its own background and inner max-width,
 // same pattern as DesktopNav's bar/inner split) rather than sitting inside
 // a single centered column, so it skips the gutter entirely on wide too.
-const FULL_BLEED_WIDE_EXACT = ['/home', '/about', '/faqs', '/safety', '/terms', '/privacy'];
+const FULL_BLEED_WIDE_EXACT = ['/home', '/about', '/faqs', '/safety', '/terms', '/privacy', '/contact'];
 
 // Phones render full-bleed; anything wider (tablets, desktop web) gets the
 // app centered in a fixed-width column with a neutral gutter on each side,
