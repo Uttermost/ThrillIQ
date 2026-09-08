@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AdventureCard } from '@/components/AdventureCard';
@@ -13,8 +13,12 @@ import { isThisMonth, isThisWeek, isThisWeekend, isToday, isTomorrow, isLater, i
 import { formatDateLabel } from '@/lib/dateFormat';
 import { distanceKm } from '@/lib/geo';
 import { useApp } from '@/lib/store';
-import { colors, radius, spacing, type, typography } from '@/lib/theme';
+import { CONTENT_MAX_WIDTH, DESKTOP_CONTENT_MAX_WIDTH, colors, radius, spacing, type, typography } from '@/lib/theme';
 import { Adventure, Category } from '@/lib/types';
+
+// Card content (photo + title + meta + avatar stack) needs real room —
+// below this, extra grid columns just crush AdventureCard, not help it.
+const MIN_GRID_CARD_WIDTH = 320;
 
 function matchesWhenFilter(a: Adventure, filters: DiscoverFilters, now: number): boolean {
   switch (filters.when) {
@@ -73,6 +77,10 @@ function priceMatchesBand(priceKsh: number, band: DiscoverFilters['price']): boo
 export default function Discover() {
   const { myId, me, authenticated, adventures, notifications, fetchAdventures, toggleLike } = useApp();
   const hasUnreadNotifications = notifications.some((n) => !n.read);
+  const { width } = useWindowDimensions();
+  const isWide = Platform.OS === 'web' && width > CONTENT_MAX_WIDTH;
+  const gridWidth = Math.min(width, DESKTOP_CONTENT_MAX_WIDTH) - spacing.lg * 2;
+  const numColumns = isWide ? Math.max(2, Math.min(3, Math.floor(gridWidth / MIN_GRID_CARD_WIDTH))) : 1;
   const [status, setStatus] = useState<Status>('loading');
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('All');
@@ -349,12 +357,15 @@ export default function Discover() {
 
       {status === 'ready' && view === 'list' && filtered.length > 0 && (
         <FlatList
+          key={numColumns}
           data={filtered}
           keyExtractor={(item) => item.id}
+          numColumns={numColumns}
+          columnWrapperStyle={numColumns > 1 ? styles.gridRow : undefined}
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={false} onRefresh={load} tintColor={colors.textSecondary} />}
           renderItem={({ item }) => (
-            <View style={{ marginBottom: spacing.lg }}>
+            <View style={numColumns > 1 ? styles.gridItem : { marginBottom: spacing.lg }}>
               <AdventureCard adventure={item} onPress={() => openAdventure(item)} onToggleLike={() => handleToggleLike(item.id)} />
             </View>
           )}
@@ -362,33 +373,45 @@ export default function Discover() {
       )}
 
       {status === 'ready' && view === 'map' && (
-        <View style={styles.mapWrap}>
-          <View style={styles.mapCanvas}>
-            {filtered.map((a) => (
-              <Pressable
-                key={a.id}
-                onPress={() => setSelectedId(a.id)}
-                style={[
-                  styles.pin,
-                  { left: `${a.coordinate.x * 100}%`, top: `${a.coordinate.y * 100}%` },
-                  a.id === selected?.id && styles.pinActive,
-                ]}
-              />
-            ))}
-          </View>
-          {selected && (
-            <Pressable style={styles.mapCard} onPress={() => openAdventure(selected)}>
-              <Text style={styles.mapCardTitle}>{selected.title}</Text>
-              <Text style={styles.mapCardMeta}>
-                {selected.location} · {selected.dateLabel} {selected.meetingTime}
-              </Text>
-            </Pressable>
+        <View style={[styles.mapWrap, isWide && styles.mapWrapWide]}>
+          {isWide && (
+            <ScrollView style={styles.mapListPane} contentContainerStyle={styles.mapListContent}>
+              {filtered.map((a) => (
+                <Pressable key={a.id} onPress={() => setSelectedId(a.id)} style={styles.mapListItem}>
+                  <AdventureCard adventure={a} onPress={() => openAdventure(a)} onToggleLike={() => handleToggleLike(a.id)} />
+                </Pressable>
+              ))}
+              {filtered.length === 0 && <EmptyState icon="search-outline" title="No adventures found" message="Try another search or adjust your filters." />}
+            </ScrollView>
           )}
-          {filtered.length === 0 && (
-            <View style={styles.mapEmpty}>
-              <EmptyState icon="search-outline" title="No adventures found" message="Try another search or adjust your filters." />
+          <View style={styles.mapCanvasWrap}>
+            <View style={styles.mapCanvas}>
+              {filtered.map((a) => (
+                <Pressable
+                  key={a.id}
+                  onPress={() => setSelectedId(a.id)}
+                  style={[
+                    styles.pin,
+                    { left: `${a.coordinate.x * 100}%`, top: `${a.coordinate.y * 100}%` },
+                    a.id === selected?.id && styles.pinActive,
+                  ]}
+                />
+              ))}
             </View>
-          )}
+            {!isWide && selected && (
+              <Pressable style={styles.mapCard} onPress={() => openAdventure(selected)}>
+                <Text style={styles.mapCardTitle}>{selected.title}</Text>
+                <Text style={styles.mapCardMeta}>
+                  {selected.location} · {selected.dateLabel} {selected.meetingTime}
+                </Text>
+              </Pressable>
+            )}
+            {!isWide && filtered.length === 0 && (
+              <View style={styles.mapEmpty}>
+                <EmptyState icon="search-outline" title="No adventures found" message="Try another search or adjust your filters." />
+              </View>
+            )}
+          </View>
         </View>
       )}
 
@@ -513,7 +536,17 @@ const styles = StyleSheet.create({
   chipLabel: { ...typography.caption, fontWeight: '600' },
   chipLabelActive: { color: '#fff' },
   list: { padding: spacing.lg },
+  gridRow: { gap: spacing.lg },
+  gridItem: { flex: 1, marginBottom: spacing.lg },
   mapWrap: { flex: 1, paddingHorizontal: spacing.lg, marginTop: spacing.md },
+  // Wide (desktop) discovery per the design brief's "split screen" layout —
+  // a scrollable card list alongside a persistent map, rather than the
+  // mobile full-screen list/map toggle.
+  mapWrapWide: { flexDirection: 'row', gap: spacing.lg, paddingBottom: spacing.lg },
+  mapListPane: { width: 360, flexShrink: 0 },
+  mapListContent: { gap: spacing.md, paddingBottom: spacing.lg },
+  mapListItem: { borderRadius: radius.lg },
+  mapCanvasWrap: { flex: 1, paddingBottom: spacing.lg },
   mapCanvas: {
     flex: 1,
     backgroundColor: colors.primarySurface,

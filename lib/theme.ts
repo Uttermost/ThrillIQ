@@ -72,6 +72,14 @@ export const radius = {
 // stretching cards and forms across the full window.
 export const CONTENT_MAX_WIDTH = 480;
 
+// Desktop web only: screens that opt into a real wide layout (top nav,
+// multi-column grids — see DesktopNav and Discover) cap their content at
+// this width instead of CONTENT_MAX_WIDTH, so they use the extra space on a
+// laptop/desktop viewport without stretching edge-to-edge on an ultrawide
+// monitor. Screens that haven't been redesigned for wide yet keep the
+// narrow, phone-width centered column above.
+export const DESKTOP_CONTENT_MAX_WIDTH = 1200;
+
 // Minimum interactive sizing (section 7).
 export const touchTarget = {
   min: 44,

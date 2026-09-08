@@ -2,6 +2,7 @@ import { Stack, usePathname, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 
+import { DesktopNav } from '@/components/ui/DesktopNav';
 import { ResponsiveViewport } from '@/components/ui/ResponsiveViewport';
 import { AppProvider, useApp } from '@/lib/store';
 import { colors } from '@/lib/theme';
@@ -46,6 +47,7 @@ export default function RootLayout() {
     <AppProvider>
       <AuthGate>
         <StatusBar style="dark" />
+        <DesktopNav />
         <ResponsiveViewport>
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
             <Stack.Screen name="index" />
