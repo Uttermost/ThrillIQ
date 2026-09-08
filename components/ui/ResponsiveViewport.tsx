@@ -17,6 +17,12 @@ const WIDE_LAYOUT_PREFIXES = ['/discover', '/connections', '/crews', '/adventure
 // widening that screen.
 const WIDE_LAYOUT_EXACT = ['/organizer'];
 
+// The public marketing homepage lays out its own full-bleed sections (hero,
+// feature strip, footer — each with its own background and inner max-width,
+// same pattern as DesktopNav's bar/inner split) rather than sitting inside
+// a single centered column, so it skips the gutter entirely on wide too.
+const FULL_BLEED_WIDE_EXACT = ['/home'];
+
 // Phones render full-bleed; anything wider (tablets, desktop web) gets the
 // app centered in a fixed-width column with a neutral gutter on each side,
 // per the responsive-design spec (§60) — cards, forms and text shouldn't
@@ -27,7 +33,7 @@ export function ResponsiveViewport({ children }: { children: React.ReactNode }) 
   const { width } = useWindowDimensions();
   const pathname = usePathname();
 
-  if (width <= CONTENT_MAX_WIDTH) {
+  if (width <= CONTENT_MAX_WIDTH || FULL_BLEED_WIDE_EXACT.includes(pathname)) {
     return <View style={styles.fullBleed}>{children}</View>;
   }
 

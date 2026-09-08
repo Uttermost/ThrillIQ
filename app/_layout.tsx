@@ -51,6 +51,7 @@ export default function RootLayout() {
         <ResponsiveViewport>
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
             <Stack.Screen name="index" />
+            <Stack.Screen name="home" />
             <Stack.Screen name="onboarding" />
             <Stack.Screen name="auth/index" />
             <Stack.Screen name="auth/email" />

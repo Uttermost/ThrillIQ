@@ -38,8 +38,10 @@ export function DesktopNav() {
 
   // Onboarding and sign-in are single-purpose, centered forms — showing the
   // full app shell (Feed/People/Crews) before someone has even opened the
-  // app would be premature, not just visually cramped.
-  if (Platform.OS !== 'web' || width <= CONTENT_MAX_WIDTH || !onboarded || pathname.startsWith('/auth') || pathname === '/onboarding') {
+  // app would be premature, not just visually cramped. The public homepage
+  // (app/home.tsx) has its own marketing-oriented header with Login/Join,
+  // not this authenticated-app nav.
+  if (Platform.OS !== 'web' || width <= CONTENT_MAX_WIDTH || !onboarded || pathname.startsWith('/auth') || pathname === '/onboarding' || pathname === '/home') {
     return null;
   }
 
