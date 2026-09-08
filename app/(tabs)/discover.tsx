@@ -180,6 +180,9 @@ export default function Discover() {
     return list;
   }, [adventures, search, categoryFilter, filters, myCoords]);
 
+  const hasPreferences =
+    (me.adventureCategories?.length ?? 0) > 0 || !!me.preferredDifficulty || !!me.preferredPace || !!me.preferredSocialLevel;
+
   // A real, if simple, match: score each open adventure against the
   // signed-in user's own stored preferences (category/difficulty/pace/
   // social level) rather than showing a fabricated "% match". Only surfaces
@@ -187,8 +190,6 @@ export default function Discover() {
   // matches on 2+ of those — no preferences, no section, not a placeholder
   // shown to everyone regardless of data.
   const findMyPeopleMatches = useMemo(() => {
-    const hasPreferences =
-      (me.adventureCategories?.length ?? 0) > 0 || !!me.preferredDifficulty || !!me.preferredPace || !!me.preferredSocialLevel;
     if (!hasPreferences) return [];
     return adventures
       .filter((a) => a.organizerId !== myId && !a.participantIds.includes(myId) && a.spotsFilled < a.spotsTotal)
@@ -204,7 +205,7 @@ export default function Discover() {
       .sort((a, b) => b.score - a.score)
       .slice(0, 5)
       .map((m) => m.adventure);
-  }, [adventures, myId, me.adventureCategories, me.preferredDifficulty, me.preferredPace, me.preferredSocialLevel]);
+  }, [adventures, myId, me.adventureCategories, me.preferredDifficulty, me.preferredPace, me.preferredSocialLevel, hasPreferences]);
 
   useEffect(() => {
     if (!selectedId && filtered.length > 0) setSelectedId(filtered[0].id);
@@ -319,6 +320,20 @@ export default function Discover() {
             ))}
           </ScrollView>
         </View>
+      )}
+
+      {/* Nobody sees Find My People at all until they set preferences —
+          previously a silent gap with no path to the feature it's meant to
+          showcase. Authenticated-only since /profile/edit requires auth. */}
+      {authenticated && !hasPreferences && (
+        <Pressable style={styles.preferencesPrompt} onPress={() => router.push('/profile/edit')}>
+          <Ionicons name="sparkles-outline" size={18} color={colors.primary} />
+          <View style={styles.preferencesPromptBody}>
+            <Text style={styles.preferencesPromptTitle}>Unlock Find My People</Text>
+            <Text style={styles.preferencesPromptSubtitle}>Set your adventure preferences to see matches picked for you.</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+        </Pressable>
       )}
 
       <View style={styles.filterBarRow}>
@@ -501,6 +516,21 @@ const styles = StyleSheet.create({
   findMyPeopleScroll: { height: 360, flexGrow: 0, flexShrink: 0 },
   findMyPeopleRow: { flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.lg },
   findMyPeopleCard: { width: 260 },
+  preferencesPrompt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.primarySurface,
+  },
+  preferencesPromptBody: { flex: 1 },
+  preferencesPromptTitle: { ...type.bodyEmphasis },
+  preferencesPromptSubtitle: { ...type.secondary, color: colors.textSecondary, marginTop: 2 },
   filterBarRow: {
     flexDirection: 'row',
     alignItems: 'center',
