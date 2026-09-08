@@ -11,17 +11,30 @@ const CONFIG: Record<Provider, { label: string; icon: keyof typeof Ionicons.glyp
   apple: { label: 'Continue with Apple', icon: 'logo-apple', bg: '#000', text: '#fff' },
 };
 
-export function SocialButton({ provider, onPress, loading, style }: { provider: Provider; onPress: () => void; loading?: boolean; style?: ViewStyle }) {
+export function SocialButton({
+  provider,
+  onPress,
+  loading,
+  disabled,
+  style,
+}: {
+  provider: Provider;
+  onPress: () => void;
+  loading?: boolean;
+  disabled?: boolean;
+  style?: ViewStyle;
+}) {
   const config = CONFIG[provider];
+  const isDisabled = loading || disabled;
   return (
     <Pressable
       onPress={onPress}
-      disabled={loading}
+      disabled={isDisabled}
       style={({ pressed }) => [
         styles.base,
         { backgroundColor: config.bg, borderColor: config.border ?? config.bg },
-        pressed && styles.pressed,
-        loading && styles.disabled,
+        pressed && !isDisabled && styles.pressed,
+        isDisabled && styles.disabled,
         style,
       ]}>
       {loading ? (

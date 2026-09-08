@@ -98,6 +98,13 @@ export default function Profile() {
           </View>
         )}
 
+        <View style={styles.legalSection}>
+          <Text style={styles.legalHeading}>Legal & support</Text>
+          <LegalLink label="FAQ" onPress={() => router.push('/legal/faq')} />
+          <LegalLink label="Privacy Policy" onPress={() => router.push('/legal/privacy')} />
+          <LegalLink label="Terms of Service" onPress={() => router.push('/legal/terms')} />
+        </View>
+
         {!confirmingLogout ? (
           <Pressable onPress={() => setConfirmingLogout(true)}>
             <Text style={styles.logoutLink}>Log out</Text>
@@ -130,6 +137,15 @@ function Stat({ value, label }: { value: number; label: string }) {
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
+  );
+}
+
+function LegalLink({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable style={styles.legalRow} onPress={onPress}>
+      <Text style={styles.legalLabel}>{label}</Text>
+      <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+    </Pressable>
   );
 }
 
@@ -166,6 +182,24 @@ const styles = StyleSheet.create({
   },
   itemTitle: { ...typography.subheading, fontSize: 15 },
   itemMeta: { ...typography.caption, marginTop: 2 },
+  legalSection: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+  },
+  legalHeading: { ...typography.caption, fontWeight: '600', padding: spacing.md, paddingBottom: spacing.sm },
+  legalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  legalLabel: { ...typography.body, fontSize: 14 },
   logoutLink: { color: colors.danger, textAlign: 'center', fontWeight: '600', fontSize: 14 },
   devSection: { marginTop: spacing.xl, paddingTop: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border },
   devRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

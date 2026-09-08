@@ -19,7 +19,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       return;
     }
     if (!authenticated) {
-      if (!pathname.startsWith('/auth')) router.replace('/auth');
+      // /legal/* (Terms, Privacy, FAQ) must stay reachable pre-auth — the
+      // sign-up screen links there so people can read them before agreeing.
+      if (!pathname.startsWith('/auth') && !pathname.startsWith('/legal')) router.replace('/auth');
       return;
     }
   }, [ready, onboarded, authenticated, pathname, router]);
@@ -48,6 +50,9 @@ export default function RootLayout() {
           <Stack.Screen name="profile/privacy" />
           <Stack.Screen name="profile/[id]" />
           <Stack.Screen name="notifications" />
+          <Stack.Screen name="legal/terms" />
+          <Stack.Screen name="legal/privacy" />
+          <Stack.Screen name="legal/faq" />
           <Stack.Screen name="+not-found" />
         </Stack>
       </AuthGate>

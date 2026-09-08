@@ -81,6 +81,7 @@ function defaultUser(id: string): User {
 
 const ONBOARDED_KEY = 'thrilliq.onboarded';
 const AUTHENTICATED_KEY = 'thrilliq.authenticated';
+const TERMS_ACCEPTED_KEY = 'thrilliq.termsAccepted';
 const NETWORK_LATENCY_MS = 650;
 const IS_NATIVE = Platform.OS !== 'web';
 
@@ -96,6 +97,7 @@ interface AppState {
   ready: boolean;
   authenticated: boolean;
   onboarded: boolean;
+  termsAccepted: boolean;
   adventures: Adventure[];
   threads: Thread[];
   simulateFailures: boolean;
@@ -106,6 +108,7 @@ interface AppContextValue extends AppState {
   me: User;
   users: Record<string, User>;
   completeOnboarding: () => Promise<void>;
+  acceptTerms: () => Promise<void>;
   setSimulateFailures: (value: boolean) => void;
   signInWithProvider: (provider: SocialProvider) => Promise<void>;
   signInWithEmail: (params: { name: string; email: string; password: string }) => Promise<void>;
@@ -136,6 +139,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [onboarded, setOnboarded] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [myId, setMyId] = useState(ME_ID);
   const [adventures, setAdventures] = useState<Adventure[]>(IS_NATIVE ? [] : initialAdventures);
   const [threads, setThreads] = useState<Thread[]>(initialThreads);
@@ -169,14 +173,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   usersStateRef.current = usersState;
 
   useEffect(() => {
-    Promise.all([AsyncStorage.getItem(ONBOARDED_KEY), AsyncStorage.getItem(AUTHENTICATED_KEY)])
-      .then(([onboardedValue, authValue]) => {
+    Promise.all([
+      AsyncStorage.getItem(ONBOARDED_KEY),
+      AsyncStorage.getItem(AUTHENTICATED_KEY),
+      AsyncStorage.getItem(TERMS_ACCEPTED_KEY),
+    ])
+      .then(([onboardedValue, authValue, termsValue]) => {
         setOnboarded(onboardedValue === 'true');
         setAuthenticated(authValue === 'true');
+        setTermsAccepted(termsValue === 'true');
       })
       .catch(() => {
         setOnboarded(false);
         setAuthenticated(false);
+        setTermsAccepted(false);
       })
       .finally(() => setReady(true));
   }, []);
@@ -259,6 +269,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem(ONBOARDED_KEY, 'true');
     } catch {
       // Non-fatal: onboarding state just won't persist across restarts.
+    }
+  }, []);
+
+  const acceptTerms = useCallback(async () => {
+    setTermsAccepted(true);
+    try {
+      await AsyncStorage.setItem(TERMS_ACCEPTED_KEY, 'true');
+    } catch {
+      // Non-fatal: acceptance just won't persist across restarts, and the
+      // signup gate will ask again next launch.
     }
   }, []);
 
@@ -645,6 +665,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ready,
       authenticated,
       onboarded,
+      termsAccepted,
       myId,
       adventures,
       threads,
@@ -652,6 +673,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       me: usersState[myId] ?? defaultUser(myId),
       users: usersState,
       completeOnboarding,
+      acceptTerms,
       setSimulateFailures,
       signInWithProvider,
       signInWithEmail,
@@ -679,12 +701,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ready,
       authenticated,
       onboarded,
+      termsAccepted,
       myId,
       adventures,
       threads,
       simulateFailures,
       usersState,
       completeOnboarding,
+      acceptTerms,
       signInWithProvider,
       signInWithEmail,
       sendPhoneCode,
