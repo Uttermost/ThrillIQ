@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { spacing, typography } from '@/lib/theme';
+import { colors, radius, spacing, typography } from '@/lib/theme';
 
 export function LegalSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -26,7 +26,14 @@ export function LegalListItem({ children }: { children: React.ReactNode }) {
 }
 
 const styles = StyleSheet.create({
-  section: { gap: spacing.sm },
+  section: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
   title: { ...typography.subheading, fontSize: 15 },
   paragraph: { ...typography.body, fontSize: 14, lineHeight: 21 },
   listItem: { flexDirection: 'row', gap: spacing.sm },
