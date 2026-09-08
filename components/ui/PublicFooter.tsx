@@ -11,12 +11,13 @@ const EXPLORE_LINKS = [
   { label: 'Crews', href: '/crews' },
 ];
 
-// About/FAQs/Safety/Contact/Terms/Privacy now exist as real pages — see
-// app/about.tsx, app/faqs.tsx, app/safety.tsx, app/contact.tsx,
-// app/terms.tsx, app/privacy.tsx. Terms and Privacy are drafts pending
-// legal review (see those files), not finalized policies.
+// About/FAQs/Safety/Contact/Blog/Terms/Privacy now exist as real pages —
+// see app/about.tsx, app/faqs.tsx, app/safety.tsx, app/contact.tsx,
+// app/blog/, app/terms.tsx, app/privacy.tsx. Terms and Privacy are drafts
+// pending legal review (see those files), not finalized policies.
 const COMPANY_LINKS = [
   { label: 'About', href: '/about' },
+  { label: 'Blog', href: '/blog' },
   { label: 'FAQs', href: '/faqs' },
   { label: 'Safety', href: '/safety' },
   { label: 'Contact', href: '/contact' },

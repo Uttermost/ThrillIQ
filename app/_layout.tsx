@@ -58,6 +58,8 @@ export default function RootLayout() {
             <Stack.Screen name="terms" />
             <Stack.Screen name="privacy" />
             <Stack.Screen name="contact" />
+            <Stack.Screen name="blog/index" />
+            <Stack.Screen name="blog/[slug]" />
             <Stack.Screen name="onboarding" />
             <Stack.Screen name="auth/index" />
             <Stack.Screen name="auth/email" />

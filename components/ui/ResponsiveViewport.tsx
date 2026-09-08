@@ -21,7 +21,9 @@ const WIDE_LAYOUT_EXACT = ['/organizer'];
 // feature strip, footer — each with its own background and inner max-width,
 // same pattern as DesktopNav's bar/inner split) rather than sitting inside
 // a single centered column, so it skips the gutter entirely on wide too.
-const FULL_BLEED_WIDE_EXACT = ['/home', '/about', '/faqs', '/safety', '/terms', '/privacy', '/contact'];
+// Prefix-matched (not exact) so /blog/[slug] gets the same treatment as
+// /blog itself, without needing every post slug listed here.
+const FULL_BLEED_WIDE_PATHS = ['/home', '/about', '/faqs', '/safety', '/terms', '/privacy', '/contact', '/blog'];
 
 // Phones render full-bleed; anything wider (tablets, desktop web) gets the
 // app centered in a fixed-width column with a neutral gutter on each side,
@@ -33,7 +35,8 @@ export function ResponsiveViewport({ children }: { children: React.ReactNode }) 
   const { width } = useWindowDimensions();
   const pathname = usePathname();
 
-  if (width <= CONTENT_MAX_WIDTH || FULL_BLEED_WIDE_EXACT.includes(pathname)) {
+  const isPublicSite = FULL_BLEED_WIDE_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  if (width <= CONTENT_MAX_WIDTH || isPublicSite) {
     return <View style={styles.fullBleed}>{children}</View>;
   }
 

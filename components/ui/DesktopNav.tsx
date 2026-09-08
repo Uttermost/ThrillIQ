@@ -27,8 +27,12 @@ const NAV_LINKS: NavLink[] = [
 ];
 
 // Public marketing pages (their own PublicHeader, not this nav) — checked
-// once here rather than allocated fresh on every render.
-const PUBLIC_SITE_PATHS = ['/home', '/about', '/faqs', '/safety', '/terms', '/privacy', '/contact'];
+// once here rather than allocated fresh on every render. Prefix-matched so
+// /blog/[slug] doesn't need every post slug listed here.
+const PUBLIC_SITE_PATHS = ['/home', '/about', '/faqs', '/safety', '/terms', '/privacy', '/contact', '/blog'];
+function isPublicSitePath(pathname: string): boolean {
+  return PUBLIC_SITE_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
 
 // Desktop web only (see ResponsiveViewport for the same breakpoint gating
 // the wide content layout it replaces the bottom tab bar for) — a
@@ -51,7 +55,7 @@ export function DesktopNav() {
     !onboarded ||
     pathname.startsWith('/auth') ||
     pathname === '/onboarding' ||
-    PUBLIC_SITE_PATHS.includes(pathname)
+    isPublicSitePath(pathname)
   ) {
     return null;
   }
