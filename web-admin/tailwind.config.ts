@@ -12,6 +12,11 @@ const config: Config = {
         primary: '#4f7cff',
         danger: '#e5484d',
         textMuted: '#8b93a7',
+        // Fixed status palette (never themed/reused for series color) —
+        // see the dataviz skill's references/palette.md.
+        good: '#0ca30c',
+        warning: '#fab219',
+        critical: '#d03b3b',
       },
     },
   },

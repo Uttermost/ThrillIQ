@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth';
 const NAV = [
   { href: '/reports', label: 'Reports' },
   { href: '/audit-log', label: 'Audit log' },
+  { href: '/usage', label: 'Usage' },
 ];
 
 export default function AdminShell({ children }: { children: ReactNode }) {
