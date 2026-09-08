@@ -1,0 +1,413 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /adventures/{adventureId} {
+      // Adventures are the public "homepage" — browsable by anyone, signed
+      // in or not. Every write below still requires auth.
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.organizerId == request.auth.uid
+        && request.resource.data.spotsFilled == 0
+        && request.resource.data.participantIds == []
+        && request.resource.data.likedBy == []
+        && request.resource.data.likeCount == 0;
+
+      // Organizer can edit their own listing (title/date/etc.), but not
+      // touch capacity, participants, or likes through this path — those
+      // only change via the narrower join/leave/like rules below.
+      allow update: if request.auth != null
+        && resource.data.organizerId == request.auth.uid
+        && request.resource.data.organizerId == resource.data.organizerId
+        && request.resource.data.spotsFilled == resource.data.spotsFilled
+        && request.resource.data.participantIds == resource.data.participantIds
+        && request.resource.data.likedBy == resource.data.likedBy
+        && request.resource.data.likeCount == resource.data.likeCount;
+
+      // Join: add yourself to participantIds and bump spotsFilled by
+      // exactly one, without exceeding capacity. Nothing else may change.
+      allow update: if request.auth != null
+        && request.resource.data.participantIds == resource.data.participantIds.concat([request.auth.uid])
+        && !resource.data.participantIds.hasAny([request.auth.uid])
+        && request.resource.data.spotsFilled == resource.data.spotsFilled + 1
+        && request.resource.data.spotsFilled <= resource.data.spotsTotal
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantIds', 'spotsFilled']);
+
+      // Leave: remove yourself, drop spotsFilled by exactly one.
+      allow update: if request.auth != null
+        && resource.data.participantIds.hasAny([request.auth.uid])
+        && request.resource.data.participantIds == resource.data.participantIds.removeAll([request.auth.uid])
+        && request.resource.data.spotsFilled == resource.data.spotsFilled - 1
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantIds', 'spotsFilled']);
+
+      // Like/unlike: only your own id may enter or leave likedBy, and
+      // likeCount must move by exactly one in the matching direction.
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'likeCount'])
+        && (
+          (request.resource.data.likedBy == resource.data.likedBy.concat([request.auth.uid])
+            && !resource.data.likedBy.hasAny([request.auth.uid])
+            && request.resource.data.likeCount == resource.data.likeCount + 1)
+          ||
+          (request.resource.data.likedBy == resource.data.likedBy.removeAll([request.auth.uid])
+            && resource.data.likedBy.hasAny([request.auth.uid])
+            && request.resource.data.likeCount == resource.data.likeCount - 1)
+        );
+
+      allow delete: if request.auth != null && resource.data.organizerId == request.auth.uid;
+    }
+
+    match /waitlist/{entryId} {
+      // Position (createdAt order) matters but isn't sensitive — same
+      // visibility tier as crews/reviews.
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && entryId == request.resource.data.adventureId + '_' + request.auth.uid;
+
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow update: if false;
+    }
+
+    match /connections/{connId} {
+      // Unlike crews/reviews/acknowledgements, a connection is private
+      // between its two participants — not public-by-design.
+      allow read: if request.auth != null && resource.data.participantIds.hasAny([request.auth.uid]);
+
+      allow create: if request.auth != null
+        && request.resource.data.requesterId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.participantIds.hasAll([request.resource.data.requesterId, request.resource.data.recipientId])
+        && connId == (request.resource.data.requesterId < request.resource.data.recipientId
+              ? request.resource.data.requesterId + '_' + request.resource.data.recipientId
+              : request.resource.data.recipientId + '_' + request.resource.data.requesterId);
+
+      // Accept: only the recipient, only pending -> accepted, nothing else.
+      allow update: if request.auth != null
+        && resource.data.recipientId == request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'accepted'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+
+      // Decline (as recipient) or disconnect (either side, once accepted).
+      allow delete: if request.auth != null && resource.data.participantIds.hasAny([request.auth.uid]);
+    }
+
+    match /crews/{crewId} {
+      // Crews are publicly browsable, like adventures.
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.memberIds == [request.auth.uid];
+
+      // Join: add yourself only, nothing else may change.
+      allow update: if request.auth != null
+        && request.resource.data.memberIds == resource.data.memberIds.concat([request.auth.uid])
+        && !resource.data.memberIds.hasAny([request.auth.uid])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds']);
+
+      // Leave: remove yourself only. An owner leaving their own crew (rather
+      // than deleting it) is a known gap — ownership transfer/hand-off isn't
+      // built, so an ownerless-but-still-existing crew is possible today.
+      allow update: if request.auth != null
+        && resource.data.memberIds.hasAny([request.auth.uid])
+        && request.resource.data.memberIds == resource.data.memberIds.removeAll([request.auth.uid])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds']);
+
+      allow delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /follows/{followId} {
+      // One-way and unapproved by design (unlike connections below) — no
+      // reason to hide who follows whom, so readable by anyone.
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.followerId == request.auth.uid
+        && request.resource.data.followingId != request.auth.uid
+        && followId == request.resource.data.followerId + '_' + request.resource.data.followingId;
+
+      allow update: if false;
+      allow delete: if request.auth != null && resource.data.followerId == request.auth.uid;
+    }
+
+    match /posts/{postId} {
+      // Publicly browsable, like adventures/crews.
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 500
+        && request.resource.data.likedBy == []
+        && request.resource.data.likeCount == 0
+        && request.resource.data.commentCount == 0
+        && request.resource.data.shareCount == 0
+        // Photos are inline data URIs (no Storage bucket deployed for this
+        // project) — capped at 3, same as reviews.
+        && (!('photos' in request.resource.data)
+            || (request.resource.data.photos is list && request.resource.data.photos.size() <= 3))
+        // A post may only tag an adventure the author actually organizes or
+        // joined — not an arbitrary listing.
+        && (!('adventureId' in request.resource.data)
+            || request.resource.data.adventureId == null
+            || get(/databases/$(database)/documents/adventures/$(request.resource.data.adventureId)).data.organizerId == request.auth.uid
+            || get(/databases/$(database)/documents/adventures/$(request.resource.data.adventureId)).data.participantIds.hasAny([request.auth.uid]))
+        // Same for crewId — only an actual member may tag their crew.
+        && (!('crewId' in request.resource.data)
+            || request.resource.data.crewId == null
+            || get(/databases/$(database)/documents/crews/$(request.resource.data.crewId)).data.memberIds.hasAny([request.auth.uid]));
+
+      // Like/unlike: same shape as the adventures like rule above.
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'likeCount'])
+        && (
+          (request.resource.data.likedBy == resource.data.likedBy.concat([request.auth.uid])
+            && !resource.data.likedBy.hasAny([request.auth.uid])
+            && request.resource.data.likeCount == resource.data.likeCount + 1)
+          ||
+          (request.resource.data.likedBy == resource.data.likedBy.removeAll([request.auth.uid])
+            && resource.data.likedBy.hasAny([request.auth.uid])
+            && request.resource.data.likeCount == resource.data.likeCount - 1)
+        );
+
+      // Comment count: only ever bumped by exactly +1. createPostCommentReal
+      // writes this alongside the new postComments doc in one atomic batch,
+      // so the count can never drift from the real number of comment docs.
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['commentCount'])
+        && request.resource.data.commentCount == resource.data.commentCount + 1;
+
+      // Share count: bumped by exactly +1, only after a share actually
+      // completed client-side (see lib/share.ts) — anyone signed in may
+      // record one, not just the post's author.
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['shareCount'])
+        && request.resource.data.shareCount == resource.data.shareCount + 1;
+
+      // Comment count also decrements by exactly -1 when admin deletes a
+      // reported comment (deletePostCommentReal's batch) — restricted to
+      // admin since there's no self-service "delete my own comment" flow
+      // yet, only the moderation queue.
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['commentCount'])
+        && request.resource.data.commentCount == resource.data.commentCount - 1
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+
+      // Editing text/photos: author-only (not admin — this isn't a
+      // moderation action). editedAt must move strictly forward so a client
+      // can't backdate or clear it; every other field is untouched, so
+      // likes/comments/shares/tags all survive an edit as-is.
+      allow update: if request.auth != null
+        && resource.data.authorId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'photos', 'editedAt'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 500
+        && (!('photos' in request.resource.data)
+            || (request.resource.data.photos is list && request.resource.data.photos.size() <= 3))
+        && request.resource.data.editedAt is number
+        && request.resource.data.editedAt > (resource.data.editedAt is number ? resource.data.editedAt : 0);
+
+      // Author can delete their own post; admin can delete anyone's — the
+      // moderation queue (app/admin.tsx) deletes reported posts this way.
+      allow delete: if request.auth != null
+        && (resource.data.authorId == request.auth.uid
+            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true);
+    }
+
+    match /postComments/{commentId} {
+      // Publicly readable, like the post they belong to.
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 500
+        && request.resource.data.likedBy == []
+        && request.resource.data.likeCount == 0
+        && exists(/databases/$(database)/documents/posts/$(request.resource.data.postId))
+        // A reply must point at a real comment on this same post — one
+        // level deep only (see the PostComment type comment), so this
+        // doesn't itself need to check that the parent isn't a reply.
+        && (!('parentCommentId' in request.resource.data)
+            || request.resource.data.parentCommentId == null
+            || (exists(/databases/$(database)/documents/postComments/$(request.resource.data.parentCommentId))
+                && get(/databases/$(database)/documents/postComments/$(request.resource.data.parentCommentId)).data.postId == request.resource.data.postId));
+
+      // Like/unlike: same shape as the posts like rule.
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'likeCount'])
+        && (
+          (request.resource.data.likedBy == resource.data.likedBy.concat([request.auth.uid])
+            && !resource.data.likedBy.hasAny([request.auth.uid])
+            && request.resource.data.likeCount == resource.data.likeCount + 1)
+          ||
+          (request.resource.data.likedBy == resource.data.likedBy.removeAll([request.auth.uid])
+            && resource.data.likedBy.hasAny([request.auth.uid])
+            && request.resource.data.likeCount == resource.data.likeCount - 1)
+        );
+
+      // Author can delete their own comment; admin can delete anyone's —
+      // same reasoning as the posts delete rule above.
+      allow delete: if request.auth != null
+        && (resource.data.authorId == request.auth.uid
+            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true);
+    }
+
+    match /reposts/{repostId} {
+      // Publicly browsable, like the post they repost.
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        // Deterministic id doubles as the one-repost-per-(user,post)
+        // constraint — a second create for the same pair is a same-id
+        // overwrite, which lands in `update` below and is denied there.
+        && repostId == request.resource.data.userId + '_' + request.resource.data.postId
+        && request.resource.data.likedBy == []
+        && request.resource.data.likeCount == 0
+        && (!('comment' in request.resource.data)
+            || (request.resource.data.comment is string && request.resource.data.comment.size() <= 300))
+        && exists(/databases/$(database)/documents/posts/$(request.resource.data.postId));
+
+      // Like/unlike: same shape as the posts/postComments like rule.
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'likeCount'])
+        && (
+          (request.resource.data.likedBy == resource.data.likedBy.concat([request.auth.uid])
+            && !resource.data.likedBy.hasAny([request.auth.uid])
+            && request.resource.data.likeCount == resource.data.likeCount + 1)
+          ||
+          (request.resource.data.likedBy == resource.data.likedBy.removeAll([request.auth.uid])
+            && resource.data.likedBy.hasAny([request.auth.uid])
+            && request.resource.data.likeCount == resource.data.likeCount - 1)
+        );
+
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    match /postSaves/{saveId} {
+      // Private — unlike reposts, a save is never shown to anyone but the
+      // user who made it, so read is restricted to the saving user, not
+      // public like every other Feed collection above.
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && saveId == request.resource.data.userId + '_' + request.resource.data.postId
+        && exists(/databases/$(database)/documents/posts/$(request.resource.data.postId));
+
+      allow update: if false;
+
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    match /reviews/{reviewId} {
+      // Reviews are shown on an organizer's public profile — readable by
+      // anyone. Doc id is deterministic (`${adventureId}_${reviewerId}`),
+      // so a duplicate submission overwrite-attempts here would be an
+      // `update`, which is denied below — one review per participant per
+      // adventure by construction, not by app-side bookkeeping.
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.reviewerId == request.auth.uid
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && request.resource.data.text is string
+        && request.resource.data.text.size() <= 600
+        // Photos are inline data URIs (no Storage bucket deployed for this
+        // project) — capped at 3, with the 1MiB Firestore document limit
+        // as the real backstop against an oversized payload.
+        && (!('photos' in request.resource.data)
+            || (request.resource.data.photos is list && request.resource.data.photos.size() <= 3))
+        && reviewId == request.resource.data.adventureId + '_' + request.auth.uid
+        && get(/databases/$(database)/documents/adventures/$(request.resource.data.adventureId)).data.organizerId == request.resource.data.organizerId
+        && get(/databases/$(database)/documents/adventures/$(request.resource.data.adventureId)).data.participantIds.hasAny([request.auth.uid])
+        && get(/databases/$(database)/documents/adventures/$(request.resource.data.adventureId)).data.dateTimestamp < request.time.toMillis();
+
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    match /acknowledgements/{ackId} {
+      // No more sensitive than the adventure's own public participantIds —
+      // who joined is already visible there. This just adds a timestamped
+      // record of guidelines agreement for that same, already-public fact.
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && ackId == request.resource.data.adventureId + '_' + request.auth.uid
+        && get(/databases/$(database)/documents/adventures/$(request.resource.data.adventureId)).data.participantIds.hasAny([request.auth.uid]);
+
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    match /reports/{reportId} {
+      // Anyone signed in can file one. Reading the queue or changing status
+      // is admin-only — "admin" is just the reporting user's own isAdmin
+      // field, which the /users rule below makes client-unwritable.
+      allow create: if request.auth != null
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.status == 'open';
+
+      allow read, update: if request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+
+      allow delete: if false;
+    }
+
+    match /auditLog/{entryId} {
+      // A record of moderation actions — admin-only, and nobody may alter
+      // history once written.
+      allow read: if request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+
+      allow create: if request.auth != null
+        && request.resource.data.actorId == request.auth.uid
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+
+      allow update, delete: if false;
+    }
+
+    match /users/{uid} {
+      // "Everyone" and "Connections" are both enforceable now that the
+      // connections collection exists. "Participants" (shared an adventure)
+      // still isn't — checking it would mean scanning every adventure for
+      // one that has both uids, which rules can't do. Fails closed: a
+      // profile set to "Participants" is readable only by its own owner
+      // until that tier can be checked directly.
+      allow get: if resource.data.privacy.profileVisibility == 'Everyone'
+        || (request.auth != null && request.auth.uid == uid)
+        || (request.auth != null
+            && resource.data.privacy.profileVisibility == 'Connections'
+            && get(/databases/$(database)/documents/connections/$(
+                 request.auth.uid < uid ? request.auth.uid + '_' + uid : uid + '_' + request.auth.uid
+               )).data.status == 'accepted');
+
+      allow create: if request.auth != null && request.auth.uid == uid;
+
+      // A user may update their own doc, but never grant themselves admin —
+      // isAdmin only ever changes out-of-band (seeded, or set by a human
+      // directly in the Firebase console in a real deployment).
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.isAdmin == resource.data.isAdmin;
+
+      allow delete: if false;
+
+      // No `list` on this collection: every real lookup already knows the
+      // uid (from an adventure's organizerId/participantIds), so there's no
+      // legitimate reason to allow enumerating all profiles.
+    }
+  }
+}

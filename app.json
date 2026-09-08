@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "ThrillIQ",
+    "slug": "ThrillIQ",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "myapp",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.uttermost.thrilliq"
+    },
+    "android": {
+      "package": "com.uttermost.thrilliq",
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "@react-native-firebase/app",
+      "@react-native-google-signin/google-signin",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "ThrillIQ uses your location to show adventures near you on Discover."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "ThrillIQ uses your photos to let you attach pictures to a review."
+        }
+      ]
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "066e33c2-8d04-426b-bc99-ce8204d58aaa"
+      }
+    },
+    "owner": "graphtechnologies"
+  }
+}
