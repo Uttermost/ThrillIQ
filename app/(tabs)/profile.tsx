@@ -147,6 +147,11 @@ export default function Profile() {
             <Text style={styles.crewsRowLabel}>FAQ</Text>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </Pressable>
+          <Pressable style={styles.crewsRow} onPress={() => router.push('/legal/contact')}>
+            <Ionicons name="mail-outline" size={20} color={colors.textPrimary} />
+            <Text style={styles.crewsRowLabel}>Contact &amp; support</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
           <Pressable style={styles.crewsRow} onPress={() => router.push('/legal/privacy')}>
             <Ionicons name="shield-outline" size={20} color={colors.textPrimary} />
             <Text style={styles.crewsRowLabel}>Privacy Policy</Text>
@@ -155,6 +160,11 @@ export default function Profile() {
           <Pressable style={styles.crewsRow} onPress={() => router.push('/legal/terms')}>
             <Ionicons name="document-text-outline" size={20} color={colors.textPrimary} />
             <Text style={styles.crewsRowLabel}>Terms of Service</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
+          <Pressable style={styles.crewsRow} onPress={() => router.push('/legal/licenses')}>
+            <Ionicons name="code-slash-outline" size={20} color={colors.textPrimary} />
+            <Text style={styles.crewsRowLabel}>Open source licenses</Text>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </Pressable>
         </View>
