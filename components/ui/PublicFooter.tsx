@@ -11,13 +11,19 @@ const EXPLORE_LINKS = [
   { label: 'Crews', href: '/crews' },
 ];
 
-// About/FAQs/Safety now exist as real pages — see app/about.tsx,
-// app/faqs.tsx, app/safety.tsx. Legal pages (Terms, Privacy, etc.) still
-// don't, so they stay out of this list rather than linking nowhere.
+// About/FAQs/Safety/Terms/Privacy now exist as real pages — see
+// app/about.tsx, app/faqs.tsx, app/safety.tsx, app/terms.tsx,
+// app/privacy.tsx. Terms and Privacy are drafts pending legal review
+// (see those files), not finalized policies.
 const COMPANY_LINKS = [
   { label: 'About', href: '/about' },
   { label: 'FAQs', href: '/faqs' },
   { label: 'Safety', href: '/safety' },
+];
+
+const LEGAL_LINKS = [
+  { label: 'Terms of Service', href: '/terms' },
+  { label: 'Privacy Policy', href: '/privacy' },
 ];
 
 export function PublicFooter() {
@@ -45,6 +51,14 @@ export function PublicFooter() {
             <Pressable onPress={() => router.push('/auth')} hitSlop={8}>
               <Text style={styles.linkText}>Sign in</Text>
             </Pressable>
+          </View>
+          <View style={styles.column}>
+            <Text style={styles.columnHeading}>Legal</Text>
+            {LEGAL_LINKS.map((link) => (
+              <Pressable key={link.href} onPress={() => router.push(link.href as never)} hitSlop={8}>
+                <Text style={styles.linkText}>{link.label}</Text>
+              </Pressable>
+            ))}
           </View>
         </View>
         <Text style={styles.copyright}>© {new Date().getFullYear()} ThrillIQ. Adventures are run independently by their organizers.</Text>
