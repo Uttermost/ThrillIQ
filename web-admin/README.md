@@ -17,18 +17,18 @@ There's no self-service way to become an admin — `isAdmin` is deliberately not
 
 ## Setup
 
-1. **Register a Web app** in the `thrilliq` Firebase project (Firebase console → Project settings → General → Your apps → Add app → Web), if one doesn't already exist. The mobile app only registered an Android app (`../google-services.json`) — the JS SDK needs its own Web app config.
-2. **Enable the Google sign-in provider** for the project (Authentication → Sign-in method → Google), if not already enabled — it should already be, since the mobile app uses Google Sign-In too.
-3. Copy `.env.example` to `.env.local` and fill in the values from step 1:
-   ```bash
-   cp .env.example .env.local
-   ```
-4. Install and run:
-   ```bash
-   npm install
-   npm run dev
-   ```
+A "Web" app is already registered in the `thrilliq` Firebase project (alongside the mobile app's Android one), and its config is checked into `.env.example`, so this is just:
+
+```bash
+cp .env.example .env.local
+npm install
+npm run dev
+```
+
+Google sign-in is enabled for the project already (the mobile app uses it too), so no provider setup is needed either.
 
 ## Deploying
 
-This is a standard Next.js app — deploy it anywhere Next.js runs (Vercel, Cloud Run, etc.), with the `NEXT_PUBLIC_FIREBASE_*` env vars set on the host. No server-side secrets are involved; all reads/writes happen client-side through Firestore's own security rules, same as the mobile app.
+This is a standard Next.js app — deploy it anywhere Next.js runs (Vercel, Cloud Run, etc.), with the `NEXT_PUBLIC_FIREBASE_*` env vars set on the host (copy them from `.env.example`). No server-side secrets are involved; all reads/writes happen client-side through Firestore's own security rules, same as the mobile app.
+
+Before `signInWithPopup` will work on a deployed host, add that host's domain to **Authentication → Settings → Authorized domains** in the Firebase console — currently only `localhost`, `thrilliq.firebaseapp.com`, and `thrilliq.web.app` are authorized, so a Vercel/Cloud Run URL (or custom domain) needs adding there first, or sign-in will fail with `auth/unauthorized-domain`.
