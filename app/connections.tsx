@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/ui/Avatar';
@@ -9,13 +9,15 @@ import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { EmptyState, InlineError } from '@/components/ui/StateViews';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useApp } from '@/lib/store';
-import { colors, radius, spacing, type } from '@/lib/theme';
-import { Connection } from '@/lib/types';
+import { CONTENT_MAX_WIDTH, colors, radius, spacing, type, typography } from '@/lib/theme';
+import { Connection, User } from '@/lib/types';
 
 type Status = 'loading' | 'ready' | 'error';
 
 export default function Connections() {
   const { myId, users, fetchOtherProfile, fetchConnectionsFor, respondToConnectionRequest } = useApp();
+  const { width } = useWindowDimensions();
+  const isWide = Platform.OS === 'web' && width > CONTENT_MAX_WIDTH;
   const [connections, setConnections] = useState<Connection[]>([]);
   const [status, setStatus] = useState<Status>('loading');
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -65,7 +67,14 @@ export default function Connections() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScreenHeader title="Connections" />
+      {isWide ? (
+        <View style={styles.wideHeader}>
+          <Text style={styles.wideHeading}>People</Text>
+          <Text style={styles.wideSubheading}>Requests, connections, and people you've reached out to.</Text>
+        </View>
+      ) : (
+        <ScreenHeader title="Connections" />
+      )}
       <ScrollView contentContainerStyle={styles.content}>
         {status === 'loading' && (
           <View style={{ gap: spacing.md }}>
@@ -81,27 +90,46 @@ export default function Connections() {
             {received.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Requests</Text>
-                {received.map((c) => {
-                  const other = users[otherIdFor(c)];
-                  return (
-                    <View key={c.id} style={styles.row}>
-                      <Pressable style={styles.rowIdentity} onPress={() => router.push(`/profile/${otherIdFor(c)}`)}>
-                        <Avatar initials={other?.initials ?? '?'} hue={other?.avatarHue ?? 0} size={44} />
-                        <Text style={styles.rowName}>{other?.name ?? 'Someone'}</Text>
-                      </Pressable>
-                      <View style={styles.respondRow}>
-                        <Button label="Accept" onPress={() => handleRespond(c.id, true)} loading={busyId === c.id} style={styles.respondBtn} />
-                        <Button
-                          label="Decline"
-                          variant="secondary"
-                          onPress={() => handleRespond(c.id, false)}
-                          loading={busyId === c.id}
-                          style={styles.respondBtn}
-                        />
+                {isWide ? (
+                  <View style={styles.grid}>
+                    {received.map((c) => (
+                      <PersonCard key={c.id} person={users[otherIdFor(c)]} uid={otherIdFor(c)}>
+                        <View style={styles.respondRow}>
+                          <Button label="Accept" onPress={() => handleRespond(c.id, true)} loading={busyId === c.id} style={styles.respondBtn} />
+                          <Button
+                            label="Decline"
+                            variant="secondary"
+                            onPress={() => handleRespond(c.id, false)}
+                            loading={busyId === c.id}
+                            style={styles.respondBtn}
+                          />
+                        </View>
+                      </PersonCard>
+                    ))}
+                  </View>
+                ) : (
+                  received.map((c) => {
+                    const other = users[otherIdFor(c)];
+                    return (
+                      <View key={c.id} style={styles.row}>
+                        <Pressable style={styles.rowIdentity} onPress={() => router.push(`/profile/${otherIdFor(c)}`)}>
+                          <Avatar initials={other?.initials ?? '?'} hue={other?.avatarHue ?? 0} size={44} />
+                          <Text style={styles.rowName}>{other?.name ?? 'Someone'}</Text>
+                        </Pressable>
+                        <View style={styles.respondRow}>
+                          <Button label="Accept" onPress={() => handleRespond(c.id, true)} loading={busyId === c.id} style={styles.respondBtn} />
+                          <Button
+                            label="Decline"
+                            variant="secondary"
+                            onPress={() => handleRespond(c.id, false)}
+                            loading={busyId === c.id}
+                            style={styles.respondBtn}
+                          />
+                        </View>
                       </View>
-                    </View>
-                  );
-                })}
+                    );
+                  })
+                )}
               </View>
             )}
 
@@ -109,6 +137,12 @@ export default function Connections() {
               <Text style={styles.sectionTitle}>My connections</Text>
               {accepted.length === 0 ? (
                 <EmptyState icon="people-outline" title="No connections yet" message="Connect with people you meet on adventures." />
+              ) : isWide ? (
+                <View style={styles.grid}>
+                  {accepted.map((c) => (
+                    <PersonCard key={c.id} person={users[otherIdFor(c)]} uid={otherIdFor(c)} />
+                  ))}
+                </View>
               ) : (
                 accepted.map((c) => {
                   const other = users[otherIdFor(c)];
@@ -127,18 +161,28 @@ export default function Connections() {
             {sent.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Sent</Text>
-                {sent.map((c) => {
-                  const other = users[otherIdFor(c)];
-                  return (
-                    <Pressable key={c.id} style={styles.row} onPress={() => router.push(`/profile/${otherIdFor(c)}`)}>
-                      <View style={styles.rowIdentity}>
-                        <Avatar initials={other?.initials ?? '?'} hue={other?.avatarHue ?? 0} size={44} />
-                        <Text style={styles.rowName}>{other?.name ?? 'Someone'}</Text>
-                      </View>
-                      <Text style={styles.pendingLabel}>Requested</Text>
-                    </Pressable>
-                  );
-                })}
+                {isWide ? (
+                  <View style={styles.grid}>
+                    {sent.map((c) => (
+                      <PersonCard key={c.id} person={users[otherIdFor(c)]} uid={otherIdFor(c)}>
+                        <Text style={styles.pendingLabel}>Requested</Text>
+                      </PersonCard>
+                    ))}
+                  </View>
+                ) : (
+                  sent.map((c) => {
+                    const other = users[otherIdFor(c)];
+                    return (
+                      <Pressable key={c.id} style={styles.row} onPress={() => router.push(`/profile/${otherIdFor(c)}`)}>
+                        <View style={styles.rowIdentity}>
+                          <Avatar initials={other?.initials ?? '?'} hue={other?.avatarHue ?? 0} size={44} />
+                          <Text style={styles.rowName}>{other?.name ?? 'Someone'}</Text>
+                        </View>
+                        <Text style={styles.pendingLabel}>Requested</Text>
+                      </Pressable>
+                    );
+                  })
+                )}
               </View>
             )}
           </>
@@ -146,6 +190,21 @@ export default function Connections() {
       </ScrollView>
     </SafeAreaView>
   );
+
+  // Desktop-only card, reused across Requests/My connections/Sent — children
+  // is whatever footer that section needs (respond buttons, a "Requested"
+  // label, or nothing for an already-accepted connection).
+  function PersonCard({ person, uid, children }: { person: User | undefined; uid: string; children?: React.ReactNode }) {
+    return (
+      <Pressable style={styles.personCard} onPress={() => router.push(`/profile/${uid}`)}>
+        <Avatar initials={person?.initials ?? '?'} hue={person?.avatarHue ?? 0} size={56} />
+        <Text style={styles.personCardName} numberOfLines={1}>
+          {person?.name ?? 'Someone'}
+        </Text>
+        {children}
+      </Pressable>
+    );
+  }
 }
 
 const styles = StyleSheet.create({
@@ -169,4 +228,19 @@ const styles = StyleSheet.create({
   respondRow: { flexDirection: 'row', gap: spacing.sm },
   respondBtn: { minWidth: 80 },
   pendingLabel: { ...type.secondary, color: colors.textMuted },
+  wideHeader: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
+  wideHeading: { ...type.screenHeading },
+  wideSubheading: { ...typography.caption, color: colors.textSecondary, marginTop: spacing.xs },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.lg },
+  personCard: {
+    width: 200,
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+  },
+  personCardName: { ...type.bodyEmphasis, textAlign: 'center' },
 });

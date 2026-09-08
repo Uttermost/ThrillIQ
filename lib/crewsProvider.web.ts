@@ -1,17 +1,64 @@
-// Web has no native Firestore SDK support (@react-native-firebase is native-only).
-// store.tsx never actually calls these on web — it keeps its own mock array logic
-// inline for that platform — but this file must exist so the import resolves.
+import {
+  DocumentData,
+  QueryDocumentSnapshot,
+  addDoc,
+  arrayRemove,
+  arrayUnion,
+  collection,
+  doc,
+  onSnapshot,
+  orderBy,
+  query,
+  updateDoc,
+} from 'firebase/firestore';
 
+import { db } from './firebase';
 import { Crew } from './types';
 
-export function subscribeCrewsReal(_onData: (list: Crew[]) => void, _onError: (e: unknown) => void): () => void {
-  return () => {};
+const COLLECTION = 'crews';
+
+// Deterministic-ish avatar hue from the name so a crew doesn't need a real
+// image upload feature (none exists) yet still looks visually distinct.
+function hueFromName(name: string): number {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) % 360;
+  return Math.abs(hash);
 }
 
-export async function createCrewReal(_input: { name: string; description: string; ownerId: string }): Promise<Crew> {
-  throw new Error('Not implemented on web.');
+function fromDoc(snap: QueryDocumentSnapshot<DocumentData>): Crew {
+  const data = snap.data();
+  return {
+    id: snap.id,
+    name: (data.name as string) ?? '',
+    description: (data.description as string) ?? '',
+    avatarHue: (data.avatarHue as number) ?? 0,
+    memberIds: (data.memberIds as string[]) ?? [],
+    ownerId: (data.ownerId as string) ?? '',
+    createdAt: (data.createdAt as number) ?? Date.now(),
+  };
 }
 
-export async function joinCrewReal(_crewId: string, _myUid: string): Promise<void> {}
+export function subscribeCrewsReal(onData: (list: Crew[]) => void, onError: (e: unknown) => void): () => void {
+  return onSnapshot(query(collection(db, COLLECTION), orderBy('createdAt', 'desc')), (snapshot) => onData(snapshot.docs.map(fromDoc)), onError);
+}
 
-export async function leaveCrewReal(_crewId: string, _myUid: string): Promise<void> {}
+export async function createCrewReal(input: { name: string; description: string; ownerId: string }): Promise<Crew> {
+  const data = {
+    name: input.name,
+    description: input.description,
+    avatarHue: hueFromName(input.name),
+    memberIds: [input.ownerId],
+    ownerId: input.ownerId,
+    createdAt: Date.now(),
+  };
+  const ref = await addDoc(collection(db, COLLECTION), data);
+  return { id: ref.id, ...data };
+}
+
+export async function joinCrewReal(crewId: string, myUid: string): Promise<void> {
+  await updateDoc(doc(db, COLLECTION, crewId), { memberIds: arrayUnion(myUid) });
+}
+
+export async function leaveCrewReal(crewId: string, myUid: string): Promise<void> {
+  await updateDoc(doc(db, COLLECTION, crewId), { memberIds: arrayRemove(myUid) });
+}

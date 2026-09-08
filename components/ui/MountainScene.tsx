@@ -14,6 +14,9 @@ import { Category } from '@/lib/types';
 const CATEGORY_TONE: Partial<Record<Category, { sky: string; near: string }>> = {
   Water: { sky: '#DBEAFE', near: colors.info },
   'Road trip': { sky: '#FEF3C7', near: colors.warning },
+  Camping: { sky: '#FFEDD5', near: colors.hosting },
+  Photography: { sky: '#F1F5F9', near: colors.textSecondary },
+  Social: { sky: '#FFFBEB', near: colors.accent },
 };
 
 export function MountainScene({ height = 160, rounded = true, category }: { height?: number; rounded?: boolean; category?: Category }) {

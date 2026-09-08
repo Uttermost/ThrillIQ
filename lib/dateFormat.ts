@@ -9,6 +9,14 @@ export function formatDateLabel(ts: number): string {
   return `${WEEKDAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`;
 }
 
+// "September 12, 2026" — editorial/byline style (blog posts), distinct from
+// formatDateLabel's short "Sat, Sep 12" used for adventure scheduling.
+const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+export function formatLongDate(ts: number): string {
+  const d = new Date(ts);
+  return `${MONTHS_LONG[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+
 export function formatTimeLabel(ts: number): string {
   const d = new Date(ts);
   const hours24 = d.getHours();

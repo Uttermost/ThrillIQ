@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/ui/Avatar';
@@ -11,7 +11,7 @@ import { InlineError } from '@/components/ui/StateViews';
 import { EmptyState } from '@/components/ui/StateViews';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useApp } from '@/lib/store';
-import { colors, radius, spacing, type } from '@/lib/theme';
+import { CONTENT_MAX_WIDTH, colors, radius, spacing, type, typography } from '@/lib/theme';
 import { Crew } from '@/lib/types';
 
 function initialsFor(name: string): string {
@@ -26,6 +26,8 @@ type Status = 'loading' | 'ready' | 'error';
 
 export default function Crews() {
   const { myId, authenticated, fetchCrews, createCrew, joinCrew, leaveCrew } = useApp();
+  const { width } = useWindowDimensions();
+  const isWide = Platform.OS === 'web' && width > CONTENT_MAX_WIDTH;
   const [crews, setCrews] = useState<Crew[]>([]);
   const [status, setStatus] = useState<Status>('loading');
   const [error, setError] = useState<string | null>(null);
@@ -104,12 +106,27 @@ export default function Crews() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScreenHeader
-        title="Crews"
-        onEdit={() => setShowCreateForm((v) => !v)}
-        actionIcon={showCreateForm ? 'close' : 'add'}
-        actionLabel={showCreateForm ? 'Cancel' : 'New crew'}
-      />
+      {isWide ? (
+        <View style={styles.wideHeader}>
+          <View>
+            <Text style={styles.wideHeading}>Crews</Text>
+            <Text style={styles.wideSubheading}>Join a community around the adventures you love.</Text>
+          </View>
+          <Button
+            label={showCreateForm ? 'Cancel' : 'New crew'}
+            variant={showCreateForm ? 'secondary' : 'primary'}
+            onPress={() => setShowCreateForm((v) => !v)}
+            style={styles.wideCreateBtn}
+          />
+        </View>
+      ) : (
+        <ScreenHeader
+          title="Crews"
+          onEdit={() => setShowCreateForm((v) => !v)}
+          actionIcon={showCreateForm ? 'close' : 'add'}
+          actionLabel={showCreateForm ? 'Cancel' : 'New crew'}
+        />
+      )}
       <ScrollView contentContainerStyle={styles.content}>
         {showCreateForm && (
           <View style={styles.createForm}>
@@ -142,9 +159,15 @@ export default function Crews() {
             {myCrews.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>My crews</Text>
-                {myCrews.map((c) => (
-                  <CrewRow key={c.id} crew={c} isMember pending={pendingId === c.id} onPress={() => router.push(`/crew/${c.id}`)} />
-                ))}
+                <View style={isWide ? styles.grid : undefined}>
+                  {myCrews.map((c) =>
+                    isWide ? (
+                      <CrewCard key={c.id} crew={c} isMember pending={pendingId === c.id} onPress={() => router.push(`/crew/${c.id}`)} />
+                    ) : (
+                      <CrewRow key={c.id} crew={c} isMember pending={pendingId === c.id} onPress={() => router.push(`/crew/${c.id}`)} />
+                    )
+                  )}
+                </View>
               </View>
             )}
 
@@ -153,9 +176,15 @@ export default function Crews() {
               {otherCrews.length === 0 ? (
                 <EmptyState icon="people-outline" title="No more crews to discover" message="You're already in every crew there is." />
               ) : (
-                otherCrews.map((c) => (
-                  <CrewRow key={c.id} crew={c} isMember={false} pending={pendingId === c.id} onPress={() => router.push(`/crew/${c.id}`)} />
-                ))
+                <View style={isWide ? styles.grid : undefined}>
+                  {otherCrews.map((c) =>
+                    isWide ? (
+                      <CrewCard key={c.id} crew={c} isMember={false} pending={pendingId === c.id} onPress={() => router.push(`/crew/${c.id}`)} />
+                    ) : (
+                      <CrewRow key={c.id} crew={c} isMember={false} pending={pendingId === c.id} onPress={() => router.push(`/crew/${c.id}`)} />
+                    )
+                  )}
+                </View>
               )}
             </View>
           </>
@@ -184,6 +213,40 @@ export default function Crews() {
           disabled={pending}
           style={[styles.membershipBtn, isMember && styles.membershipBtnActive]}>
           <Text style={[styles.membershipBtnLabel, isMember && styles.membershipBtnLabelActive]}>{isMember ? 'Joined' : 'Join'}</Text>
+        </Pressable>
+      </Pressable>
+    );
+  }
+
+  // Desktop-only — a card reads much better than a squeezed row once it's
+  // sitting in a 300-380px grid cell instead of a full-width list.
+  function CrewCard({ crew, isMember, pending, onPress }: { crew: Crew; isMember: boolean; pending: boolean; onPress: () => void }) {
+    return (
+      <Pressable style={styles.crewCard} onPress={onPress}>
+        <View style={styles.crewCardTop}>
+          <Avatar initials={initialsFor(crew.name)} hue={crew.avatarHue} size={56} />
+          <View style={styles.crewCardInfo}>
+            <Text style={styles.crewName} numberOfLines={1}>
+              {crew.name}
+            </Text>
+            <Text style={styles.crewMeta}>
+              {crew.memberIds.length} member{crew.memberIds.length === 1 ? '' : 's'}
+            </Text>
+          </View>
+        </View>
+        {!!crew.description && (
+          <Text style={styles.crewCardDescription} numberOfLines={2}>
+            {crew.description}
+          </Text>
+        )}
+        <Pressable
+          onPress={(e) => {
+            e.stopPropagation();
+            handleToggleMembership(crew);
+          }}
+          disabled={pending}
+          style={[styles.membershipBtn, styles.crewCardBtn, isMember && styles.membershipBtnActive]}>
+          <Text style={[styles.membershipBtnLabel, isMember && styles.membershipBtnLabelActive]}>{isMember ? 'Joined' : 'Join crew'}</Text>
         </Pressable>
       </Pressable>
     );
@@ -225,4 +288,29 @@ const styles = StyleSheet.create({
   membershipBtnActive: { backgroundColor: colors.primarySurface, borderColor: colors.primary },
   membershipBtnLabel: { ...type.chip, color: colors.textPrimary },
   membershipBtnLabelActive: { color: colors.primary },
+  wideHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    gap: spacing.md,
+  },
+  wideHeading: { ...type.screenHeading },
+  wideSubheading: { ...typography.caption, color: colors.textSecondary, marginTop: spacing.xs },
+  wideCreateBtn: { minWidth: 140 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.lg },
+  crewCard: {
+    width: 320,
+    gap: spacing.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+  },
+  crewCardTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  crewCardInfo: { flex: 1, gap: 2 },
+  crewCardDescription: { ...type.secondary, color: colors.textSecondary },
+  crewCardBtn: { alignSelf: 'flex-start' },
 });

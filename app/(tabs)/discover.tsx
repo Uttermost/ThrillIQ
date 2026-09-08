@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AdventureCard } from '@/components/AdventureCard';
@@ -13,8 +13,12 @@ import { isThisMonth, isThisWeek, isThisWeekend, isToday, isTomorrow, isLater, i
 import { formatDateLabel } from '@/lib/dateFormat';
 import { distanceKm } from '@/lib/geo';
 import { useApp } from '@/lib/store';
-import { colors, radius, spacing, type, typography } from '@/lib/theme';
+import { CONTENT_MAX_WIDTH, DESKTOP_CONTENT_MAX_WIDTH, colors, radius, spacing, type, typography } from '@/lib/theme';
 import { Adventure, Category } from '@/lib/types';
+
+// Card content (photo + title + meta + avatar stack) needs real room —
+// below this, extra grid columns just crush AdventureCard, not help it.
+const MIN_GRID_CARD_WIDTH = 320;
 
 function matchesWhenFilter(a: Adventure, filters: DiscoverFilters, now: number): boolean {
   switch (filters.when) {
@@ -73,9 +77,19 @@ function priceMatchesBand(priceKsh: number, band: DiscoverFilters['price']): boo
 export default function Discover() {
   const { myId, me, authenticated, adventures, notifications, fetchAdventures, toggleLike } = useApp();
   const hasUnreadNotifications = notifications.some((n) => !n.read);
+  const { width } = useWindowDimensions();
+  const isWide = Platform.OS === 'web' && width > CONTENT_MAX_WIDTH;
+  const gridWidth = Math.min(width, DESKTOP_CONTENT_MAX_WIDTH) - spacing.lg * 2;
+  const numColumns = isWide ? Math.max(2, Math.min(3, Math.floor(gridWidth / MIN_GRID_CARD_WIDTH))) : 1;
   const [status, setStatus] = useState<Status>('loading');
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('All');
+  // A category tile elsewhere (e.g. the public homepage) can deep-link here
+  // with ?category=Hiking to land already filtered — same list Discover's
+  // own chips use, so an invalid/missing param just falls back to 'All'.
+  const { category: categoryParam } = useLocalSearchParams<{ category?: string }>();
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>(() =>
+    CATEGORY_FILTERS.includes(categoryParam as CategoryFilter) ? (categoryParam as CategoryFilter) : 'All'
+  );
   const [filters, setFilters] = useState<DiscoverFilters>(DEFAULT_FILTERS);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [view, setView] = useState<'list' | 'map'>('list');
@@ -166,6 +180,9 @@ export default function Discover() {
     return list;
   }, [adventures, search, categoryFilter, filters, myCoords]);
 
+  const hasPreferences =
+    (me.adventureCategories?.length ?? 0) > 0 || !!me.preferredDifficulty || !!me.preferredPace || !!me.preferredSocialLevel;
+
   // A real, if simple, match: score each open adventure against the
   // signed-in user's own stored preferences (category/difficulty/pace/
   // social level) rather than showing a fabricated "% match". Only surfaces
@@ -173,8 +190,6 @@ export default function Discover() {
   // matches on 2+ of those — no preferences, no section, not a placeholder
   // shown to everyone regardless of data.
   const findMyPeopleMatches = useMemo(() => {
-    const hasPreferences =
-      (me.adventureCategories?.length ?? 0) > 0 || !!me.preferredDifficulty || !!me.preferredPace || !!me.preferredSocialLevel;
     if (!hasPreferences) return [];
     return adventures
       .filter((a) => a.organizerId !== myId && !a.participantIds.includes(myId) && a.spotsFilled < a.spotsTotal)
@@ -190,7 +205,7 @@ export default function Discover() {
       .sort((a, b) => b.score - a.score)
       .slice(0, 5)
       .map((m) => m.adventure);
-  }, [adventures, myId, me.adventureCategories, me.preferredDifficulty, me.preferredPace, me.preferredSocialLevel]);
+  }, [adventures, myId, me.adventureCategories, me.preferredDifficulty, me.preferredPace, me.preferredSocialLevel, hasPreferences]);
 
   useEffect(() => {
     if (!selectedId && filtered.length > 0) setSelectedId(filtered[0].id);
@@ -307,6 +322,20 @@ export default function Discover() {
         </View>
       )}
 
+      {/* Nobody sees Find My People at all until they set preferences —
+          previously a silent gap with no path to the feature it's meant to
+          showcase. Authenticated-only since /profile/edit requires auth. */}
+      {authenticated && !hasPreferences && (
+        <Pressable style={styles.preferencesPrompt} onPress={() => router.push('/profile/edit')}>
+          <Ionicons name="sparkles-outline" size={18} color={colors.primary} />
+          <View style={styles.preferencesPromptBody}>
+            <Text style={styles.preferencesPromptTitle}>Unlock Find My People</Text>
+            <Text style={styles.preferencesPromptSubtitle}>Set your adventure preferences to see matches picked for you.</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+        </Pressable>
+      )}
+
       <View style={styles.filterBarRow}>
         <Pressable onPress={() => setSheetOpen(true)} style={styles.filterButton} accessibilityLabel="Filters">
           <Ionicons name="options-outline" size={16} color={colors.textPrimary} />
@@ -349,12 +378,15 @@ export default function Discover() {
 
       {status === 'ready' && view === 'list' && filtered.length > 0 && (
         <FlatList
+          key={numColumns}
           data={filtered}
           keyExtractor={(item) => item.id}
+          numColumns={numColumns}
+          columnWrapperStyle={numColumns > 1 ? styles.gridRow : undefined}
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={false} onRefresh={load} tintColor={colors.textSecondary} />}
           renderItem={({ item }) => (
-            <View style={{ marginBottom: spacing.lg }}>
+            <View style={numColumns > 1 ? styles.gridItem : { marginBottom: spacing.lg }}>
               <AdventureCard adventure={item} onPress={() => openAdventure(item)} onToggleLike={() => handleToggleLike(item.id)} />
             </View>
           )}
@@ -362,33 +394,45 @@ export default function Discover() {
       )}
 
       {status === 'ready' && view === 'map' && (
-        <View style={styles.mapWrap}>
-          <View style={styles.mapCanvas}>
-            {filtered.map((a) => (
-              <Pressable
-                key={a.id}
-                onPress={() => setSelectedId(a.id)}
-                style={[
-                  styles.pin,
-                  { left: `${a.coordinate.x * 100}%`, top: `${a.coordinate.y * 100}%` },
-                  a.id === selected?.id && styles.pinActive,
-                ]}
-              />
-            ))}
-          </View>
-          {selected && (
-            <Pressable style={styles.mapCard} onPress={() => openAdventure(selected)}>
-              <Text style={styles.mapCardTitle}>{selected.title}</Text>
-              <Text style={styles.mapCardMeta}>
-                {selected.location} · {selected.dateLabel} {selected.meetingTime}
-              </Text>
-            </Pressable>
+        <View style={[styles.mapWrap, isWide && styles.mapWrapWide]}>
+          {isWide && (
+            <ScrollView style={styles.mapListPane} contentContainerStyle={styles.mapListContent}>
+              {filtered.map((a) => (
+                <Pressable key={a.id} onPress={() => setSelectedId(a.id)} style={styles.mapListItem}>
+                  <AdventureCard adventure={a} onPress={() => openAdventure(a)} onToggleLike={() => handleToggleLike(a.id)} />
+                </Pressable>
+              ))}
+              {filtered.length === 0 && <EmptyState icon="search-outline" title="No adventures found" message="Try another search or adjust your filters." />}
+            </ScrollView>
           )}
-          {filtered.length === 0 && (
-            <View style={styles.mapEmpty}>
-              <EmptyState icon="search-outline" title="No adventures found" message="Try another search or adjust your filters." />
+          <View style={styles.mapCanvasWrap}>
+            <View style={styles.mapCanvas}>
+              {filtered.map((a) => (
+                <Pressable
+                  key={a.id}
+                  onPress={() => setSelectedId(a.id)}
+                  style={[
+                    styles.pin,
+                    { left: `${a.coordinate.x * 100}%`, top: `${a.coordinate.y * 100}%` },
+                    a.id === selected?.id && styles.pinActive,
+                  ]}
+                />
+              ))}
             </View>
-          )}
+            {!isWide && selected && (
+              <Pressable style={styles.mapCard} onPress={() => openAdventure(selected)}>
+                <Text style={styles.mapCardTitle}>{selected.title}</Text>
+                <Text style={styles.mapCardMeta}>
+                  {selected.location} · {selected.dateLabel} {selected.meetingTime}
+                </Text>
+              </Pressable>
+            )}
+            {!isWide && filtered.length === 0 && (
+              <View style={styles.mapEmpty}>
+                <EmptyState icon="search-outline" title="No adventures found" message="Try another search or adjust your filters." />
+              </View>
+            )}
+          </View>
         </View>
       )}
 
@@ -472,6 +516,21 @@ const styles = StyleSheet.create({
   findMyPeopleScroll: { height: 360, flexGrow: 0, flexShrink: 0 },
   findMyPeopleRow: { flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.lg },
   findMyPeopleCard: { width: 260 },
+  preferencesPrompt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.primarySurface,
+  },
+  preferencesPromptBody: { flex: 1 },
+  preferencesPromptTitle: { ...type.bodyEmphasis },
+  preferencesPromptSubtitle: { ...type.secondary, color: colors.textSecondary, marginTop: 2 },
   filterBarRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -513,7 +572,17 @@ const styles = StyleSheet.create({
   chipLabel: { ...typography.caption, fontWeight: '600' },
   chipLabelActive: { color: '#fff' },
   list: { padding: spacing.lg },
+  gridRow: { gap: spacing.lg },
+  gridItem: { flex: 1, marginBottom: spacing.lg },
   mapWrap: { flex: 1, paddingHorizontal: spacing.lg, marginTop: spacing.md },
+  // Wide (desktop) discovery per the design brief's "split screen" layout —
+  // a scrollable card list alongside a persistent map, rather than the
+  // mobile full-screen list/map toggle.
+  mapWrapWide: { flexDirection: 'row', gap: spacing.lg, paddingBottom: spacing.lg },
+  mapListPane: { width: 360, flexShrink: 0 },
+  mapListContent: { gap: spacing.md, paddingBottom: spacing.lg },
+  mapListItem: { borderRadius: radius.lg },
+  mapCanvasWrap: { flex: 1, paddingBottom: spacing.lg },
   mapCanvas: {
     flex: 1,
     backgroundColor: colors.primarySurface,

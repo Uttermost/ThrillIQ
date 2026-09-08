@@ -1,15 +1,35 @@
-// Web has no native Firestore SDK support (@react-native-firebase is native-only).
-// store.tsx never actually calls these on web — it keeps its own mock array logic
-// inline for that platform — but this file must exist so the import resolves.
+import { collection, deleteDoc, doc, getDocs, query, setDoc, updateDoc, where } from 'firebase/firestore';
 
+import { db } from './firebase';
 import { Connection } from './types';
 
-export async function fetchConnectionsForReal(_uid: string): Promise<Connection[]> {
-  return [];
+const COLLECTION = 'connections';
+
+function connectionId(a: string, b: string): string {
+  return [a, b].sort().join('_');
 }
 
-export async function sendConnectionRequestReal(_requesterId: string, _recipientId: string): Promise<Connection> {
-  throw new Error('Not implemented on web.');
+export async function fetchConnectionsForReal(uid: string): Promise<Connection[]> {
+  const snapshot = await getDocs(query(collection(db, COLLECTION), where('participantIds', 'array-contains', uid)));
+  return snapshot.docs.map((d) => d.data() as Connection);
 }
 
-export async function respondToConnectionRequestReal(_connectionId: string, _accept: boolean): Promise<void> {}
+export async function sendConnectionRequestReal(requesterId: string, recipientId: string): Promise<Connection> {
+  const id = connectionId(requesterId, recipientId);
+  const data: Connection = {
+    id,
+    participantIds: [requesterId, recipientId].sort() as [string, string],
+    requesterId,
+    recipientId,
+    status: 'pending',
+    createdAt: Date.now(),
+  };
+  await setDoc(doc(db, COLLECTION, id), data);
+  return data;
+}
+
+export async function respondToConnectionRequestReal(connectionId: string, accept: boolean): Promise<void> {
+  const ref = doc(db, COLLECTION, connectionId);
+  if (accept) await updateDoc(ref, { status: 'accepted' });
+  else await deleteDoc(ref);
+}

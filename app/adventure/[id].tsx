@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/ui/Avatar';
@@ -13,9 +13,9 @@ import { MountainScene } from '@/components/ui/MountainScene';
 import { PhotoPicker } from '@/components/ui/PhotoPicker';
 import { ReportSheet } from '@/components/ui/ReportSheet';
 import { StarRating } from '@/components/ui/StarRating';
-import { colors, iconSize, radius, spacing, type } from '@/lib/theme';
+import { CONTENT_MAX_WIDTH, colors, iconSize, radius, spacing, type } from '@/lib/theme';
 import { useApp } from '@/lib/store';
-import { Review } from '@/lib/types';
+import { Adventure, Review } from '@/lib/types';
 
 export default function AdventureDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -33,11 +33,14 @@ export default function AdventureDetail() {
     hasReviewed,
     submitReview,
     fetchReviewsForAdventure,
+    fetchReviewsForOrganizer,
     fetchWaitlist,
     joinWaitlist,
     leaveWaitlist,
   } = useApp();
   const adventure = adventures.find((a) => a.id === id);
+  const { width } = useWindowDimensions();
+  const isWide = Platform.OS === 'web' && width > CONTENT_MAX_WIDTH;
 
   const [agreed, setAgreed] = useState(false);
   const [joining, setJoining] = useState(false);
@@ -57,6 +60,7 @@ export default function AdventureDetail() {
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [reviewPhotoItems, setReviewPhotoItems] = useState<{ uri: string; createdAt: number }[]>([]);
+  const [organizerReviews, setOrganizerReviews] = useState<Review[] | null>(null);
 
   useEffect(() => {
     if (!adventure) return;
@@ -97,6 +101,27 @@ export default function AdventureDetail() {
       cancelled = true;
     };
   }, [adventureId, fetchReviewsForAdventure]);
+
+  // Powers the organizer's real star rating in the desktop sidebar (see
+  // profile/[id].tsx, which computes the same average from the same call)
+  // — never a fabricated "4.9 stars" next to the host.
+  const organizerId = adventure?.organizerId;
+  useEffect(() => {
+    if (!organizerId) return;
+    let cancelled = false;
+    setOrganizerReviews(null);
+    fetchReviewsForOrganizer(organizerId).then((list) => {
+      if (!cancelled) setOrganizerReviews(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [organizerId, fetchReviewsForOrganizer]);
+
+  const organizerAverageRating = useMemo(() => {
+    if (!organizerReviews || organizerReviews.length === 0) return null;
+    return organizerReviews.reduce((sum, r) => sum + r.rating, 0) / organizerReviews.length;
+  }, [organizerReviews]);
 
   // Posts tagged to this adventure (Feed's "Tag an adventure") are the
   // other real source of photos here — `posts` is already loaded
@@ -241,180 +266,11 @@ export default function AdventureDetail() {
 
   const vibeChips = [adventure.socialLevel, `${adventure.pace} pace`, adventure.category];
 
-  return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.heroWrap}>
-          <MountainScene height={220} rounded={false} category={adventure.category} />
-          <Pressable onPress={() => router.back()} style={styles.heroBtn} hitSlop={8} accessibilityLabel="Go back">
-            <Ionicons name="arrow-back" size={iconSize.standard} color={colors.textPrimary} />
-          </Pressable>
-          <View style={styles.heroActions}>
-            <Pressable style={styles.heroBtn} hitSlop={8} accessibilityLabel="Save">
-              <Ionicons name="heart-outline" size={iconSize.standard} color={colors.textPrimary} />
-            </Pressable>
-            <Pressable style={styles.heroBtn} hitSlop={8} accessibilityLabel="Share">
-              <Ionicons name="share-outline" size={iconSize.standard} color={colors.textPrimary} />
-            </Pressable>
-          </View>
-        </View>
-
-        <View style={styles.content}>
-          <Text style={styles.title}>{adventure.title}</Text>
-
-          <View style={styles.keyFacts}>
-            <KeyFact icon="calendar-outline" label={adventure.dateLabel} />
-            {!!adventure.meetingTime && <KeyFact icon="time-outline" label={adventure.meetingTime} />}
-            <KeyFact icon="location-outline" label={adventure.location} />
-            <KeyFact icon="trending-up-outline" label={adventure.difficulty} />
-            <KeyFact icon="pricetag-outline" label={adventure.priceKsh > 0 ? `~KSh ${adventure.priceKsh.toLocaleString()}` : 'Free'} />
-            <KeyFact icon="people-outline" label={`${adventure.spotsFilled}/${adventure.spotsTotal} spots${isFull ? ' · Full' : ''}`} />
-          </View>
-
-          {!!adventure.description && (
-            <Section title="About">
-              <Text style={styles.body}>{adventure.description}</Text>
-            </Section>
-          )}
-
-          <Section title="Adventure vibe">
-            <View style={styles.chipRow}>
-              {vibeChips.map((c) => (
-                <View key={c} style={styles.vibeChip}>
-                  <Text style={styles.vibeChipText}>{c}</Text>
-                </View>
-              ))}
-            </View>
-          </Section>
-
-          {adventure.audience.length > 0 && (
-            <Section title="Who is this for?">
-              <View style={styles.chipRow}>
-                {adventure.audience.map((a) => (
-                  <View key={a} style={styles.audienceChip}>
-                    <Text style={styles.audienceChipText}>{a}</Text>
-                  </View>
-                ))}
-              </View>
-            </Section>
-          )}
-
-          <Section title="Transport">
-            <Text style={styles.body}>{adventure.transport}</Text>
-          </Section>
-
-          <Section title="Meeting point">
-            <Text style={styles.body}>{adventure.location}</Text>
-          </Section>
-
-          {isJoined && (
-            <View style={styles.safetyBox}>
-              <View style={styles.guidelinesHeader}>
-                <Ionicons name="medkit-outline" size={16} color={colors.textSecondary} />
-                <Text style={styles.safetyTitle}>Safety</Text>
-              </View>
-              {me.emergencyContactName && me.emergencyContactPhone ? (
-                <Text style={styles.safetyText}>
-                  Your emergency contact: {me.emergencyContactName} · {me.emergencyContactPhone}
-                </Text>
-              ) : (
-                <Pressable onPress={() => router.push('/profile/edit')}>
-                  <Text style={styles.safetyLink}>Add an emergency contact to your profile →</Text>
-                </Pressable>
-              )}
-            </View>
-          )}
-
-          <View style={styles.guidelines}>
-            <View style={styles.guidelinesHeader}>
-              <Ionicons name="warning-outline" size={16} color={colors.hosting} />
-              <Text style={styles.guidelinesTitle}>Guidelines</Text>
-            </View>
-            <Text style={styles.guidelinesText}>{adventure.guidelines.join(' · ')}</Text>
-          </View>
-
-          {canReview && !alreadyReviewed && !reviewSubmitted && (
-            <Section title="Rate this adventure">
-              <StarRating value={reviewRating} onChange={setReviewRating} size={26} />
-              <TextInput
-                value={reviewText}
-                onChangeText={setReviewText}
-                placeholder="Share how it went (optional)"
-                placeholderTextColor={colors.textMuted}
-                multiline
-                numberOfLines={3}
-                maxLength={600}
-                style={styles.reviewInput}
-              />
-              <PhotoPicker photos={reviewPhotos} onChange={setReviewPhotos} max={3} />
-              {reviewError && <InlineError message={reviewError} onRetry={handleSubmitReview} />}
-              <Button label="Submit review" onPress={handleSubmitReview} disabled={reviewRating === 0} loading={reviewSubmitting} />
-            </Section>
-          )}
-          {canReview && (alreadyReviewed || reviewSubmitted) && <Text style={styles.reviewThanks}>✓ Thanks for your review.</Text>}
-
-          {galleryPhotos.length > 0 && (
-            <Section title="Photos">
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.galleryRow}>
-                {galleryPhotos.map((item, i) =>
-                  item.postId ? (
-                    <Pressable key={i} onPress={() => router.push(`/post/${item.postId}`)}>
-                      <Image source={{ uri: item.uri }} style={styles.galleryPhoto} />
-                    </Pressable>
-                  ) : (
-                    <Image key={i} source={{ uri: item.uri }} style={styles.galleryPhoto} />
-                  )
-                )}
-              </ScrollView>
-            </Section>
-          )}
-
-          {organizer && (
-            <Section title="Organizer">
-              <Pressable style={styles.organizerRow} onPress={() => router.push(`/profile/${organizer.id}`)}>
-                <Avatar initials={organizer.initials} hue={organizer.avatarHue} size={44} />
-                <View style={styles.organizerText}>
-                  <Text style={styles.organizerName}>{organizer.name}</Text>
-                  <Text style={styles.organizerMeta}>{organizer.completedAdventuresCount ?? 0} adventures hosted</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-              </Pressable>
-            </Section>
-          )}
-
-          <View style={styles.peopleSection}>
-            <Text style={styles.sectionTitle}>Who's going</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.peopleScroll}
-              contentContainerStyle={styles.peopleRow}>
-              {[adventure.organizerId, ...adventure.participantIds].map((uid) => {
-                const person = users[uid];
-                if (!person) return null;
-                return (
-                  <Pressable key={uid} style={styles.personChip} onPress={() => router.push(`/profile/${uid}`)}>
-                    <Avatar initials={person.initials} hue={person.avatarHue} size={44} />
-                    <Text style={styles.personName} numberOfLines={1}>
-                      {uid === adventure.organizerId ? 'Organizer' : person.name.split(' ')[0]}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
-
-          <Button label="Message organizer" onPress={handleMessageOrganizer} variant="secondary" style={{ marginTop: spacing.md }} />
-
-          <Pressable onPress={() => setReportVisible(true)} style={{ alignSelf: 'center', marginTop: spacing.sm }}>
-            <Text style={styles.reportLink}>Report this adventure</Text>
-          </Pressable>
-        </View>
-      </ScrollView>
-
-      <ReportSheet visible={reportVisible} onClose={() => setReportVisible(false)} targetType="adventure" targetId={adventure.id} />
-
-      <View style={styles.bottomBar}>
+  // Join / waitlist / leave — the same state machine either renders as the
+  // mobile bottom bar or the desktop sidebar's action block below.
+  function ActionPanel() {
+    return (
+      <>
         {isFull && !isJoined ? (
           <>
             {waitlistError && <InlineError message={waitlistError} onRetry={waitlistPosition ? handleLeaveWaitlist : handleJoinWaitlist} />}
@@ -466,6 +322,257 @@ export default function AdventureDetail() {
             <Text style={styles.disclaimer}>Joining does not charge you. Pay the organizer directly.</Text>
           </>
         )}
+      </>
+    );
+  }
+
+  // Everything between the key facts and the "who's going" strip — same
+  // content, same order, whichever layout (mobile single column, desktop
+  // left column) is rendering it.
+  function ContentSections(adventure: Adventure) {
+    return (
+      <>
+        {!!adventure.description && (
+          <Section title="About">
+            <Text style={styles.body}>{adventure.description}</Text>
+          </Section>
+        )}
+
+        <Section title="Adventure vibe">
+          <View style={styles.chipRow}>
+            {vibeChips.map((c) => (
+              <View key={c} style={styles.vibeChip}>
+                <Text style={styles.vibeChipText}>{c}</Text>
+              </View>
+            ))}
+          </View>
+        </Section>
+
+        {adventure.audience.length > 0 && (
+          <Section title="Who is this for?">
+            <View style={styles.chipRow}>
+              {adventure.audience.map((a) => (
+                <View key={a} style={styles.audienceChip}>
+                  <Text style={styles.audienceChipText}>{a}</Text>
+                </View>
+              ))}
+            </View>
+          </Section>
+        )}
+
+        <Section title="Transport">
+          <Text style={styles.body}>{adventure.transport}</Text>
+        </Section>
+
+        <Section title="Meeting point">
+          <Text style={styles.body}>{adventure.location}</Text>
+        </Section>
+
+        {(!!adventure.included || !!adventure.excluded || !!adventure.equipment || !!adventure.cancellationPolicy) && (
+          <Section title="Trip details">
+            {!!adventure.included && <Text style={styles.body}>Included: {adventure.included}</Text>}
+            {!!adventure.excluded && <Text style={styles.body}>Not included: {adventure.excluded}</Text>}
+            {!!adventure.equipment && <Text style={styles.body}>Bring: {adventure.equipment}</Text>}
+            {!!adventure.cancellationPolicy && <Text style={styles.body}>Cancellation policy: {adventure.cancellationPolicy}</Text>}
+          </Section>
+        )}
+
+        {isJoined && (
+          <View style={styles.safetyBox}>
+            <View style={styles.guidelinesHeader}>
+              <Ionicons name="medkit-outline" size={16} color={colors.textSecondary} />
+              <Text style={styles.safetyTitle}>Safety</Text>
+            </View>
+            {me.emergencyContactName && me.emergencyContactPhone ? (
+              <Text style={styles.safetyText}>
+                Your emergency contact: {me.emergencyContactName} · {me.emergencyContactPhone}
+              </Text>
+            ) : (
+              <Pressable onPress={() => router.push('/profile/edit')}>
+                <Text style={styles.safetyLink}>Add an emergency contact to your profile →</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+
+        <View style={styles.guidelines}>
+          <View style={styles.guidelinesHeader}>
+            <Ionicons name="warning-outline" size={16} color={colors.hosting} />
+            <Text style={styles.guidelinesTitle}>Guidelines</Text>
+          </View>
+          <Text style={styles.guidelinesText}>{adventure.guidelines.join(' · ')}</Text>
+        </View>
+
+        {canReview && !alreadyReviewed && !reviewSubmitted && (
+          <Section title="Rate this adventure">
+            <StarRating value={reviewRating} onChange={setReviewRating} size={26} />
+            <TextInput
+              value={reviewText}
+              onChangeText={setReviewText}
+              placeholder="Share how it went (optional)"
+              placeholderTextColor={colors.textMuted}
+              multiline
+              numberOfLines={3}
+              maxLength={600}
+              style={styles.reviewInput}
+            />
+            <PhotoPicker photos={reviewPhotos} onChange={setReviewPhotos} max={3} />
+            {reviewError && <InlineError message={reviewError} onRetry={handleSubmitReview} />}
+            <Button label="Submit review" onPress={handleSubmitReview} disabled={reviewRating === 0} loading={reviewSubmitting} />
+          </Section>
+        )}
+        {canReview && (alreadyReviewed || reviewSubmitted) && <Text style={styles.reviewThanks}>✓ Thanks for your review.</Text>}
+
+        {galleryPhotos.length > 0 && (
+          <Section title="Photos">
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.galleryRow}>
+              {galleryPhotos.map((item, i) =>
+                item.postId ? (
+                  <Pressable key={i} onPress={() => router.push(`/post/${item.postId}`)}>
+                    <Image source={{ uri: item.uri }} style={styles.galleryPhoto} />
+                  </Pressable>
+                ) : (
+                  <Image key={i} source={{ uri: item.uri }} style={styles.galleryPhoto} />
+                )
+              )}
+            </ScrollView>
+          </Section>
+        )}
+      </>
+    );
+  }
+
+  function OrganizerRow() {
+    if (!organizer) return null;
+    return (
+      <Pressable style={styles.organizerRow} onPress={() => router.push(`/profile/${organizer.id}`)}>
+        <Avatar initials={organizer.initials} hue={organizer.avatarHue} size={44} />
+        <View style={styles.organizerText}>
+          <Text style={styles.organizerName}>{organizer.name}</Text>
+          {organizerAverageRating != null ? (
+            <View style={styles.organizerRatingRow}>
+              <StarRating value={organizerAverageRating} size={13} />
+              <Text style={styles.organizerMeta}>
+                {organizerAverageRating.toFixed(1)} · {organizerReviews?.length} review{organizerReviews?.length === 1 ? '' : 's'}
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.organizerMeta}>{organizer.completedAdventuresCount ?? 0} adventures hosted</Text>
+          )}
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+      </Pressable>
+    );
+  }
+
+  function WhosGoing(adventure: Adventure) {
+    return (
+      <View style={styles.peopleSection}>
+        <Text style={styles.sectionTitle}>Who's going</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.peopleScroll} contentContainerStyle={styles.peopleRow}>
+          {[adventure.organizerId, ...adventure.participantIds].map((uid) => {
+            const person = users[uid];
+            if (!person) return null;
+            return (
+              <Pressable key={uid} style={styles.personChip} onPress={() => router.push(`/profile/${uid}`)}>
+                <Avatar initials={person.initials} hue={person.avatarHue} size={44} />
+                <Text style={styles.personName} numberOfLines={1}>
+                  {uid === adventure.organizerId ? 'Organizer' : person.name.split(' ')[0]}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+    );
+  }
+
+  const hero = (
+    <View style={styles.heroWrap}>
+      <MountainScene height={isWide ? 340 : 220} rounded={false} category={adventure.category} />
+      <Pressable onPress={() => router.back()} style={styles.heroBtn} hitSlop={8} accessibilityLabel="Go back">
+        <Ionicons name="arrow-back" size={iconSize.standard} color={colors.textPrimary} />
+      </Pressable>
+      <View style={styles.heroActions}>
+        <Pressable style={styles.heroBtn} hitSlop={8} accessibilityLabel="Save">
+          <Ionicons name="heart-outline" size={iconSize.standard} color={colors.textPrimary} />
+        </Pressable>
+        <Pressable style={styles.heroBtn} hitSlop={8} accessibilityLabel="Share">
+          <Ionicons name="share-outline" size={iconSize.standard} color={colors.textPrimary} />
+        </Pressable>
+      </View>
+    </View>
+  );
+
+  const keyFacts = (
+    <View style={styles.keyFacts}>
+      <KeyFact icon="calendar-outline" label={adventure.dateLabel} />
+      {!!adventure.meetingTime && <KeyFact icon="time-outline" label={adventure.meetingTime} />}
+      <KeyFact icon="location-outline" label={adventure.location} />
+      <KeyFact icon="trending-up-outline" label={adventure.difficulty} />
+      <KeyFact icon="pricetag-outline" label={adventure.priceKsh > 0 ? `~KSh ${adventure.priceKsh.toLocaleString()}` : 'Free'} />
+      <KeyFact icon="people-outline" label={`${adventure.spotsFilled}/${adventure.spotsTotal} spots${isFull ? ' · Full' : ''}`} />
+    </View>
+  );
+
+  if (isWide) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <ScrollView contentContainerStyle={styles.scroll}>
+          {hero}
+          <View style={styles.wideContent}>
+            <Text style={styles.title}>{adventure.title}</Text>
+            {keyFacts}
+            <View style={styles.wideRow}>
+              <View style={styles.wideLeft}>
+                {ContentSections(adventure)}
+              </View>
+              <View style={styles.wideRight}>
+                <View style={styles.sidebarCard}>
+                  <OrganizerRow />
+                  <View style={styles.sidebarDivider} />
+                  <ActionPanel />
+                </View>
+                <View style={styles.sidebarCard}>
+                  {WhosGoing(adventure)}
+                </View>
+                <Button label="Message organizer" onPress={handleMessageOrganizer} variant="secondary" />
+                <Pressable onPress={() => setReportVisible(true)} style={{ alignSelf: 'center' }}>
+                  <Text style={styles.reportLink}>Report this adventure</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+        <ReportSheet visible={reportVisible} onClose={() => setReportVisible(false)} targetType="adventure" targetId={adventure.id} />
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        {hero}
+
+        <View style={styles.content}>
+          <Text style={styles.title}>{adventure.title}</Text>
+          {keyFacts}
+          {ContentSections(adventure)}
+          <Section title="Organizer">
+            <OrganizerRow />
+          </Section>
+          {WhosGoing(adventure)}
+          <Button label="Message organizer" onPress={handleMessageOrganizer} variant="secondary" style={{ marginTop: spacing.md }} />
+          <Pressable onPress={() => setReportVisible(true)} style={{ alignSelf: 'center', marginTop: spacing.sm }}>
+            <Text style={styles.reportLink}>Report this adventure</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+
+      <ReportSheet visible={reportVisible} onClose={() => setReportVisible(false)} targetType="adventure" targetId={adventure.id} />
+
+      <View style={styles.bottomBar}>
+        <ActionPanel />
       </View>
     </SafeAreaView>
   );
@@ -508,6 +615,21 @@ const styles = StyleSheet.create({
   },
   heroActions: { position: 'absolute', top: spacing.lg, right: spacing.lg, flexDirection: 'row', gap: spacing.sm },
   content: { padding: spacing.lg, gap: spacing.xl },
+  // Desktop: hero + title/key-facts span the full wide column; only the
+  // content-vs-sidebar split below them is two columns.
+  wideContent: { padding: spacing.xl, gap: spacing.xl },
+  wideRow: { flexDirection: 'row', gap: spacing.xl, alignItems: 'flex-start' },
+  wideLeft: { flex: 1, gap: spacing.xl, minWidth: 0 },
+  wideRight: { width: 340, flexShrink: 0, gap: spacing.lg, position: 'sticky' as 'relative', top: spacing.lg },
+  sidebarCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  sidebarDivider: { height: 1, backgroundColor: colors.border },
   title: { ...type.screenHeading, marginTop: -spacing.sm },
   keyFacts: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: -spacing.md },
   keyFact: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, minWidth: '45%' },
@@ -556,15 +678,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    padding: spacing.md,
   },
   organizerText: { flex: 1 },
   organizerName: { ...type.bodyEmphasis },
-  organizerMeta: { ...type.secondary, color: colors.textMuted, marginTop: 2 },
+  organizerMeta: { ...type.secondary, color: colors.textMuted },
+  organizerRatingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: 2 },
   peopleSection: { gap: spacing.sm },
   // Explicit height on the ScrollView itself, not just contentContainerStyle
   // — see the matching comment in app/(tabs)/discover.tsx for why a

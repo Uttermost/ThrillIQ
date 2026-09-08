@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/Button';
@@ -10,12 +10,17 @@ import { useApp } from '@/lib/store';
 import { colors, radius, spacing, typography } from '@/lib/theme';
 
 export default function Onboarding() {
-  const { completeOnboarding } = useApp();
+  const { completeOnboarding, authenticated } = useApp();
 
   const handleGetStarted = async () => {
     await completeOnboarding();
-    // Discover is the public homepage — no sign-in required just to browse.
-    router.replace('/(tabs)/discover');
+    // Same landing logic as app/index.tsx: signed-out web visitors get the
+    // marketing homepage, everyone else goes straight to Discover.
+    if (Platform.OS === 'web' && !authenticated) {
+      router.replace('/home');
+    } else {
+      router.replace('/(tabs)/discover');
+    }
   };
 
   return (

@@ -1,6 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform } from 'react-native';
 
 import {
   cancelAdventureReal,
@@ -22,27 +21,10 @@ import {
 import { fetchAcknowledgementsReal, recordAcknowledgementReal } from './acknowledgementsProvider';
 import { fetchAuditLogReal, fetchOpenReportsReal, recordAuditLogReal, resolveReportReal, submitReportReal } from './adminProvider';
 import { fetchConnectionsForReal, respondToConnectionRequestReal, sendConnectionRequestReal } from './connectionsProvider';
+import { fetchOpenContactMessagesReal, resolveContactMessageReal, submitContactMessageReal } from './contactProvider';
 import { createCrewReal, joinCrewReal, leaveCrewReal, subscribeCrewsReal } from './crewsProvider';
-import { formatDateLabel, formatTimeLabel } from './dateFormat';
 import { fetchFollowersReal, fetchFollowingReal, followUserReal, unfollowUserReal } from './followsProvider';
-import {
-  ME_ID,
-  initialAcknowledgements,
-  initialAdventures,
-  initialAuditLog,
-  initialConnections,
-  initialCrews,
-  initialFollows,
-  initialPostComments,
-  initialPosts,
-  initialPostSaves,
-  initialReports,
-  initialReposts,
-  initialReviews,
-  initialThreads,
-  initialWaitlist,
-  users,
-} from './mockData';
+import { ME_ID, initialThreads, users } from './mockData';
 import { createPostCommentReal, deletePostCommentReal, fetchCommentsForPostReal, toggleLikeCommentReal } from './postCommentsProvider';
 import { fetchMySavesReal, savePostReal, unsavePostReal } from './postSavesProvider';
 import { createPostReal, deletePostReal, incrementShareCountReal, subscribePostsReal, toggleLikePostReal, updatePostReal } from './postsProvider';
@@ -54,6 +36,7 @@ import {
   Adventure,
   AppNotification,
   AuditLogEntry,
+  ContactMessage,
   Connection,
   Crew,
   DEFAULT_PRIVACY,
@@ -131,7 +114,6 @@ function defaultUser(id: string): User {
 const ONBOARDED_KEY = 'thrilliq.onboarded';
 const AUTHENTICATED_KEY = 'thrilliq.authenticated';
 const NETWORK_LATENCY_MS = 650;
-const IS_NATIVE = Platform.OS !== 'web';
 
 export type SocialProvider = 'google' | 'apple';
 
@@ -227,6 +209,9 @@ interface AppContextValue extends AppState {
   joinWaitlist: (adventureId: string) => Promise<void>;
   leaveWaitlist: (adventureId: string) => Promise<void>;
   submitReport: (input: { targetType: Report['targetType']; targetId: string; contextId?: string; reason: Report['reason']; details: string }) => Promise<void>;
+  submitContactMessage: (input: { name: string; email: string; topic: ContactMessage['topic']; message: string }) => Promise<void>;
+  fetchOpenContactMessages: () => Promise<ContactMessage[]>;
+  resolveContactMessage: (messageId: string, status: ReportStatus) => Promise<void>;
   fetchOpenReports: () => Promise<Report[]>;
   resolveReport: (report: Report, status: ReportStatus) => Promise<void>;
   fetchAuditLog: () => Promise<AuditLogEntry[]>;
@@ -239,33 +224,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [authenticated, setAuthenticated] = useState(false);
   const [onboarded, setOnboarded] = useState(false);
   const [myId, setMyId] = useState(ME_ID);
-  const [adventures, setAdventures] = useState<Adventure[]>(IS_NATIVE ? [] : initialAdventures);
-  const [crews, setCrews] = useState<Crew[]>(IS_NATIVE ? [] : initialCrews);
+  const [adventures, setAdventures] = useState<Adventure[]>([]);
+  const [crews, setCrews] = useState<Crew[]>([]);
   const crewsRef = useRef(crews);
   crewsRef.current = crews;
-  const [posts, setPosts] = useState<Post[]>(IS_NATIVE ? [] : initialPosts);
+  const [posts, setPosts] = useState<Post[]>([]);
   const postsRef = useRef(posts);
   postsRef.current = posts;
   const postsErrorRef = useRef<string | null>(null);
-  const [postComments, setPostComments] = useState<PostComment[]>(IS_NATIVE ? [] : initialPostComments);
-  const postCommentsRef = useRef(postComments);
-  postCommentsRef.current = postComments;
   // Reposts ARE globally reactive like posts/crews (unlike comments) — a
   // single small feed-shaped collection, not per-user data.
-  const [reposts, setReposts] = useState<Repost[]>(IS_NATIVE ? [] : initialReposts);
+  const [reposts, setReposts] = useState<Repost[]>([]);
   const repostsRef = useRef(reposts);
   repostsRef.current = reposts;
   // Own saves only, like follows below — never a full collection, and
   // private besides (firestore.rules denies reading anyone else's saves).
-  const [postSaves, setPostSaves] = useState<PostSave[]>(IS_NATIVE ? [] : initialPostSaves);
+  const [postSaves, setPostSaves] = useState<PostSave[]>([]);
   const postSavesRef = useRef(postSaves);
   postSavesRef.current = postSaves;
   const mySavedPostIds = useMemo(() => new Set(postSaves.filter((s) => s.userId === myId).map((s) => s.postId)), [postSaves, myId]);
-  // On web this holds the whole mock follow graph (initialFollows), same as
-  // crews/adventures. On native it holds only the signed-in user's own
-  // following edges (populated below) — never the full collection, which
-  // isn't meant to be globally loaded the way the small demo ones are.
-  const [follows, setFollows] = useState<Follow[]>(IS_NATIVE ? [] : initialFollows);
+  // Only the signed-in user's own following edges (fetched below) — never
+  // the full collection, which isn't meant to be globally loaded.
+  const [follows, setFollows] = useState<Follow[]>([]);
   const followsRef = useRef(follows);
   followsRef.current = follows;
   const myFollowingIds = useMemo(() => new Set(follows.filter((f) => f.followerId === myId).map((f) => f.followingId)), [follows, myId]);
@@ -286,38 +266,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
   const hasLoadedAdventuresOnceRef = useRef(false);
   const [usersState, setUsersState] = useState<Record<string, User>>(users);
-  // Web-mock master list of every review (native ignores this — it fetches
-  // and caches per organizer instead, since Firestore has no reason to ship
-  // every review in the app to every client up front).
-  const [reviews, setReviews] = useState<Review[]>(initialReviews);
-  const reviewsRef = useRef(reviews);
-  reviewsRef.current = reviews;
+  // Reviews are fetched and cached per organizer/adventure on demand — no
+  // reason to ship every review in the app to every client up front.
   const [reviewsByOrganizer, setReviewsByOrganizer] = useState<Record<string, Review[]>>({});
-  // Web-mock master list, mirroring the reviews list above; native fetches
-  // and writes straight through to Firestore instead.
-  const [acknowledgements, setAcknowledgements] = useState<SafetyAcknowledgement[]>(initialAcknowledgements);
-  const acknowledgementsRef = useRef(acknowledgements);
-  acknowledgementsRef.current = acknowledgements;
-  // Web-mock master list of every connection; native fetches per uid instead.
-  const [connections, setConnections] = useState<Connection[]>(initialConnections);
-  const connectionsRef = useRef(connections);
-  connectionsRef.current = connections;
-  // Web-mock master list of every waitlist entry; native fetches per
-  // adventure/user instead.
-  const [waitlist, setWaitlist] = useState<WaitlistEntry[]>(initialWaitlist);
-  const waitlistRef = useRef(waitlist);
-  waitlistRef.current = waitlist;
   // Adventure ids the current user is waitlisted for — refreshed on sign-in
   // and after joining/leaving a waitlist; drives the waitlist_spot_open
   // notification below without a per-render Firestore query.
   const [myWaitlistedAdventureIds, setMyWaitlistedAdventureIds] = useState<string[]>([]);
-  // Web-mock master lists; native fetches straight from Firestore instead.
-  const [reports, setReports] = useState<Report[]>(initialReports);
-  const reportsRef = useRef(reports);
-  reportsRef.current = reports;
-  const [auditLog, setAuditLog] = useState<AuditLogEntry[]>(initialAuditLog);
-  const auditLogRef = useRef(auditLog);
-  auditLogRef.current = auditLog;
   const [simulateFailures, setSimulateFailures] = useState(false);
   const simulateFailuresRef = useRef(simulateFailures);
   simulateFailuresRef.current = simulateFailures;
@@ -355,9 +310,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [myId]);
 
   // Real Firestore adventures feed. Adventures are publicly browsable, so
-  // this runs on native regardless of sign-in state.
+  // this runs regardless of sign-in state.
   useEffect(() => {
-    if (!IS_NATIVE) return;
     return subscribeAdventuresReal(
       myId,
       (list) => {
@@ -406,10 +360,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [authenticated, myId]);
 
   // Real Firestore crews feed — publicly browsable like adventures, so this
-  // also runs on native regardless of sign-in state.
+  // also runs regardless of sign-in state.
   const crewsErrorRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!IS_NATIVE) return;
     return subscribeCrewsReal(
       (list) => {
         crewsErrorRef.current = null;
@@ -425,7 +378,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // the signed-in user's own following edges — not the whole follows
   // collection, which has no reason to be loaded client-side in full.
   useEffect(() => {
-    if (!IS_NATIVE || !authenticated) return;
+    if (!authenticated) return;
     let cancelled = false;
     fetchFollowingReal(myId)
       .then((list) => {
@@ -442,7 +395,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Same one-shot pattern as follows above — just the signed-in user's own
   // saves, not a live subscription of a collection nobody else can read.
   useEffect(() => {
-    if (!IS_NATIVE || !authenticated) return;
+    if (!authenticated) return;
     let cancelled = false;
     fetchMySavesReal(myId)
       .then((list) => {
@@ -458,7 +411,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Real Firestore posts feed — publicly browsable like adventures/crews.
   useEffect(() => {
-    if (!IS_NATIVE) return;
     return subscribePostsReal(
       myId,
       (list) => {
@@ -472,9 +424,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [myId]);
 
   // Real Firestore reposts feed — same shape as posts above (publicly
-  // browsable, capped, globally reactive on native).
+  // browsable, capped, globally reactive).
   useEffect(() => {
-    if (!IS_NATIVE) return;
     return subscribeRepostsReal(
       myId,
       (list) => setReposts(list),
@@ -485,10 +436,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     );
   }, [myId]);
 
-  // Real Firestore profile for the signed-in user, native only. Keeps
-  // usersState[myId] in sync with whatever's actually saved server-side.
+  // Real Firestore profile for the signed-in user. Keeps usersState[myId]
+  // in sync with whatever's actually saved server-side.
   useEffect(() => {
-    if (!IS_NATIVE || !authenticated) return;
+    if (!authenticated) return;
     return subscribeProfileReal(
       myId,
       (profile) => setUsersState((prev) => ({ ...prev, [myId]: profile })),
@@ -532,24 +483,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // Non-fatal: session just won't persist across restarts.
     }
-    if (IS_NATIVE) {
-      const known = usersStateRef.current[myIdRef.current];
-      try {
-        await ensureProfileReal(myIdRef.current, { name: known?.name || 'Explorer', initials: known?.initials || 'ME' });
-      } catch {
-        // Non-fatal: the local defaultUser() fallback covers the gap until
-        // the next successful sign-in retries this.
-      }
+    const known = usersStateRef.current[myIdRef.current];
+    try {
+      await ensureProfileReal(myIdRef.current, { name: known?.name || 'Explorer', initials: known?.initials || 'ME' });
+    } catch {
+      // Non-fatal: the local defaultUser() fallback covers the gap until
+      // the next successful sign-in retries this.
     }
   }, []);
 
   const signInWithProvider = useCallback(
     async (provider: SocialProvider) => {
-      // Google is real on native now that a SHA-1 fingerprint is registered.
-      // Apple stays simulated everywhere (deferred; needs a native module and
-      // an Apple Developer account), and Google stays simulated on web (no
-      // web SDK wired up).
-      if (IS_NATIVE && provider === 'google') {
+      // Google is real on both native (SHA-1 fingerprint registered) and web
+      // (Firebase Auth popup). Apple stays simulated everywhere — deferred,
+      // needs a native module and an Apple Developer account.
+      if (provider === 'google') {
         if (simulateFailuresRef.current) {
           throw new ApiError("Couldn't sign in. Try again.");
         }
@@ -646,7 +594,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (simulateFailuresRef.current) {
       throw new ApiError("Couldn't load adventures");
     }
-    if (IS_NATIVE && adventuresErrorRef.current) {
+    if (adventuresErrorRef.current) {
       throw new ApiError(adventuresErrorRef.current);
     }
     return adventuresRef.current;
@@ -656,24 +604,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (simulateFailuresRef.current) {
       await delay(NETWORK_LATENCY_MS);
       throw new ApiError("Couldn't join. Check your connection.");
-    }
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      const target = adventuresRef.current.find((a) => a.id === id);
-      if (!target || target.participantIds.includes(myIdRef.current)) return;
-      if (target.spotsFilled >= target.spotsTotal) {
-        throw new ApiError('This adventure is full.');
-      }
-      setAdventures((prev) =>
-        prev.map((a) =>
-          a.id === id ? { ...a, spotsFilled: a.spotsFilled + 1, participantIds: [...a.participantIds, myIdRef.current] } : a
-        )
-      );
-      setAcknowledgements((prev) => [
-        ...prev,
-        { adventureId: id, userId: myIdRef.current, guidelinesSnapshot: target.guidelines, agreedAt: Date.now() },
-      ]);
-      return;
     }
     const guidelinesSnapshot = adventuresRef.current.find((a) => a.id === id)?.guidelines ?? [];
     try {
@@ -692,21 +622,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await delay(NETWORK_LATENCY_MS);
       throw new ApiError("Couldn't leave. Check your connection.");
     }
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      setAdventures((prev) =>
-        prev.map((a) =>
-          a.id === id
-            ? {
-                ...a,
-                spotsFilled: Math.max(0, a.spotsFilled - 1),
-                participantIds: a.participantIds.filter((p) => p !== myIdRef.current),
-              }
-            : a
-        )
-      );
-      return;
-    }
     try {
       await leaveAdventureReal(id, myIdRef.current);
     } catch (e) {
@@ -715,12 +630,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toggleLike = useCallback((id: string) => {
-    if (!IS_NATIVE) {
-      setAdventures((prev) =>
-        prev.map((a) => (a.id === id ? { ...a, likedByMe: !a.likedByMe, likeCount: a.likeCount + (a.likedByMe ? -1 : 1) } : a))
-      );
-      return;
-    }
     const target = adventuresRef.current.find((a) => a.id === id);
     if (!target) return;
     toggleLikeReal(id, myIdRef.current, target.likedByMe).catch(() => {
@@ -732,48 +641,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (simulateFailuresRef.current) {
       await delay(NETWORK_LATENCY_MS);
       throw new ApiError("Couldn't publish. Your draft wasn't lost.");
-    }
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      const guidelines: string[] = [];
-      if (draft.noAlcohol) guidelines.push('No alcohol');
-      if (draft.petsOk) guidelines.push('Pets ok');
-      const spots = Math.max(1, parseInt(draft.spots, 10) || 1);
-      const created: Adventure = {
-        id: `a-${Date.now()}`,
-        title: draft.title.trim(),
-        description: draft.description.trim(),
-        category: draft.category,
-        difficulty: draft.difficulty,
-        socialLevel: draft.socialLevel,
-        pace: draft.pace,
-        intensity: draft.intensity,
-        transport: draft.transport,
-        audience: draft.audience,
-        dateLabel: formatDateLabel(draft.scheduledAt),
-        meetingTime: formatTimeLabel(draft.scheduledAt),
-        dateTimestamp: draft.scheduledAt,
-        location: draft.location.trim() || 'Location TBC',
-        latitude: draft.latitude,
-        longitude: draft.longitude,
-        durationHours: Math.max(1, parseInt(draft.durationHours, 10) || 1),
-        priceKsh: parseInt(draft.priceKsh, 10) || 0,
-        cancellationPolicy: draft.cancellationPolicy.trim(),
-        spotsTotal: spots,
-        spotsFilled: 0,
-        childrenWelcome: draft.childrenWelcome,
-        equipment: draft.equipment.trim(),
-        included: draft.included.trim(),
-        excluded: draft.excluded.trim(),
-        organizerId: myIdRef.current,
-        participantIds: [],
-        guidelines,
-        likedByMe: false,
-        likeCount: 0,
-        coordinate: { x: 0.5, y: 0.5 },
-      };
-      setAdventures((prev) => [created, ...prev]);
-      return created;
     }
     try {
       return await createAdventureReal(draft, myIdRef.current);
@@ -787,13 +654,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await delay(NETWORK_LATENCY_MS);
       throw new ApiError("Couldn't save changes.");
     }
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      setAdventures((prev) =>
-        prev.map((a) => (a.id === id ? { ...a, title: patch.title, dateLabel: patch.schedule, meetingTime: '' } : a))
-      );
-      return;
-    }
     try {
       await updateAdventureReal(id, patch);
     } catch (e) {
@@ -805,11 +665,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (simulateFailuresRef.current) {
       await delay(NETWORK_LATENCY_MS);
       throw new ApiError("Couldn't cancel. Try again.");
-    }
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      setAdventures((prev) => prev.filter((a) => a.id !== id));
-      return;
     }
     try {
       await cancelAdventureReal(id);
@@ -823,7 +678,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (simulateFailuresRef.current) {
       throw new ApiError("Couldn't load crews");
     }
-    if (IS_NATIVE && crewsErrorRef.current) {
+    if (crewsErrorRef.current) {
       throw new ApiError(crewsErrorRef.current);
     }
     return crewsRef.current;
@@ -833,20 +688,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (simulateFailuresRef.current) {
       await delay(NETWORK_LATENCY_MS);
       throw new ApiError("Couldn't create your crew. Try again.");
-    }
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      const created: Crew = {
-        id: `c-${Date.now()}`,
-        name: name.trim(),
-        description: description.trim(),
-        avatarHue: Math.abs(name.split('').reduce((h, c) => h * 31 + c.charCodeAt(0), 0)) % 360,
-        memberIds: [myIdRef.current],
-        ownerId: myIdRef.current,
-        createdAt: Date.now(),
-      };
-      setCrews((prev) => [created, ...prev]);
-      return created;
     }
     try {
       return await createCrewReal({ name: name.trim(), description: description.trim(), ownerId: myIdRef.current });
@@ -860,13 +701,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await delay(NETWORK_LATENCY_MS);
       throw new ApiError("Couldn't join. Check your connection.");
     }
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      setCrews((prev) =>
-        prev.map((c) => (c.id === id && !c.memberIds.includes(myIdRef.current) ? { ...c, memberIds: [...c.memberIds, myIdRef.current] } : c))
-      );
-      return;
-    }
     try {
       await joinCrewReal(id, myIdRef.current);
     } catch (e) {
@@ -878,11 +712,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (simulateFailuresRef.current) {
       await delay(NETWORK_LATENCY_MS);
       throw new ApiError("Couldn't leave. Check your connection.");
-    }
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      setCrews((prev) => prev.map((c) => (c.id === id ? { ...c, memberIds: c.memberIds.filter((m) => m !== myIdRef.current) } : c)));
-      return;
     }
     try {
       await leaveCrewReal(id, myIdRef.current);
@@ -896,7 +725,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (simulateFailuresRef.current) {
       throw new ApiError("Couldn't load the feed");
     }
-    if (IS_NATIVE && postsErrorRef.current) {
+    if (postsErrorRef.current) {
       throw new ApiError(postsErrorRef.current);
     }
     return postsRef.current;
@@ -918,24 +747,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await delay(NETWORK_LATENCY_MS);
         throw new ApiError("Couldn't publish your post. Try again.");
       }
-      if (!IS_NATIVE) {
-        await delay(NETWORK_LATENCY_MS);
-        const created: Post = {
-          id: `p-${Date.now()}`,
-          authorId: myIdRef.current,
-          text: text.trim(),
-          photos: photos && photos.length > 0 ? photos : undefined,
-          adventureId: adventureId ?? null,
-          crewId: crewId ?? null,
-          likeCount: 0,
-          likedByMe: false,
-          commentCount: 0,
-          shareCount: 0,
-          createdAt: Date.now(),
-        };
-        setPosts((prev) => [created, ...prev]);
-        return created;
-      }
       try {
         return await createPostReal({ authorId: myIdRef.current, text: text.trim(), photos, adventureId, crewId });
       } catch (e) {
@@ -946,10 +757,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const toggleLikePost = useCallback((id: string) => {
-    if (!IS_NATIVE) {
-      setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, likedByMe: !p.likedByMe, likeCount: p.likeCount + (p.likedByMe ? -1 : 1) } : p)));
-      return;
-    }
     const target = postsRef.current.find((p) => p.id === id);
     if (!target) return;
     toggleLikePostReal(id, myIdRef.current, target.likedByMe).catch(() => {
@@ -964,11 +771,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (simulateFailuresRef.current) {
       await delay(NETWORK_LATENCY_MS);
       throw new ApiError("Couldn't delete your post. Try again.");
-    }
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      setPosts((prev) => prev.filter((p) => p.id !== id));
-      return;
     }
     try {
       await deletePostReal(id);
@@ -985,13 +787,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await delay(NETWORK_LATENCY_MS);
       throw new ApiError("Couldn't save your changes. Try again.");
     }
-    const editedAt = Date.now();
     const cleanPhotos = photos && photos.length > 0 ? photos : undefined;
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, text: text.trim(), photos: cleanPhotos, editedAt } : p)));
-      return;
-    }
     try {
       await updatePostReal(id, { text: text.trim(), photos: cleanPhotos });
     } catch (e) {
@@ -1000,10 +796,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchCommentsForPost = useCallback(async (postId: string): Promise<PostComment[]> => {
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      return postCommentsRef.current.filter((c) => c.postId === postId);
-    }
     try {
       return await fetchCommentsForPostReal(postId, myIdRef.current);
     } catch {
@@ -1017,22 +809,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await delay(NETWORK_LATENCY_MS);
         throw new ApiError("Couldn't post your comment. Try again.");
       }
-      if (!IS_NATIVE) {
-        await delay(NETWORK_LATENCY_MS);
-        const created: PostComment = {
-          id: `pc-${Date.now()}`,
-          postId,
-          authorId: myIdRef.current,
-          text: text.trim(),
-          parentCommentId: parentCommentId ?? null,
-          likeCount: 0,
-          likedByMe: false,
-          createdAt: Date.now(),
-        };
-        setPostComments((prev) => [...prev, created]);
-        setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, commentCount: p.commentCount + 1 } : p)));
-        return created;
-      }
       try {
         return await createPostCommentReal({ postId, authorId: myIdRef.current, text: text.trim(), parentCommentId });
       } catch (e) {
@@ -1042,19 +818,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
-  // Unlike posts/adventures, comments have no single global reactive array
-  // on native (fetchCommentsForPost hands results straight to whichever
-  // screen asked, per-post) — so the caller passes currentlyLiked and owns
-  // its own optimistic UI update; this just persists it. Web still keeps
-  // its whole mock graph in postComments, so it's updated here too, kept
-  // in sync with whatever the caller already flipped locally.
+  // Comments have no single global reactive array (fetchCommentsForPost
+  // hands results straight to whichever screen asked, per-post) — so the
+  // caller passes currentlyLiked and owns its own optimistic UI update;
+  // this just persists it.
   const toggleLikeComment = useCallback((commentId: string, currentlyLiked: boolean) => {
-    if (!IS_NATIVE) {
-      setPostComments((prev) =>
-        prev.map((c) => (c.id === commentId ? { ...c, likedByMe: !currentlyLiked, likeCount: c.likeCount + (currentlyLiked ? -1 : 1) } : c))
-      );
-      return;
-    }
     toggleLikeCommentReal(commentId, myIdRef.current, currentlyLiked).catch(() => {
       // Best-effort, same as adventure/post likes — a failed like just doesn't flip.
     });
@@ -1063,17 +831,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Admin-only today — the moderation queue (app/admin.tsx) is the only
   // caller, deleting a reported comment. No self-service "delete my own
   // comment" flow exists yet, so this doesn't check authorship client-side;
-  // firestore.rules is the real gate on native.
+  // firestore.rules is the real gate.
   const deleteComment = useCallback(async (postId: string, commentId: string): Promise<void> => {
     if (simulateFailuresRef.current) {
       await delay(NETWORK_LATENCY_MS);
       throw new ApiError("Couldn't delete that comment. Try again.");
-    }
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      setPostComments((prev) => prev.filter((c) => c.id !== commentId));
-      setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, commentCount: Math.max(0, p.commentCount - 1) } : p)));
-      return;
     }
     try {
       await deletePostCommentReal(postId, commentId);
@@ -1086,10 +848,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // (lib/share.ts via the UI) already confirmed the share itself completed
   // before calling this, so a failed count-increment isn't worth surfacing.
   const recordShare = useCallback((id: string) => {
-    if (!IS_NATIVE) {
-      setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, shareCount: p.shareCount + 1 } : p)));
-      return;
-    }
     incrementShareCountReal(id).catch(() => {});
   }, []);
 
@@ -1099,23 +857,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (simulateFailuresRef.current) {
       await delay(NETWORK_LATENCY_MS);
       throw new ApiError("Couldn't repost. Try again.");
-    }
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      const id = `${myIdRef.current}_${postId}`;
-      if (repostsRef.current.some((r) => r.id === id)) return;
-      const created: Repost = {
-        id,
-        userId: myIdRef.current,
-        postId,
-        comment: comment?.trim() || undefined,
-        likeCount: 0,
-        likedByMe: false,
-        createdAt: Date.now(),
-      };
-      setReposts((prev) => [created, ...prev]);
-      setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, shareCount: p.shareCount + 1 } : p)));
-      return;
     }
     try {
       await createRepostReal({ userId: myIdRef.current, postId, comment });
@@ -1134,21 +875,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const removeRepost = useCallback(async (postId: string): Promise<void> => {
-    const id = `${myIdRef.current}_${postId}`;
-    if (!IS_NATIVE) {
-      setReposts((prev) => prev.filter((r) => r.id !== id));
-      return;
-    }
     await removeRepostReal(myIdRef.current, postId).catch(() => {
       // Best-effort, same as other removals in this file.
     });
   }, []);
 
   const toggleLikeRepost = useCallback((id: string) => {
-    if (!IS_NATIVE) {
-      setReposts((prev) => prev.map((r) => (r.id === id ? { ...r, likedByMe: !r.likedByMe, likeCount: r.likeCount + (r.likedByMe ? -1 : 1) } : r)));
-      return;
-    }
     const target = repostsRef.current.find((r) => r.id === id);
     if (!target) return;
     toggleLikeRepostReal(id, myIdRef.current, target.likedByMe).catch(() => {
@@ -1157,10 +889,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchFollowersFor = useCallback(async (uid: string): Promise<Follow[]> => {
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      return followsRef.current.filter((f) => f.followingId === uid);
-    }
     try {
       return await fetchFollowersReal(uid);
     } catch {
@@ -1169,10 +897,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchFollowingFor = useCallback(async (uid: string): Promise<Follow[]> => {
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      return followsRef.current.filter((f) => f.followerId === uid);
-    }
     try {
       return await fetchFollowingReal(uid);
     } catch {
@@ -1184,13 +908,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (simulateFailuresRef.current) {
       await delay(NETWORK_LATENCY_MS);
       throw new ApiError("Couldn't follow. Try again.");
-    }
-    const id = `${myIdRef.current}_${uid}`;
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      if (followsRef.current.some((f) => f.id === id)) return;
-      setFollows((prev) => [...prev, { id, followerId: myIdRef.current, followingId: uid, createdAt: Date.now() }]);
-      return;
     }
     try {
       const created = await followUserReal(myIdRef.current, uid);
@@ -1206,11 +923,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       throw new ApiError("Couldn't unfollow. Try again.");
     }
     const id = `${myIdRef.current}_${uid}`;
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      setFollows((prev) => prev.filter((f) => f.id !== id));
-      return;
-    }
     try {
       await unfollowUserReal(myIdRef.current, uid);
       setFollows((prev) => prev.filter((f) => f.id !== id));
@@ -1227,13 +939,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await delay(NETWORK_LATENCY_MS);
       throw new ApiError("Couldn't save that post. Try again.");
     }
-    const id = `${myIdRef.current}_${postId}`;
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      if (postSavesRef.current.some((s) => s.id === id)) return;
-      setPostSaves((prev) => [...prev, { id, userId: myIdRef.current, postId, createdAt: Date.now() }]);
-      return;
-    }
     try {
       const created = await savePostReal(myIdRef.current, postId);
       setPostSaves((prev) => (prev.some((s) => s.id === created.id) ? prev : [...prev, created]));
@@ -1244,11 +949,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const unsavePost = useCallback(async (postId: string) => {
     const id = `${myIdRef.current}_${postId}`;
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      setPostSaves((prev) => prev.filter((s) => s.id !== id));
-      return;
-    }
     try {
       await unsavePostReal(myIdRef.current, postId);
       setPostSaves((prev) => prev.filter((s) => s.id !== id));
@@ -1258,10 +958,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchConnectionsFor = useCallback(async (uid: string): Promise<Connection[]> => {
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      return connectionsRef.current.filter((c) => c.participantIds.includes(uid));
-    }
     try {
       return await fetchConnectionsForReal(uid);
     } catch {
@@ -1273,21 +969,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (simulateFailuresRef.current) {
       await delay(NETWORK_LATENCY_MS);
       throw new ApiError("Couldn't send the request. Try again.");
-    }
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      const id = [myIdRef.current, toUserId].sort().join('_');
-      if (connectionsRef.current.some((c) => c.id === id)) return;
-      const created: Connection = {
-        id,
-        participantIds: [myIdRef.current, toUserId].sort() as [string, string],
-        requesterId: myIdRef.current,
-        recipientId: toUserId,
-        status: 'pending',
-        createdAt: Date.now(),
-      };
-      setConnections((prev) => [...prev, created]);
-      return;
     }
     try {
       await sendConnectionRequestReal(myIdRef.current, toUserId);
@@ -1301,13 +982,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await delay(NETWORK_LATENCY_MS);
       throw new ApiError("Couldn't update the request. Try again.");
     }
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      setConnections((prev) =>
-        prev.map((c) => (c.id === connectionId ? (accept ? { ...c, status: 'accepted' as const } : null) : c)).filter((c): c is Connection => c !== null)
-      );
-      return;
-    }
     try {
       await respondToConnectionRequestReal(connectionId, accept);
     } catch (e) {
@@ -1316,9 +990,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshMyWaitlist = useCallback(async () => {
-    const mine = !IS_NATIVE
-      ? waitlistRef.current.filter((w) => w.userId === myIdRef.current)
-      : await fetchWaitlistForUserReal(myIdRef.current).catch(() => []);
+    const mine = await fetchWaitlistForUserReal(myIdRef.current).catch(() => []);
     setMyWaitlistedAdventureIds(mine.map((w) => w.adventureId));
   }, []);
 
@@ -1327,10 +999,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [myId, refreshMyWaitlist]);
 
   const fetchWaitlist = useCallback(async (adventureId: string): Promise<WaitlistEntry[]> => {
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      return waitlistRef.current.filter((w) => w.adventureId === adventureId).sort((a, b) => a.createdAt - b.createdAt);
-    }
     try {
       return await fetchWaitlistReal(adventureId);
     } catch {
@@ -1343,14 +1011,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (simulateFailuresRef.current) {
         await delay(NETWORK_LATENCY_MS);
         throw new ApiError("Couldn't join the waitlist. Try again.");
-      }
-      const id = `${adventureId}_${myIdRef.current}`;
-      if (!IS_NATIVE) {
-        await delay(NETWORK_LATENCY_MS);
-        if (waitlistRef.current.some((w) => w.id === id)) return;
-        setWaitlist((prev) => [...prev, { id, adventureId, userId: myIdRef.current, createdAt: Date.now() }]);
-        await refreshMyWaitlist();
-        return;
       }
       try {
         await joinWaitlistReal(adventureId, myIdRef.current);
@@ -1367,12 +1027,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (simulateFailuresRef.current) {
         await delay(NETWORK_LATENCY_MS);
         throw new ApiError("Couldn't leave the waitlist. Try again.");
-      }
-      if (!IS_NATIVE) {
-        await delay(NETWORK_LATENCY_MS);
-        setWaitlist((prev) => prev.filter((w) => !(w.adventureId === adventureId && w.userId === myIdRef.current)));
-        await refreshMyWaitlist();
-        return;
       }
       try {
         await leaveWaitlistReal(adventureId, myIdRef.current);
@@ -1402,22 +1056,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await delay(NETWORK_LATENCY_MS);
         throw new ApiError("Couldn't submit your report. Try again.");
       }
-      if (!IS_NATIVE) {
-        await delay(NETWORK_LATENCY_MS);
-        const created: Report = {
-          id: `report-${Date.now()}`,
-          targetType,
-          targetId,
-          ...(contextId ? { contextId } : {}),
-          reporterId: myIdRef.current,
-          reason,
-          details: details.trim(),
-          status: 'open',
-          createdAt: Date.now(),
-        };
-        setReports((prev) => [created, ...prev]);
-        return;
-      }
       try {
         await submitReportReal({ targetType, targetId, contextId, reporterId: myIdRef.current, reason, details: details.trim() });
       } catch (e) {
@@ -1427,11 +1065,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
-  const fetchOpenReports = useCallback(async (): Promise<Report[]> => {
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      return reportsRef.current.filter((r) => r.status === 'open');
+  // Reachable signed in or not — myId defaults to the mock ME_ID on web
+  // even when nobody's signed in, so only attach it when `authenticated`
+  // actually confirms there's a real user behind it.
+  const submitContactMessage = useCallback(
+    async ({ name, email, topic, message }: { name: string; email: string; topic: ContactMessage['topic']; message: string }) => {
+      if (simulateFailuresRef.current) {
+        await delay(NETWORK_LATENCY_MS);
+        throw new ApiError("Couldn't send your message. Try again.");
+      }
+      try {
+        await submitContactMessageReal({
+          name: name.trim(),
+          email: email.trim(),
+          topic,
+          message: message.trim(),
+          ...(authenticated ? { userId: myIdRef.current } : {}),
+        });
+      } catch (e) {
+        throw new ApiError(e instanceof Error ? e.message : "Couldn't send your message. Try again.");
+      }
+    },
+    [authenticated]
+  );
+
+  const fetchOpenContactMessages = useCallback(async (): Promise<ContactMessage[]> => {
+    try {
+      return await fetchOpenContactMessagesReal();
+    } catch {
+      return [];
     }
+  }, []);
+
+  const resolveContactMessage = useCallback(async (messageId: string, status: ReportStatus) => {
+    if (simulateFailuresRef.current) {
+      await delay(NETWORK_LATENCY_MS);
+      throw new ApiError("Couldn't update the message. Try again.");
+    }
+    try {
+      await resolveContactMessageReal(messageId, status);
+    } catch (e) {
+      throw new ApiError(e instanceof Error ? e.message : "Couldn't update the message. Try again.");
+    }
+  }, []);
+
+  const fetchOpenReports = useCallback(async (): Promise<Report[]> => {
     try {
       return await fetchOpenReportsReal();
     } catch {
@@ -1445,15 +1123,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       throw new ApiError("Couldn't update the report. Try again.");
     }
     const action = status === 'dismissed' ? 'Dismissed report' : 'Resolved report';
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      setReports((prev) => prev.map((r) => (r.id === report.id ? { ...r, status } : r)));
-      setAuditLog((prev) => [
-        { id: `audit-${Date.now()}`, actorId: myIdRef.current, action, targetType: report.targetType, targetId: report.targetId, createdAt: Date.now() },
-        ...prev,
-      ]);
-      return;
-    }
     try {
       await resolveReportReal(report.id, status);
       await recordAuditLogReal({ actorId: myIdRef.current, action, targetType: report.targetType, targetId: report.targetId });
@@ -1463,10 +1132,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchAuditLog = useCallback(async (): Promise<AuditLogEntry[]> => {
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      return auditLogRef.current;
-    }
     try {
       return await fetchAuditLogReal();
     } catch {
@@ -1531,7 +1196,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateProfile = useCallback(async (patch: Partial<User>) => {
     setUsersState((prev) => ({ ...prev, [myIdRef.current]: { ...(prev[myIdRef.current] ?? defaultUser(myIdRef.current)), ...patch } }));
-    if (!IS_NATIVE) return;
     try {
       await updateProfileReal(myIdRef.current, patch);
     } catch (e) {
@@ -1542,16 +1206,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const fetchOtherProfile = useCallback(async (uid: string): Promise<User> => {
     const cached = usersStateRef.current[uid];
     if (cached) return cached;
-    if (IS_NATIVE) {
-      try {
-        const profile = await fetchProfileReal(uid);
-        if (profile) {
-          setUsersState((prev) => ({ ...prev, [uid]: profile }));
-          return profile;
-        }
-      } catch {
-        // Falls through to the generic placeholder below.
+    try {
+      const profile = await fetchProfileReal(uid);
+      if (profile) {
+        setUsersState((prev) => ({ ...prev, [uid]: profile }));
+        return profile;
       }
+    } catch {
+      // Falls through to the generic placeholder below.
     }
     const placeholder = { ...defaultUser(uid), name: 'Someone', initials: '?' };
     setUsersState((prev) => (prev[uid] ? prev : { ...prev, [uid]: placeholder }));
@@ -1559,12 +1221,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchReviewsForOrganizer = useCallback(async (organizerId: string): Promise<Review[]> => {
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      const list = reviewsRef.current.filter((r) => r.organizerId === organizerId);
-      setReviewsByOrganizer((prev) => ({ ...prev, [organizerId]: list }));
-      return list;
-    }
     try {
       const list = await fetchReviewsForOrganizerReal(organizerId);
       setReviewsByOrganizer((prev) => ({ ...prev, [organizerId]: list }));
@@ -1575,10 +1231,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchReviewsForAdventure = useCallback(async (adventureId: string): Promise<Review[]> => {
-    if (!IS_NATIVE) {
-      await delay(NETWORK_LATENCY_MS);
-      return reviewsRef.current.filter((r) => r.adventureId === adventureId);
-    }
     try {
       return await fetchReviewsForAdventureReal(adventureId);
     } catch {
@@ -1587,8 +1239,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const hasReviewed = useCallback(async (adventureId: string): Promise<boolean> => {
-    const id = `${adventureId}_${myIdRef.current}`;
-    if (!IS_NATIVE) return reviewsRef.current.some((r) => r.id === id);
     try {
       return await hasReviewedReal(adventureId, myIdRef.current);
     } catch {
@@ -1613,24 +1263,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (simulateFailuresRef.current) {
         await delay(NETWORK_LATENCY_MS);
         throw new ApiError("Couldn't submit your review. Try again.");
-      }
-      if (!IS_NATIVE) {
-        await delay(NETWORK_LATENCY_MS);
-        const id = `${adventureId}_${myIdRef.current}`;
-        if (reviewsRef.current.some((r) => r.id === id)) return;
-        const created: Review = {
-          id,
-          adventureId,
-          organizerId,
-          reviewerId: myIdRef.current,
-          rating,
-          text: text.trim(),
-          photos: photos && photos.length > 0 ? photos : undefined,
-          createdAt: Date.now(),
-        };
-        setReviews((prev) => [created, ...prev]);
-        setReviewsByOrganizer((prev) => ({ ...prev, [organizerId]: [created, ...(prev[organizerId] ?? [])] }));
-        return;
       }
       try {
         const created = await submitReviewReal({
@@ -1847,7 +1479,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [myId, fetchFollowersFor]);
 
   const fetchAcknowledgementsForAdventure = useCallback(async (adventureId: string): Promise<SafetyAcknowledgement[]> => {
-    if (!IS_NATIVE) return acknowledgementsRef.current.filter((a) => a.adventureId === adventureId);
     try {
       return await fetchAcknowledgementsReal(adventureId);
     } catch {
@@ -1947,6 +1578,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       joinWaitlist,
       leaveWaitlist,
       submitReport,
+      submitContactMessage,
+      fetchOpenContactMessages,
+      resolveContactMessage,
       fetchOpenReports,
       resolveReport,
       fetchAuditLog,
@@ -2024,6 +1658,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       joinWaitlist,
       leaveWaitlist,
       submitReport,
+      submitContactMessage,
+      fetchOpenContactMessages,
+      resolveContactMessage,
       fetchOpenReports,
       resolveReport,
       fetchAuditLog,

@@ -1,12 +1,12 @@
 import { Redirect } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Platform, View } from 'react-native';
 
 import { useApp } from '@/lib/store';
 import { colors } from '@/lib/theme';
 
 export default function Index() {
-  const { ready, onboarded } = useApp();
+  const { ready, onboarded, authenticated } = useApp();
 
   if (!ready) {
     return (
@@ -20,7 +20,13 @@ export default function Index() {
     return <Redirect href="/onboarding" />;
   }
 
-  // Discover is the public homepage — signed in or not, land there. Signing
-  // in is only required for posting or accessing your profile.
+  // Signed-out visitors on web land on the public marketing homepage — see
+  // app/home.tsx. Native has no equivalent (there's no logged-out "browse
+  // the app store"-style landing to design for), and anyone already signed
+  // in goes straight to Discover, same as before.
+  if (Platform.OS === 'web' && !authenticated) {
+    return <Redirect href="/home" />;
+  }
+
   return <Redirect href="/(tabs)/discover" />;
 }

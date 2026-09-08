@@ -2,6 +2,7 @@ import { Stack, usePathname, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 
+import { DesktopNav } from '@/components/ui/DesktopNav';
 import { ResponsiveViewport } from '@/components/ui/ResponsiveViewport';
 import { AppProvider, useApp } from '@/lib/store';
 import { colors } from '@/lib/theme';
@@ -46,9 +47,21 @@ export default function RootLayout() {
     <AppProvider>
       <AuthGate>
         <StatusBar style="dark" />
+        <DesktopNav />
         <ResponsiveViewport>
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
             <Stack.Screen name="index" />
+            <Stack.Screen name="home" />
+            <Stack.Screen name="about" />
+            <Stack.Screen name="faqs" />
+            <Stack.Screen name="safety" />
+            <Stack.Screen name="terms" />
+            <Stack.Screen name="privacy" />
+            <Stack.Screen name="contact" />
+            <Stack.Screen name="blog/index" />
+            <Stack.Screen name="blog/[slug]" />
+            <Stack.Screen name="for-organizers" />
+            <Stack.Screen name="legal/[slug]" />
             <Stack.Screen name="onboarding" />
             <Stack.Screen name="auth/index" />
             <Stack.Screen name="auth/email" />
@@ -58,6 +71,8 @@ export default function RootLayout() {
             <Stack.Screen name="adventure/[id]" />
             <Stack.Screen name="crews" />
             <Stack.Screen name="crew/[id]" />
+            <Stack.Screen name="places/index" />
+            <Stack.Screen name="places/[place]" />
             <Stack.Screen name="connections" />
             <Stack.Screen name="admin" />
             <Stack.Screen name="chat/[id]" />
