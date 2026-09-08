@@ -29,15 +29,15 @@ const VALUE_PROPS: { icon: keyof typeof Ionicons.glyphMap; title: string; body: 
   { icon: 'sparkles-outline', title: 'Real Experiences', body: 'Every adventure here is hosted by someone real.' },
 ];
 
-const CATEGORY_TILES: { category: Category; icon: keyof typeof Ionicons.glyphMap; bg: string; fg: string }[] = [
-  { category: 'Hiking', icon: 'walk-outline', bg: colors.primarySurface, fg: colors.primary },
-  { category: 'Road trip', icon: 'car-outline', bg: colors.warningBg, fg: colors.hosting },
-  { category: 'Camping', icon: 'bonfire-outline', bg: colors.accentMuted, fg: colors.warning },
-  { category: 'Cycling', icon: 'bicycle-outline', bg: colors.successBg, fg: colors.success },
-  { category: 'Wellness', icon: 'leaf-outline', bg: colors.primarySurface, fg: colors.mountainNear },
-  { category: 'Water', icon: 'water-outline', bg: colors.infoBg, fg: colors.info },
-  { category: 'Photography', icon: 'camera-outline', bg: colors.surfaceMuted, fg: colors.textSecondary },
-  { category: 'Social', icon: 'happy-outline', bg: colors.accentMuted, fg: colors.accent },
+const CATEGORY_TILES: { category: Category; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { category: 'Hiking', icon: 'walk-outline' },
+  { category: 'Road trip', icon: 'car-outline' },
+  { category: 'Camping', icon: 'bonfire-outline' },
+  { category: 'Cycling', icon: 'bicycle-outline' },
+  { category: 'Wellness', icon: 'leaf-outline' },
+  { category: 'Water', icon: 'water-outline' },
+  { category: 'Photography', icon: 'camera-outline' },
+  { category: 'Social', icon: 'happy-outline' },
 ];
 
 const HERO_PILL_CATEGORIES: Category[] = ['Hiking', 'Road trip', 'Camping', 'Cycling', 'Wellness', 'Networking'];
@@ -177,8 +177,11 @@ export default function Home() {
             <View style={styles.categoryRow}>
               {CATEGORY_TILES.map((c) => (
                 <Pressable key={c.category} style={styles.categoryTile} onPress={() => router.push('/discover')}>
-                  <View style={[styles.categoryTileArt, { backgroundColor: c.bg }]}>
-                    <Ionicons name={c.icon} size={30} color={c.fg} />
+                  <View style={styles.categoryTileArt}>
+                    <MountainScene height={108} rounded={false} category={c.category} />
+                    <View style={styles.categoryTileIconWrap}>
+                      <Ionicons name={c.icon} size={20} color={colors.textPrimary} />
+                    </View>
                   </View>
                   <View style={styles.categoryTileFooter}>
                     <Text style={styles.categoryLabel}>{c.category}</Text>
@@ -219,12 +222,14 @@ export default function Home() {
           <View style={styles.sectionInner}>
             <View style={[styles.crewRow, isWide && styles.crewRowWide]}>
               <View style={[styles.crewPanel, isWide && styles.crewPanelWide]}>
+                <MountainScene height={140} category="Social" />
                 <Text style={styles.crewEyebrow}>JOIN THE COMMUNITY</Text>
                 <Text style={styles.crewTitle}>More than adventures. It's a community.</Text>
                 <Text style={styles.crewBody}>Meet people who share your interests, explore together, and build a crew you keep coming back to.</Text>
                 <Button label="See Crews" variant="secondary" onPress={() => router.push('/crews')} style={styles.crewBtn} />
               </View>
               <View style={[styles.crewPanel, isWide && styles.crewPanelWide]}>
+                <MountainScene height={140} category="Road trip" />
                 <Text style={styles.crewEyebrow}>FOR ORGANIZERS</Text>
                 <Text style={styles.crewTitle}>Have an adventure to share?</Text>
                 <Text style={styles.crewBody}>Host your own hike, ride, or meetup — set the spots, the price, and the details, and manage everyone who joins.</Text>
@@ -360,7 +365,18 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  categoryTileArt: { height: 108, alignItems: 'center', justifyContent: 'center' },
+  categoryTileArt: { height: 108, position: 'relative' },
+  categoryTileIconWrap: {
+    position: 'absolute',
+    left: spacing.sm,
+    bottom: spacing.sm,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   categoryTileFooter: { paddingVertical: spacing.sm, alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.border },
   categoryLabel: { ...type.bodyEmphasis },
 
