@@ -26,9 +26,19 @@ const COMPANY_LINKS = [
   { label: 'Contact', href: '/contact' },
 ];
 
+// Terms/Privacy stay their own standalone routes; the rest share the
+// app/legal/[slug].tsx template — see lib/legalDocs.ts. All are drafts
+// pending legal review, not finalized policies.
 const LEGAL_LINKS = [
   { label: 'Terms of Service', href: '/terms' },
   { label: 'Privacy Policy', href: '/privacy' },
+  { label: 'Cookie Policy', href: '/legal/cookie-policy' },
+  { label: 'Community Guidelines', href: '/legal/community-guidelines' },
+  { label: 'Safety Policy', href: '/legal/safety-policy' },
+  { label: 'Organizer Terms', href: '/legal/organizer-terms' },
+  { label: 'Cancellation & Refunds', href: '/legal/cancellation-refund-policy' },
+  { label: 'Copyright Policy', href: '/legal/copyright-policy' },
+  { label: 'Report Abuse', href: '/legal/report-abuse' },
 ];
 
 export function PublicFooter() {

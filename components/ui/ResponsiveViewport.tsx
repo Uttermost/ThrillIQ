@@ -23,7 +23,7 @@ const WIDE_LAYOUT_EXACT = ['/organizer'];
 // a single centered column, so it skips the gutter entirely on wide too.
 // Prefix-matched (not exact) so /blog/[slug] gets the same treatment as
 // /blog itself, without needing every post slug listed here.
-const FULL_BLEED_WIDE_PATHS = ['/home', '/about', '/faqs', '/safety', '/terms', '/privacy', '/contact', '/blog', '/for-organizers'];
+const FULL_BLEED_WIDE_PATHS = ['/home', '/about', '/faqs', '/safety', '/terms', '/privacy', '/contact', '/blog', '/for-organizers', '/legal'];
 
 // Phones render full-bleed; anything wider (tablets, desktop web) gets the
 // app centered in a fixed-width column with a neutral gutter on each side,

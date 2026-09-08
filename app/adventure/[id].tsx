@@ -368,6 +368,15 @@ export default function AdventureDetail() {
           <Text style={styles.body}>{adventure.location}</Text>
         </Section>
 
+        {(!!adventure.included || !!adventure.excluded || !!adventure.equipment || !!adventure.cancellationPolicy) && (
+          <Section title="Trip details">
+            {!!adventure.included && <Text style={styles.body}>Included: {adventure.included}</Text>}
+            {!!adventure.excluded && <Text style={styles.body}>Not included: {adventure.excluded}</Text>}
+            {!!adventure.equipment && <Text style={styles.body}>Bring: {adventure.equipment}</Text>}
+            {!!adventure.cancellationPolicy && <Text style={styles.body}>Cancellation policy: {adventure.cancellationPolicy}</Text>}
+          </Section>
+        )}
+
         {isJoined && (
           <View style={styles.safetyBox}>
             <View style={styles.guidelinesHeader}>
