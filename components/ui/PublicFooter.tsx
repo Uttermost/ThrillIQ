@@ -39,6 +39,7 @@ const LEGAL_LINKS = [
   { label: 'Cancellation & Refunds', href: '/legal/cancellation-refund-policy' },
   { label: 'Copyright Policy', href: '/legal/copyright-policy' },
   { label: 'Report Abuse', href: '/legal/report-abuse' },
+  { label: 'Accessibility Statement', href: '/legal/accessibility-statement' },
 ];
 
 export function PublicFooter() {

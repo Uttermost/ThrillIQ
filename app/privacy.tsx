@@ -83,7 +83,10 @@ const SECTIONS: LegalSection[] = [
   {
     heading: '9. Your rights',
     paragraphs: [
-      'Depending on where you live, you may have rights to access, correct, or delete your personal information. [Specific process and applicable data-protection law pending legal review.]',
+      "ThrillIQ is built for people in Kenya first, so this section is written against Kenya's Data Protection Act, 2019, not a generic template. Under it, you have the right to be informed how your data is processed, to access the personal data we hold about you, to request correction of inaccurate data, to object to processing, and to request erasure of your data.",
+      'The Act is overseen by the Office of the Data Protection Commissioner (ODPC). If you\'re not satisfied with how we\'ve handled a request, you can lodge a complaint with the ODPC.',
+      "If you're outside Kenya, you may have equivalent rights under your own jurisdiction's data-protection law — reach out via Contact and we'll do our best to honor the request either way.",
+      '[Our specific request-handling process, response timeline, and ODPC registration status are pending legal review.]',
     ],
   },
   {

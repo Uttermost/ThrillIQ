@@ -237,6 +237,40 @@ export const LEGAL_DOCS: LegalDoc[] = [
       },
     ],
   },
+  {
+    slug: 'accessibility-statement',
+    title: 'Accessibility Statement',
+    sections: [
+      {
+        heading: '1. Our commitment',
+        paragraphs: [
+          "We're building ThrillIQ to work for people using assistive technology, not adding it on afterward. We target the WCAG 2.1 AA guidelines as we build, though we haven't had a formal audit against them — this is a statement of intent and current state, not a compliance certification.",
+        ],
+      },
+      {
+        heading: "2. What's built in today",
+        paragraphs: [
+          'Every interactive control — buttons, links, form fields — carries a screen-reader label describing what it does, not just how it looks.',
+          'Forms show visible labels and inline error messages, not color- or icon-only cues.',
+          'The app is one responsive codebase across phone, tablet, and desktop — no separate stripped-down mobile site.',
+        ],
+      },
+      {
+        heading: '3. Known gaps',
+        paragraphs: [
+          "Photos attached to posts and reviews don't yet have descriptive alt text for screen readers — you'll hear that a photo exists, not what's in it. This is a real, current gap we're aware of, not something we're claiming to have solved.",
+        ],
+      },
+      {
+        heading: '4. Reporting an accessibility issue',
+        paragraphs: ['If something is hard to use with a screen reader, keyboard, or other assistive technology, tell us via Contact — that goes directly to the team, not into a general queue.'],
+      },
+      {
+        heading: '5. Changes to this statement',
+        paragraphs: ["We'll update the date below whenever this changes."],
+      },
+    ],
+  },
 ];
 
 export function getLegalDoc(slug: string): LegalDoc | undefined {
