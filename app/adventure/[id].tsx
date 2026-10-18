@@ -12,8 +12,10 @@ import { InlineError } from '@/components/ui/StateViews';
 import { MountainScene } from '@/components/ui/MountainScene';
 import { PhotoPicker } from '@/components/ui/PhotoPicker';
 import { ReportSheet } from '@/components/ui/ReportSheet';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { StarRating } from '@/components/ui/StarRating';
 import { colors, iconSize, radius, spacing, type } from '@/lib/theme';
+import { shareAdventure } from '@/lib/share';
 import { useApp } from '@/lib/store';
 import { Review } from '@/lib/types';
 
@@ -24,11 +26,13 @@ export default function AdventureDetail() {
     me,
     authenticated,
     adventures,
+    adventuresLoaded,
     posts,
     users,
     fetchOtherProfile,
     joinAdventure,
     leaveAdventure,
+    toggleLike,
     ensureThreadForAdventure,
     hasReviewed,
     submitReview,
@@ -133,6 +137,25 @@ export default function AdventureDetail() {
   }, [needsWaitlist, adventureId, myId, fetchWaitlist]);
 
   if (!adventure) {
+    // A deep link (shared myapp:// link, push notification) can land here
+    // before the adventures subscription has delivered its first snapshot —
+    // that's "not loaded yet", not "doesn't exist", so don't claim the
+    // adventure is gone until the list has actually finished loading.
+    if (!adventuresLoaded) {
+      return (
+        <SafeAreaView style={styles.safe}>
+          <View style={styles.notFoundHeader}>
+            <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Go back">
+              <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
+            </Pressable>
+          </View>
+          <View style={{ padding: spacing.lg, gap: spacing.md }}>
+            <Skeleton style={{ height: 200 }} />
+            <Skeleton style={{ height: 24, width: '60%' }} />
+          </View>
+        </SafeAreaView>
+      );
+    }
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.notFoundHeader}>
@@ -177,6 +200,21 @@ export default function AdventureDetail() {
     }
     const threadId = ensureThreadForAdventure(adventure.id, adventure.organizerId);
     router.push(`/chat/${threadId}`);
+  };
+
+  const handleToggleLike = () => {
+    if (!authenticated) {
+      router.push('/auth');
+      return;
+    }
+    toggleLike(adventure.id);
+  };
+
+  const handleShare = () => {
+    shareAdventure(adventure).catch(() => {
+      // Best-effort, same as everywhere else sharing happens — a
+      // dismissed/failed share sheet just doesn't do anything further.
+    });
   };
 
   const handleJoin = async () => {
@@ -250,10 +288,18 @@ export default function AdventureDetail() {
             <Ionicons name="arrow-back" size={iconSize.standard} color={colors.textPrimary} />
           </Pressable>
           <View style={styles.heroActions}>
-            <Pressable style={styles.heroBtn} hitSlop={8} accessibilityLabel="Save">
-              <Ionicons name="heart-outline" size={iconSize.standard} color={colors.textPrimary} />
+            <Pressable
+              style={styles.heroActionBtn}
+              onPress={handleToggleLike}
+              hitSlop={8}
+              accessibilityLabel={adventure.likedByMe ? 'Unlike adventure' : 'Like adventure'}>
+              <Ionicons
+                name={adventure.likedByMe ? 'heart' : 'heart-outline'}
+                size={iconSize.standard}
+                color={adventure.likedByMe ? colors.accent : colors.textPrimary}
+              />
             </Pressable>
-            <Pressable style={styles.heroBtn} hitSlop={8} accessibilityLabel="Share">
+            <Pressable style={styles.heroActionBtn} onPress={handleShare} hitSlop={8} accessibilityLabel="Share adventure">
               <Ionicons name="share-outline" size={iconSize.standard} color={colors.textPrimary} />
             </Pressable>
           </View>
@@ -507,6 +553,18 @@ const styles = StyleSheet.create({
     left: spacing.lg,
   },
   heroActions: { position: 'absolute', top: spacing.lg, right: spacing.lg, flexDirection: 'row', gap: spacing.sm },
+  // heroBtn is position:absolute itself (for the standalone back button),
+  // so reusing it here would pull these buttons out of heroActions' flex
+  // row and collapse the row to zero width — same visuals, laid out by the
+  // parent instead.
+  heroActionBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   content: { padding: spacing.lg, gap: spacing.xl },
   title: { ...type.screenHeading, marginTop: -spacing.sm },
   keyFacts: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: -spacing.md },

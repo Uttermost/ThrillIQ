@@ -27,6 +27,7 @@ export default function PostDetail() {
     users,
     authenticated,
     posts,
+    postsLoaded,
     toggleLikePost,
     toggleLikeComment,
     deleteComment,
@@ -86,6 +87,21 @@ export default function PostDetail() {
   }, [comments]);
 
   if (!post) {
+    // Same "loading vs. gone" distinction as adventure/[id].tsx and
+    // crew/[id].tsx — posts arrive asynchronously on native, so an empty
+    // lookup before the first snapshot lands isn't the same as the post
+    // not existing (relevant here since posts are share-linked directly).
+    if (!postsLoaded) {
+      return (
+        <SafeAreaView style={styles.safe} edges={['top']}>
+          <ScreenHeader title="Post" />
+          <View style={{ padding: spacing.lg, gap: spacing.md }}>
+            <Skeleton style={{ height: 60 }} />
+            <Skeleton style={{ height: 60 }} />
+          </View>
+        </SafeAreaView>
+      );
+    }
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ScreenHeader title="Post" />

@@ -12,6 +12,7 @@ import { countActiveFilters, DEFAULT_FILTERS, DiscoverFilters, durationMatchesBa
 import { isThisMonth, isThisWeek, isThisWeekend, isToday, isTomorrow, isLater, isSameDay } from '@/lib/dateBuckets';
 import { formatDateLabel } from '@/lib/dateFormat';
 import { distanceKm } from '@/lib/geo';
+import { shareAdventure } from '@/lib/share';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing, type, typography } from '@/lib/theme';
 import { Adventure, Category } from '@/lib/types';
@@ -245,6 +246,13 @@ export default function Discover() {
     toggleLike(id);
   };
 
+  const handleShare = (a: Adventure) => {
+    shareAdventure(a).catch(() => {
+      // Best-effort, same as post sharing — a dismissed/failed share sheet
+      // just doesn't do anything further.
+    });
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
@@ -300,7 +308,7 @@ export default function Discover() {
             contentContainerStyle={styles.findMyPeopleRow}>
             {findMyPeopleMatches.map((a) => (
               <View key={a.id} style={styles.findMyPeopleCard}>
-                <AdventureCard adventure={a} onPress={() => openAdventure(a)} onToggleLike={() => handleToggleLike(a.id)} />
+                <AdventureCard adventure={a} onPress={() => openAdventure(a)} onToggleLike={() => handleToggleLike(a.id)} onShare={() => handleShare(a)} />
               </View>
             ))}
           </ScrollView>
@@ -355,7 +363,7 @@ export default function Discover() {
           refreshControl={<RefreshControl refreshing={false} onRefresh={load} tintColor={colors.textSecondary} />}
           renderItem={({ item }) => (
             <View style={{ marginBottom: spacing.lg }}>
-              <AdventureCard adventure={item} onPress={() => openAdventure(item)} onToggleLike={() => handleToggleLike(item.id)} />
+              <AdventureCard adventure={item} onPress={() => openAdventure(item)} onToggleLike={() => handleToggleLike(item.id)} onShare={() => handleShare(item)} />
             </View>
           )}
         />

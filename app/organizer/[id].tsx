@@ -6,8 +6,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ConfirmPanel } from '@/components/ui/ConfirmPanel';
-import { InlineError } from '@/components/ui/StateViews';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { InlineError } from '@/components/ui/StateViews';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing, typography } from '@/lib/theme';
@@ -15,7 +16,7 @@ import { SafetyAcknowledgement, WaitlistEntry } from '@/lib/types';
 
 export default function OrganizerDashboard() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { adventures, users, fetchOtherProfile, cancelAdventure, fetchAcknowledgementsForAdventure, fetchWaitlist } = useApp();
+  const { adventures, adventuresLoaded, users, fetchOtherProfile, cancelAdventure, fetchAcknowledgementsForAdventure, fetchWaitlist } = useApp();
   const adventure = adventures.find((a) => a.id === id);
 
   const [confirmingCancel, setConfirmingCancel] = useState(false);
@@ -54,6 +55,22 @@ export default function OrganizerDashboard() {
   }, [waitlist]);
 
   if (!adventure) {
+    // Same "loading vs. gone" distinction as adventure/[id].tsx — this
+    // dashboard is normally reached from Profile (adventures already
+    // loaded by then), but a direct deep link or a cold start that lands
+    // here first shouldn't claim the adventure is gone before the
+    // adventures subscription has delivered its first snapshot.
+    if (!adventuresLoaded) {
+      return (
+        <SafeAreaView style={styles.safe}>
+          <ScreenHeader title="Adventure" />
+          <View style={{ padding: spacing.lg, gap: spacing.md }}>
+            <Skeleton style={{ height: 90 }} />
+            <Skeleton style={{ height: 90 }} />
+          </View>
+        </SafeAreaView>
+      );
+    }
     return (
       <SafeAreaView style={styles.safe}>
         <ScreenHeader title="Adventure" />

@@ -8,6 +8,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { PhotoPicker } from '@/components/ui/PhotoPicker';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing, type } from '@/lib/theme';
 import { Post } from '@/lib/types';
@@ -24,7 +25,8 @@ function initialsFor(name: string): string {
 
 export default function CrewDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { myId, me, authenticated, crews, users, posts, fetchOtherProfile, joinCrew, leaveCrew, createPost, toggleLikePost, recordShare } = useApp();
+  const { myId, me, authenticated, crews, crewsLoaded, users, posts, fetchOtherProfile, joinCrew, leaveCrew, createPost, toggleLikePost, recordShare } =
+    useApp();
   const crew = crews.find((c) => c.id === id);
   const [busy, setBusy] = useState(false);
   const [text, setText] = useState('');
@@ -46,6 +48,20 @@ export default function CrewDetail() {
   }, [crew?.memberIds.join(',')]);
 
   if (!crew) {
+    // Same "loading vs. gone" distinction as adventure/[id].tsx — crews
+    // arrive asynchronously on native, so an empty lookup before the first
+    // snapshot lands isn't the same as the crew not existing.
+    if (!crewsLoaded) {
+      return (
+        <SafeAreaView style={styles.safe} edges={['top']}>
+          <ScreenHeader title="Crew" />
+          <View style={{ padding: spacing.lg, gap: spacing.md }}>
+            <Skeleton style={{ height: 72 }} />
+            <Skeleton style={{ height: 72 }} />
+          </View>
+        </SafeAreaView>
+      );
+    }
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ScreenHeader title="Crew" />

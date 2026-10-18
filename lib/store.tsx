@@ -147,8 +147,17 @@ interface AppState {
   authenticated: boolean;
   onboarded: boolean;
   adventures: Adventure[];
+  // On native, adventures/crews/posts start empty and arrive asynchronously
+  // from their Firestore subscriptions. A detail screen reached by deep link
+  // (a shared myapp:// link, a push notification) before that first snapshot
+  // lands must not mistake "not loaded yet" for "doesn't exist" — these flags
+  // let it show a loading state instead of a false "not found". Always true
+  // on web, where the arrays are seeded synchronously.
+  adventuresLoaded: boolean;
   crews: Crew[];
+  crewsLoaded: boolean;
   posts: Post[];
+  postsLoaded: boolean;
   reposts: Repost[];
   // Own saves only (see the comment on the postSaves state below) — still
   // exposed raw, unlike follows, so app/saved.tsx can sort by save time
@@ -241,10 +250,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [onboarded, setOnboarded] = useState(false);
   const [myId, setMyId] = useState(ME_ID);
   const [adventures, setAdventures] = useState<Adventure[]>(IS_NATIVE ? [] : initialAdventures);
+  const [adventuresLoaded, setAdventuresLoaded] = useState(!IS_NATIVE);
   const [crews, setCrews] = useState<Crew[]>(IS_NATIVE ? [] : initialCrews);
+  const [crewsLoaded, setCrewsLoaded] = useState(!IS_NATIVE);
   const crewsRef = useRef(crews);
   crewsRef.current = crews;
   const [posts, setPosts] = useState<Post[]>(IS_NATIVE ? [] : initialPosts);
+  const [postsLoaded, setPostsLoaded] = useState(!IS_NATIVE);
   const postsRef = useRef(posts);
   postsRef.current = posts;
   const postsErrorRef = useRef<string | null>(null);
@@ -395,6 +407,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
         hasLoadedAdventuresOnceRef.current = true;
         setAdventures(list);
+        setAdventuresLoaded(true);
       },
       (e) => {
         // Surfaced the next time fetchAdventures() is called (mount or
@@ -402,6 +415,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // otherwise a permission-denied (e.g. rules not published yet)
         // fails silently and Discover just looks empty forever.
         adventuresErrorRef.current = e instanceof Error ? e.message : "Couldn't load adventures";
+        setAdventuresLoaded(true);
       }
     );
   }, [authenticated, myId]);
@@ -415,9 +429,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       (list) => {
         crewsErrorRef.current = null;
         setCrews(list);
+        setCrewsLoaded(true);
       },
       (e) => {
         crewsErrorRef.current = e instanceof Error ? e.message : "Couldn't load crews";
+        setCrewsLoaded(true);
       }
     );
   }, []);
@@ -465,9 +481,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       (list) => {
         postsErrorRef.current = null;
         setPosts(list);
+        setPostsLoaded(true);
       },
       (e) => {
         postsErrorRef.current = e instanceof Error ? e.message : "Couldn't load the feed";
+        setPostsLoaded(true);
       }
     );
   }, [myId]);
@@ -1891,8 +1909,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       onboarded,
       myId,
       adventures,
+      adventuresLoaded,
       crews,
+      crewsLoaded,
       posts,
+      postsLoaded,
       reposts,
       postSaves,
       threads,
@@ -1970,8 +1991,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       onboarded,
       myId,
       adventures,
+      adventuresLoaded,
       crews,
+      crewsLoaded,
       posts,
+      postsLoaded,
       reposts,
       postSaves,
       threads,

@@ -41,8 +41,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     // them — it's a session restored from a device/profile that predates
     // this field. Applies everywhere, not just auth-required screens: the
     // point is nobody stays authenticated without having agreed, not just
-    // that they can't reach a specific gated screen.
-    if (authenticated && !me.agreedToTermsAt && pathname !== '/auth/consent') {
+    // that they can't reach a specific gated screen. /legal/* is exempt —
+    // otherwise tapping "Terms of Service" from the consent screen's own
+    // checkbox would bounce straight back here before the user ever sees
+    // the page they're being asked to agree to.
+    if (authenticated && !me.agreedToTermsAt && pathname !== '/auth/consent' && !pathname.startsWith('/legal')) {
       router.replace('/auth/consent');
       return;
     }
@@ -67,6 +70,9 @@ export default function RootLayout() {
             <Stack.Screen name="auth/consent" />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="adventure/[id]" />
+            <Stack.Screen name="post/[id]" />
+            <Stack.Screen name="search" />
+            <Stack.Screen name="saved" />
             <Stack.Screen name="crews" />
             <Stack.Screen name="crew/[id]" />
             <Stack.Screen name="connections" />
@@ -78,6 +84,11 @@ export default function RootLayout() {
             <Stack.Screen name="profile/privacy" />
             <Stack.Screen name="profile/[id]" />
             <Stack.Screen name="notifications" />
+            <Stack.Screen name="legal/faq" />
+            <Stack.Screen name="legal/privacy" />
+            <Stack.Screen name="legal/terms" />
+            <Stack.Screen name="legal/contact" />
+            <Stack.Screen name="legal/licenses" />
             <Stack.Screen name="+not-found" />
           </Stack>
         </ResponsiveViewport>

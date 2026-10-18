@@ -3,23 +3,25 @@ import { Platform, Share } from 'react-native';
 
 // The app has no hosted web presence to link to, so a share links back into
 // the app itself via its own URL scheme (app.json's "scheme": "myapp") along
-// with the post's own text — genuinely useful content, not a dead link.
+// with some real, useful text — never a dead link with no context.
 function shareMessageFor(post: { id: string; text: string }): string {
   const link = `myapp://post/${post.id}`;
   return post.text.trim().length > 0 ? `${post.text.trim()}\n\n${link}` : link;
 }
 
-/**
- * Shares a post via the platform's native share sheet, falling back to a
- * clipboard copy on web when `navigator.share` isn't available (most
- * desktop browsers). Returns true only when the share (or the fallback
- * copy) actually completed — never for a dismissed sheet or a rejected
- * call — so callers can use the result to decide whether to record it.
- */
-export async function sharePost(post: { id: string; text: string }): Promise<boolean> {
-  const message = shareMessageFor(post);
+function shareMessageForAdventure(adventure: { id: string; title: string; dateLabel: string }): string {
+  const link = `myapp://adventure/${adventure.id}`;
+  return `${adventure.title} — ${adventure.dateLabel}\n\n${link}`;
+}
+
+// Shares a message via the platform's native share sheet, falling back to a
+// clipboard copy on web when `navigator.share` isn't available (most desktop
+// browsers). Returns true only when the share (or the fallback copy)
+// actually completed — never for a dismissed sheet or a rejected call — so
+// callers can use the result to decide whether to record it.
+async function shareViaSheet(message: string, dialogTitle: string): Promise<boolean> {
   try {
-    const result = await Share.share({ message, title: 'ThrillIQ' }, { dialogTitle: 'Share this post' });
+    const result = await Share.share({ message, title: 'ThrillIQ' }, { dialogTitle });
     // react-native-web's Share.share wraps navigator.share(), which has no
     // separate "dismissed" outcome — a resolved promise there means done.
     // Native RN resolves even a dismissed iOS sheet, so that one does need
@@ -34,4 +36,14 @@ export async function sharePost(post: { id: string; text: string }): Promise<boo
       return false;
     }
   }
+}
+
+/** Shares a post. See shareViaSheet for the fallback/return-value contract. */
+export async function sharePost(post: { id: string; text: string }): Promise<boolean> {
+  return shareViaSheet(shareMessageFor(post), 'Share this post');
+}
+
+/** Shares an adventure. See shareViaSheet for the fallback/return-value contract. */
+export async function shareAdventure(adventure: { id: string; title: string; dateLabel: string }): Promise<boolean> {
+  return shareViaSheet(shareMessageForAdventure(adventure), 'Share this adventure');
 }

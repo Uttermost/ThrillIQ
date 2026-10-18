@@ -18,9 +18,10 @@ interface AdventureCardProps {
   adventure: Adventure;
   onPress: () => void;
   onToggleLike?: () => void;
+  onShare?: () => void;
 }
 
-export function AdventureCard({ adventure, onPress, onToggleLike }: AdventureCardProps) {
+export function AdventureCard({ adventure, onPress, onToggleLike, onShare }: AdventureCardProps) {
   const { myId, users, fetchOtherProfile } = useApp();
   const isHosting = adventure.organizerId === myId;
   const isFull = adventure.spotsFilled >= adventure.spotsTotal;
@@ -51,16 +52,24 @@ export function AdventureCard({ adventure, onPress, onToggleLike }: AdventureCar
           <MountainScene height={140} rounded={false} category={adventure.category} />
           {isHosting && <Badge label="You're hosting" tone="hosting" style={styles.hostingBadge} />}
           <View style={styles.imageActions}>
-            <Pressable style={styles.imageActionBtn} onPress={onToggleLike} hitSlop={8}>
-              <Ionicons
-                name={adventure.likedByMe ? 'heart' : 'heart-outline'}
-                size={iconSize.inline}
-                color={adventure.likedByMe ? colors.accent : colors.textPrimary}
-              />
-            </Pressable>
-            <Pressable style={styles.imageActionBtn} hitSlop={8}>
-              <Ionicons name="share-outline" size={iconSize.inline} color={colors.textPrimary} />
-            </Pressable>
+            {onToggleLike && (
+              <Pressable
+                style={styles.imageActionBtn}
+                onPress={onToggleLike}
+                hitSlop={8}
+                accessibilityLabel={adventure.likedByMe ? 'Unlike adventure' : 'Like adventure'}>
+                <Ionicons
+                  name={adventure.likedByMe ? 'heart' : 'heart-outline'}
+                  size={iconSize.inline}
+                  color={adventure.likedByMe ? colors.accent : colors.textPrimary}
+                />
+              </Pressable>
+            )}
+            {onShare && (
+              <Pressable style={styles.imageActionBtn} onPress={onShare} hitSlop={8} accessibilityLabel="Share adventure">
+                <Ionicons name="share-outline" size={iconSize.inline} color={colors.textPrimary} />
+              </Pressable>
+            )}
           </View>
           <Badge label={statusBadge.label} tone={statusBadge.tone} style={styles.statusBadge} />
         </View>

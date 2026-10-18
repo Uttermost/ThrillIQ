@@ -4,14 +4,15 @@ import { ScrollView, StyleSheet, Text, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/Button';
-import { InlineError } from '@/components/ui/StateViews';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { InlineError } from '@/components/ui/StateViews';
 import { useApp } from '@/lib/store';
 import { colors, radius, spacing, typography } from '@/lib/theme';
 
 export default function EditAdventure() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { adventures, updateAdventure } = useApp();
+  const { adventures, adventuresLoaded, updateAdventure } = useApp();
   const adventure = adventures.find((a) => a.id === id);
 
   const [title, setTitle] = useState(adventure?.title ?? '');
@@ -23,6 +24,16 @@ export default function EditAdventure() {
   const [saved, setSaved] = useState(false);
 
   if (!adventure) {
+    // Same "loading vs. gone" distinction used throughout — see
+    // adventure/[id].tsx for the full rationale.
+    if (!adventuresLoaded) {
+      return (
+        <SafeAreaView style={styles.safe}>
+          <ScreenHeader title="Edit adventure" />
+          <Skeleton style={{ height: 90, margin: spacing.lg }} />
+        </SafeAreaView>
+      );
+    }
     return (
       <SafeAreaView style={styles.safe}>
         <ScreenHeader title="Edit adventure" />
